@@ -7,7 +7,7 @@
     <h1 class="text-2xl font-bold text-navy-800">Reports</h1>
 </div>
 
-<form method="GET" action="{{ route('admin.reports.index') }}" class="mb-6 flex flex-wrap items-end gap-3 card p-4">
+<form method="GET" action="{{ route('admin.analytics.index') }}" class="mb-6 flex flex-wrap items-end gap-3 card p-4">
     <div>
         <label class="label">From</label>
         <input type="date" name="from" value="{{ $from->format('Y-m-d') }}" class="input">

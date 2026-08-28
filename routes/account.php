@@ -8,6 +8,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\WishlistController;
+use App\Http\Controllers\ProductReportController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth'])->group(function () {
@@ -56,4 +57,5 @@ Route::middleware(['auth'])->group(function () {
     Route::put('account/addresses/{address}', [AddressController::class, 'update'])->name('account.addresses.update');
     Route::delete('account/addresses/{address}', [AddressController::class, 'destroy'])->name('account.addresses.destroy');
     Route::post('account/addresses/{address}/default', [AddressController::class, 'setDefault'])->name('account.addresses.default');
+    Route::post('products/{product}/report', [ProductReportController::class, 'store'])->name('products.report');
 });

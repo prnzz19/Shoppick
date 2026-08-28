@@ -1,0 +1,2 @@
+<?php
+namespace App\Models; use Illuminate\Database\Eloquent\Model; class Violation extends Model { protected $fillable=['seller_id','store_id','product_id','report_id','moderation_scan_id','recorded_by','category','severity','description','action_taken','status']; public function seller(){return $this->belongsTo(User::class,'seller_id');} public function store(){return $this->belongsTo(Store::class);} public function product(){return $this->belongsTo(Product::class);} public function report(){return $this->belongsTo(Report::class);} }

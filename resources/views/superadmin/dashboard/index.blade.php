@@ -13,6 +13,16 @@
     <x-admin.stat-card label="Total Sales" :value="'₱'.number_format($stats['total_sales'])" color="bg-leaf-50 text-leaf-500" icon="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
 </div>
 
+<div class="mt-6 grid grid-cols-2 gap-4 md:grid-cols-5">
+    <x-admin.stat-card label="Open Reports" :value="$stats['open_reports']" color="bg-sun-50 text-sun-500" icon="M12 9v2m0 4h.01" />
+    <x-admin.stat-card label="Awaiting Review" :value="$stats['awaiting_review']" color="bg-brand-50 text-brand-600" icon="M9 12l2 2 4-4" />
+    <x-admin.stat-card label="Flagged Products" :value="$stats['flagged_products']" color="bg-rose-50 text-rose-600" icon="M12 9v2m0 4h.01" />
+    <x-admin.stat-card label="Suspended Shops" :value="$stats['suspended_shops']" color="bg-slate-100 text-slate-600" icon="M6 18L18 6" />
+    <x-admin.stat-card label="High Priority" :value="$stats['high_priority_alerts']" color="bg-rose-50 text-rose-600" icon="M12 8v4m0 4h.01" />
+</div>
+
+<div class="card mt-6 p-5"><div class="flex justify-between"><h3 class="font-bold text-navy-800">Recent Moderation Activity</h3><a href="{{ route('superadmin.moderation.index') }}" class="text-sm font-semibold text-brand-600">Open queue</a></div>@forelse($recentModeration as $scan)<div class="flex items-center justify-between border-t py-3 text-sm"><div><b>{{ $scan->product->name }}</b><p class="text-xs text-slate-500">{{ ucwords(str_replace('_',' ',$scan->status)) }}</p></div><span>{{ $scan->created_at->diffForHumans() }}</span></div>@empty<p class="mt-4 text-sm text-slate-500">No moderation activity.</p>@endforelse</div>
+
 <div class="mt-6 grid gap-6 lg:grid-cols-2">
     <div class="card p-5">
         <h3 class="mb-1 text-sm font-bold uppercase tracking-wide text-navy-800">Sales (Last 14 Days)</h3>

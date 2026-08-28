@@ -8,6 +8,8 @@ use App\Http\Controllers\Admin\AdminProductController;
 use App\Http\Controllers\Admin\AdminPromotionController;
 use App\Http\Controllers\Admin\AdminReportController;
 use App\Http\Controllers\Admin\SellerApplicationController;
+use App\Http\Controllers\Admin\ReportManagementController;
+use App\Http\Controllers\Admin\ModerationController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin,super_admin'])->group(function () {
@@ -59,6 +61,12 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin,super_ad
     Route::post('promotions/{voucher}/toggle', [AdminPromotionController::class, 'toggleStatus'])->name('promotions.toggle');
 
     // Reports
-    Route::get('reports', [AdminReportController::class, 'index'])->name('reports.index')
+    Route::get('analytics', [AdminReportController::class, 'index'])->name('analytics.index')
         ->middleware('permission:view_reports');
+    Route::get('reports', [ReportManagementController::class, 'index'])->name('reports.index')->middleware('permission:manage_reports');
+    Route::get('reports/{report}', [ReportManagementController::class, 'show'])->name('reports.show')->middleware('permission:manage_reports');
+    Route::put('reports/{report}', [ReportManagementController::class, 'update'])->name('reports.update')->middleware('permission:manage_reports');
+    Route::get('moderation', [ModerationController::class, 'index'])->name('moderation.index')->middleware('permission:moderate_products');
+    Route::get('moderation/{scan}', [ModerationController::class, 'show'])->name('moderation.show')->middleware('permission:moderate_products');
+    Route::post('moderation/{scan}/review', [ModerationController::class, 'review'])->name('moderation.review')->middleware('permission:moderate_products');
 });

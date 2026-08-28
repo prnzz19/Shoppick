@@ -13,7 +13,7 @@ class Product extends Model
     protected $fillable = [
         'store_id', 'category_id', 'name', 'slug', 'description', 'specifications', 'brand', 'sku',
         'price', 'original_price', 'discount', 'stock', 'low_stock_threshold',
-        'sold_count', 'rating_avg', 'rating_count', 'is_featured', 'is_active',
+        'sold_count', 'rating_avg', 'rating_count', 'is_featured', 'is_active', 'moderation_status', 'suspension_reason',
     ];
 
     protected $casts = [
@@ -52,6 +52,9 @@ class Product extends Model
     {
         return $this->hasMany(Review::class);
     }
+    public function moderationScans() { return $this->hasMany(ModerationScan::class); }
+    public function violations() { return $this->hasMany(Violation::class); }
+    public function reports() { return $this->morphMany(Report::class, 'target'); }
 
     public function salePrice()
     {
@@ -93,7 +96,9 @@ class Product extends Model
 
     public function scopeActive($q)
     {
-        return $q->where('is_active', true);
+        return $q->where('is_active', true)->where(function($query){
+            $query->whereNull('store_id')->orWhereHas('store', fn($store) => $store->where('status', 'active'));
+        });
     }
 
     public function scopeInStock($q)

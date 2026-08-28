@@ -35,6 +35,18 @@
                     @endforeach
                 </div>
             @endif
+
+            @auth
+            <div x-data="{open:false}" class="mt-5 border-t pt-4">
+                <button type="button" @click="open=!open" class="text-sm font-semibold text-slate-500 hover:text-rose-600">Report Product</button>
+                <form x-show="open" x-cloak method="POST" action="{{ route('products.report',$product) }}" enctype="multipart/form-data" class="mt-3 space-y-3 rounded-xl bg-slate-50 p-4">@csrf
+                    <select name="reason" class="input" required><option value="">Select reason</option>@foreach(['prohibited_product'=>'Prohibited/restricted product','misleading_information'=>'Misleading information','fake_product'=>'Fake product','scam_suspicion'=>'Scam suspicion','inappropriate_product_image'=>'Inappropriate image','counterfeit_suspicion'=>'Counterfeit suspicion','incorrect_listing'=>'Incorrect listing','other'=>'Other'] as $key=>$label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select>
+                    <textarea name="description" class="input" maxlength="2000" required placeholder="Briefly describe the concern"></textarea>
+                    <input type="file" name="evidence[]" multiple accept="image/jpeg,image/png,image/webp" class="input">
+                    <button class="btn-primary btn-sm">Submit Report</button>
+                </form>
+            </div>
+            @endauth
         </div>
 
         {{-- Info --}}

@@ -80,6 +80,8 @@ class User extends Authenticatable
     public function sellerApplications() { return $this->hasMany(SellerApplication::class); }
     public function sellerProfile() { return $this->hasOne(SellerProfile::class); }
     public function store() { return $this->hasOne(Store::class); }
+    public function reportedCases() { return $this->hasMany(Report::class, 'reporter_id'); }
+    public function violations() { return $this->hasMany(Violation::class, 'seller_id'); }
 
     public function isSeller(): bool
     {

@@ -24,6 +24,9 @@
                     ['superadmin.dashboard', 'Dashboard', 'M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6-8h4m-4 8h4V8h-4v12z'],
                     ['superadmin.users.index', 'Users', 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z'],
                     ['superadmin.admins.index', 'Admins', 'M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z'],
+                    ['superadmin.shops.index', 'Shops', 'M3 10l2-6h14l2 6M5 10v10h14V10M9 20v-6h6v6'],
+                    ['superadmin.reports.index', 'Reports', 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v14a2 2 0 01-2 2z'],
+                    ['superadmin.moderation.index', 'Moderation', 'M9 12l2 2 4-4m5-3a9 9 0 11-16 0'],
                     ['superadmin.roles.index', 'Roles & Permissions', 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z'],
                 ] : [];
                 $common = [
@@ -34,7 +37,12 @@
                     ['admin.orders.index', 'Orders', 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2'],
                     ['admin.promotions.index', 'Promotions', 'M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z'],
                     ['admin.reports.index', 'Reports', 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v14a2 2 0 01-2 2z'],
+                    ['admin.moderation.index', 'Moderation', 'M9 12l2 2 4-4m5-3a9 9 0 11-16 0'],
+                    ['admin.analytics.index', 'Analytics', 'M4 19h16M7 16V8m5 8V4m5 12v-6'],
                 ];
+                if ($superAdmin) {
+                    $common = array_values(array_filter($common, fn ($item) => ! in_array($item[0], ['admin.reports.index', 'admin.moderation.index'])));
+                }
             @endphp
 
             <nav class="flex-1 space-y-1 px-3 py-4">

@@ -1,0 +1,4 @@
+<?php
+namespace App\Models;
+use Illuminate\Database\Eloquent\Model;
+class Report extends Model { protected $fillable=['report_number','reporter_id','target_type','target_id','reason','description','priority','source','status','assigned_to','parent_report_id','related_count','resolved_at']; protected $casts=['resolved_at'=>'datetime']; public function reporter(){return $this->belongsTo(User::class,'reporter_id');} public function assignee(){return $this->belongsTo(User::class,'assigned_to');} public function evidence(){return $this->hasMany(ReportEvidence::class);} public function notes(){return $this->hasMany(ReportNote::class);} public function actions(){return $this->hasMany(ReportAction::class);} public function target(){return $this->morphTo(__FUNCTION__,'target_type','target_id');} public static function number(){return 'RPT-'.now()->format('ymd').'-'.strtoupper(substr(uniqid(),-6));} }

@@ -8,6 +8,9 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\Report;
+use App\Models\ModerationScan;
+use App\Models\Store;
 
 class SuperAdminDashboardController extends Controller
 {
@@ -29,10 +32,16 @@ class SuperAdminDashboardController extends Controller
             'completed_orders' => Order::where('status', 'completed')->count(),
             'cancelled_orders' => Order::whereIn('status', ['cancelled', 'refunded'])->count(),
             'total_sales' => Order::completed()->sum('total'),
+            'open_reports' => Report::whereIn('status',['open','under_review','escalated'])->count(),
+            'awaiting_review' => ModerationScan::whereIn('status',['pending_scan','flagged','under_review'])->count(),
+            'flagged_products' => Product::where('moderation_status','flagged')->count(),
+            'suspended_shops' => Store::where('status','suspended')->count(),
+            'high_priority_alerts' => Report::whereIn('priority',['high','critical'])->whereNotIn('status',['resolved','dismissed'])->count(),
         ];
 
         $recentOrders = Order::latest()->with('user')->take(6)->get();
         $recentUsers = User::latest()->take(6)->get();
+        $recentModeration = ModerationScan::with(['product','reviewer'])->latest()->take(5)->get();
 
         $bestSelling = Product::orderByDesc('sold_count')->with('images')->take(5)->get();
 
@@ -76,7 +85,7 @@ class SuperAdminDashboardController extends Controller
 
         return view('superadmin.dashboard.index', compact(
             'stats', 'recentOrders', 'recentUsers', 'bestSelling', 'lowStock',
-            'salesByDay', 'orderStatusDist', 'newUsersByDay', 'topCategories'
+            'salesByDay', 'orderStatusDist', 'newUsersByDay', 'topCategories', 'recentModeration'
         ));
     }
 }

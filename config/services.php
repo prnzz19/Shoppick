@@ -2,6 +2,11 @@
 
 return [
 
+    'image_moderation' => [
+        'provider' => env('IMAGE_MODERATION_PROVIDER', 'local'),
+        'api_key' => env('IMAGE_MODERATION_API_KEY'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Third Party Services

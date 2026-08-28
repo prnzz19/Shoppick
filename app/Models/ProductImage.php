@@ -17,6 +17,7 @@ class ProductImage extends Model
     {
         return $this->belongsTo(Product::class);
     }
+    public function moderationScans() { return $this->hasMany(ModerationScan::class); }
 
     public function getUrlAttribute()
     {

@@ -6,12 +6,15 @@ use App\Services\CartService;
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
+use App\Services\Moderation\ImageModerationService;
+use App\Services\Moderation\ConfigurableImageModerationService;
 
 class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
         $this->app->bind(\App\Services\OrderService::class);
+        $this->app->bind(ImageModerationService::class, ConfigurableImageModerationService::class);
     }
 
     public function boot(): void

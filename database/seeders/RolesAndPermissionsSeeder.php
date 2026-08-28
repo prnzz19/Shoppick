@@ -22,6 +22,8 @@ class RolesAndPermissionsSeeder extends Seeder
             ['name' => 'Manage Promotions', 'slug' => 'manage_promotions', 'group' => 'Promotions'],
             // Reports
             ['name' => 'View Reports', 'slug' => 'view_reports', 'group' => 'Reports'],
+            ['name' => 'Manage Report Cases', 'slug' => 'manage_reports', 'group' => 'Moderation'],
+            ['name' => 'Moderate Products', 'slug' => 'moderate_products', 'group' => 'Moderation'],
             // Users
             ['name' => 'Manage Users', 'slug' => 'manage_users', 'group' => 'Users'],
             ['name' => 'Manage Roles', 'slug' => 'manage_roles', 'group' => 'Users'],
@@ -65,7 +67,7 @@ class RolesAndPermissionsSeeder extends Seeder
         $admin->permissions()->sync(
             Permission::whereIn('slug', [
                 'manage_products', 'manage_categories', 'manage_inventory',
-                'manage_orders', 'manage_sellers', 'manage_promotions', 'view_reports',
+                'manage_orders', 'manage_sellers', 'manage_promotions', 'view_reports', 'manage_reports', 'moderate_products',
             ])->pluck('id')
         );
     }

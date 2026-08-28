@@ -8,6 +8,7 @@ use App\Models\ProductVariant;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Jobs\ModerateProductImage;
 
 class ProductService
 {
@@ -47,11 +48,22 @@ class ProductService
         foreach ($images as $index => $file) {
             if ($file instanceof UploadedFile) {
                 $path = $file->store('products', 'public');
-                $product->images()->create([
+                $createdImage = $product->images()->create([
                     'path' => $path,
                     'is_primary' => $first,
                     'sort_order' => $product->images()->count(),
                 ]);
+                if ($product->store_id) {
+                    $scan = $createdImage->moderationScans()->create([
+                        'product_id' => $product->id,
+                        'seller_id' => $product->store?->user_id,
+                        'store_id' => $product->store_id,
+                        'provider' => config('services.image_moderation.provider', 'local'),
+                        'status' => 'pending_scan',
+                    ]);
+                    $product->update(['moderation_status' => 'pending_scan', 'is_active' => false]);
+                    ModerateProductImage::dispatch($scan->id)->afterCommit();
+                }
                 $first = false;
             }
         }
