@@ -1,0 +1,118 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* SHOPPICK brand palette */
+    --color-brand-50: #effcf9;
+    --color-brand-100: #d6f6ef;
+    --color-brand-200: #aeeadf;
+    --color-brand-300: #7dd7cc;
+    --color-brand-400: #4cc0b6;
+    --color-brand-500: #14b8a6;
+    --color-brand-600: #0d9488;
+    --color-brand-700: #0f756d;
+    --color-brand-800: #115e58;
+    --color-brand-900: #134e49;
+
+    --color-accent-50: #fff7ed;
+    --color-accent-100: #ffedd5;
+    --color-accent-200: #fed7aa;
+    --color-accent-300: #fdba74;
+    --color-accent-400: #fb923c;
+    --color-accent-500: #f97316;
+    --color-accent-600: #ea580c;
+
+    --color-sun-100: #fef3c7;
+    --color-sun-300: #fcd34d;
+    --color-sun-400: #fbbf24;
+    --color-sun-500: #f59e0b;
+
+    --color-leaf-100: #dcfce7;
+    --color-leaf-300: #86efac;
+    --color-leaf-400: #4ade80;
+    --color-leaf-500: #22c55e;
+
+    --color-navy-700: #1e2a52;
+    --color-navy-800: #182245;
+    --color-navy-900: #101a38;
+}
+
+@layer base {
+    body {
+        @apply bg-slate-50 text-navy-800 antialiased;
+    }
+}
+
+@layer components {
+    .btn {
+        @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed;
+    }
+    .btn-primary {
+        @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed bg-brand-500 text-white hover:bg-brand-600 focus:ring-brand-300 shadow-sm;
+    }
+    .btn-accent {
+        @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed bg-accent-500 text-white hover:bg-accent-600 focus:ring-accent-300 shadow-sm;
+    }
+    .btn-outline {
+        @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed border border-slate-300 bg-white text-navy-800 hover:border-brand-400 hover:text-brand-600 focus:ring-brand-200;
+    }
+    .btn-ghost {
+        @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed bg-slate-100 text-navy-800 hover:bg-slate-200 focus:ring-slate-300;
+    }
+    .btn-danger {
+        @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-60 disabled:cursor-not-allowed bg-rose-600 text-white hover:bg-rose-700 focus:ring-rose-300;
+    }
+    .btn-sm {
+        @apply px-3 py-1.5 text-xs rounded-lg;
+    }
+
+    .card {
+        @apply bg-white rounded-2xl border border-slate-100 shadow-sm;
+    }
+    .input {
+        @apply w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-navy-800 placeholder-slate-400 transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100 focus:outline-none;
+    }
+    .label {
+        @apply mb-1.5 block text-sm font-medium text-navy-800;
+    }
+    .badge {
+        @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold;
+    }
+    .chip {
+        @apply inline-flex items-center rounded-full border px-3 py-1 text-sm transition;
+    }
+    .table-th {
+        @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500;
+    }
+    .table-td {
+        @apply px-4 py-3 text-sm text-navy-800;
+    }
+    .alert-success {
+        @apply rounded-xl border border-leaf-300 bg-leaf-100 px-4 py-3 text-sm text-leaf-500;
+    }
+    .alert-error {
+        @apply rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-600;
+    }
+    .alert-info {
+        @apply rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-700;
+    }
+}
+
+@layer utilities {
+    .tag-gradient {
+        background: linear-gradient(135deg, #f97316 0%, #f59e0b 60%, #fcd34d 100%);
+    }
+    .hero-gradient {
+        background: linear-gradient(135deg, #14b8a6 0%, #0d9488 40%, #101a38 100%);
+    }
+    .spinner {
+        @apply inline-block h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-brand-500;
+    }
+}

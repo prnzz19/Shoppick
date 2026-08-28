@@ -1,0 +1,5 @@
+*
+!.gitignore
+!products/
+!products/*.png
+!products/*.svg
