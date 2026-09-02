@@ -63,6 +63,8 @@ class GatewayService implements PaymentServiceInterface
 
         return [
             'success' => true,
+            'payment_status' => 'paid',
+            'settled' => true,
             'reference' => $reference,
             'message' => 'Payment successful (simulated).',
             'details' => ['simulated' => true],

@@ -3,34 +3,34 @@
 @section('title', request('q') ? 'Search: '.request('q') : (request('category') ? app('db')->table('categories')->find(request('category'))?->name ?? 'Products' : 'All Products'))
 
 @section('content')
-<div class="mx-auto max-w-7xl px-4 py-6">
-    <div class="grid gap-6 lg:grid-cols-[240px_1fr]">
+<div class="w-full px-4 py-6 sm:px-6 lg:px-8">
+    <div class="grid items-start gap-6 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)]">
         {{-- Filters sidebar --}}
-        <aside class="hidden lg:block">
-            <div class="card sticky top-20 p-4">
-                <h3 class="mb-3 text-sm font-bold uppercase tracking-wide text-navy-800">Filters</h3>
+        <aside class="hidden self-start lg:block">
+            <div class="card sticky top-28 max-h-[calc(100vh-8rem)] overflow-y-auto p-5">
+                <h3 class="mb-4 text-sm font-bold uppercase tracking-wide text-navy-800">Filters</h3>
 
                 {{-- Categories --}}
-                <div class="mb-4">
-                    <p class="mb-2 text-sm font-semibold text-slate-600">Category</p>
-                    <div class="space-y-1">
-                        <a href="{{ route('products.index', collect(request()->except('category'))->toArray()) }}" class="block rounded-lg px-2 py-1 text-sm hover:bg-brand-50 {{ !request('category') ? 'bg-brand-50 font-semibold text-brand-600' : 'text-navy-700' }}">All</a>
+                <div class="mb-5">
+                    <p class="mb-2.5 text-sm font-semibold text-slate-600">Category</p>
+                    <div class="space-y-1.5">
+                        <a href="{{ route('products.index', collect(request()->except('category'))->toArray()) }}" class="group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition hover:bg-brand-50 {{ !request('category') ? 'bg-brand-50 font-semibold text-brand-600' : 'text-navy-700' }}"><span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 transition group-hover:scale-105"><x-category-icon name="All Products" class="h-5 w-5" /></span><span>All</span></a>
                         @foreach($categories as $cat)
-                            <a href="{{ route('products.index', array_merge(collect(request()->except('category'))->toArray(), ['category' => $cat->id])) }}" class="block rounded-lg px-2 py-1 text-sm hover:bg-brand-50 {{ (string)request('category') === (string)$cat->id ? 'bg-brand-50 font-semibold text-brand-600' : 'text-navy-700' }}">
-                                {{ $cat->name }}
+                            <div>
+                                <a href="{{ route('products.index', array_merge(collect(request()->except('category'))->toArray(), ['category' => $cat->id])) }}" class="group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition hover:bg-brand-50 {{ (string)request('category') === (string)$cat->id ? 'bg-brand-50 font-semibold text-brand-600' : 'font-medium text-navy-700' }}"><span class="h-7 w-7 shrink-0 transition group-hover:scale-105"><x-category-visual :category="$cat" icon-class="h-5 w-5" /></span><span class="min-w-0 truncate">{{ $cat->name }}</span></a>
                                 @if($cat->children->isNotEmpty())
-                                    <div class="mt-1 space-y-1 pl-3">
+                                    <div class="ml-[2.15rem] mt-1 space-y-0.5 border-l border-slate-200 pl-3">
                                         @foreach($cat->children as $child)
-                                            <a href="{{ route('products.index', array_merge(collect(request()->except('category'))->toArray(), ['category' => $child->id])) }}" class="block rounded-lg px-2 py-0.5 text-xs {{ (string)request('category') === (string)$child->id ? 'bg-brand-50 font-semibold text-brand-600' : 'text-slate-500 hover:text-brand-600' }}">{{ $child->name }}</a>
+                                            <a href="{{ route('products.index', array_merge(collect(request()->except('category'))->toArray(), ['category' => $child->id])) }}" class="block rounded-lg px-2.5 py-1.5 text-sm transition {{ (string)request('category') === (string)$child->id ? 'bg-brand-50 font-semibold text-brand-600' : 'text-slate-500 hover:bg-slate-50 hover:text-brand-600' }}">{{ $child->name }}</a>
                                         @endforeach
                                     </div>
                                 @endif
-                            </a>
+                            </div>
                         @endforeach
                     </div>
                 </div>
 
-                <form method="GET" action="{{ route('products.index') }}" class="space-y-4">
+                <form method="GET" action="{{ route('products.index') }}" class="space-y-5 border-t border-slate-100 pt-5">
                     @if(request('q'))<input type="hidden" name="q" value="{{ request('q') }}">@endif
                     @if(request('category'))<input type="hidden" name="category" value="{{ request('category') }}">@endif
                     @if(request('sort'))<input type="hidden" name="sort" value="{{ request('sort') }}">@endif
@@ -109,16 +109,16 @@
 
             {{-- Mobile category chips --}}
             <div class="mb-4 flex gap-2 overflow-x-auto pb-1 lg:hidden">
-                <a href="{{ route('products.index', collect(request()->except('category'))->toArray()) }}" class="chip {{ !request('category') ? 'border-brand-400 bg-brand-50 text-brand-600' : 'border-slate-200 bg-white text-navy-700' }}">All</a>
+                <a href="{{ route('products.index', collect(request()->except('category'))->toArray()) }}" class="chip flex shrink-0 items-center gap-1.5 {{ !request('category') ? 'border-brand-400 bg-brand-50 text-brand-600' : 'border-slate-200 bg-white text-navy-700' }}"><x-category-icon name="All Products" class="h-4 w-4" />All</a>
                 @foreach($categories as $cat)
-                    <a href="{{ route('products.index', array_merge(collect(request()->except('category'))->toArray(), ['category' => $cat->id])) }}" class="chip whitespace-nowrap {{ (string)request('category') === (string)$cat->id ? 'border-brand-400 bg-brand-50 text-brand-600' : 'border-slate-200 bg-white text-navy-700' }}">{{ $cat->name }}</a>
+                    <a href="{{ route('products.index', array_merge(collect(request()->except('category'))->toArray(), ['category' => $cat->id])) }}" class="chip flex shrink-0 items-center gap-1.5 whitespace-nowrap {{ (string)request('category') === (string)$cat->id ? 'border-brand-400 bg-brand-50 text-brand-600' : 'border-slate-200 bg-white text-navy-700' }}"><span class="h-5 w-5"><x-category-visual :category="$cat" icon-class="h-3.5 w-3.5" /></span>{{ $cat->name }}</a>
                 @endforeach
             </div>
 
             @if($products->isEmpty())
                 <div class="card flex flex-col items-center justify-center p-14 text-center">
                     <svg class="h-16 w-16 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                    <h3 class="mt-4 text-lg font-semibold text-navy-800">No products found</h3>
+                    <h3 class="mt-4 text-lg font-semibold text-navy-800">{{ request('q') ? "No products found for '".request('q')."'." : 'No products found' }}</h3>
                     <p class="mt-1 text-sm text-slate-500">Try adjusting your filters or search terms.</p>
                     <a href="{{ route('products.index') }}" class="btn-primary btn-sm mt-4">Clear Filters</a>
                 </div>

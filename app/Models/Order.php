@@ -39,6 +39,7 @@ class Order extends Model
     }
 
     public function sellerOrders() { return $this->hasMany(SellerOrder::class); }
+    public function shipments() { return $this->hasMany(Shipment::class); }
     public function statusHistory() { return $this->hasMany(OrderStatusHistory::class); }
 
     public function payments()
@@ -77,6 +78,25 @@ class Order extends Model
     public function canBeCancelled(): bool
     {
         return in_array($this->status, ['pending', 'confirmed']);
+    }
+
+    public function paymentMethodLabel(): string
+    {
+        return match($this->payment_method){'cod'=>'Cash on Delivery','gcash'=>'GCash','maya'=>'Maya','card'=>'Card / Online',default=>str($this->payment_method)->replace('_',' ')->title()};
+    }
+
+    public function effectivePaymentStatus(): string
+    {
+        return $this->payments->sortByDesc('id')->first()?->status ?? $this->payment_status;
+    }
+
+    public function paymentStatusLabel(): string
+    {
+        return match($this->effectivePaymentStatus()){
+            'cod'=>'To Pay on Delivery','pending','unpaid'=>$this->payment_method==='cod'?'To Pay on Delivery':'Pending Payment','cod_collected'=>'COD Collected','paid'=>'Paid',
+            'failed'=>'Failed','refunded'=>'Refunded','cancelled','voided'=>'Cancelled',
+            default=>str($this->effectivePaymentStatus())->replace('_',' ')->title(),
+        };
     }
 
     public function scopePending($q)

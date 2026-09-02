@@ -18,3 +18,5 @@ require __DIR__.'/admin.php';
 require __DIR__.'/superadmin.php';
 
 require __DIR__.'/seller.php';
+require __DIR__.'/logistics.php';
+require __DIR__.'/rider.php';

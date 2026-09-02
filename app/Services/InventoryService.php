@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use Exception;
 use Illuminate\Support\Facades\DB;
 
@@ -21,8 +22,14 @@ class InventoryService
                 throw new Exception('One of the products no longer exists.');
             }
 
-            if ($item->variant) {
-                $variant = $item->variant;
+            if ($item->product_variant_id) {
+                $variant = ProductVariant::where('id', $item->product_variant_id)
+                    ->where('product_id', $product->id)
+                    ->lockForUpdate()
+                    ->first();
+                if (! $variant) {
+                    throw new Exception("The selected option for {$product->name} is no longer available.");
+                }
                 $newStock = $variant->stock - $item->quantity;
                 if ($newStock < 0) {
                     throw new Exception("Insufficient stock for {$product->name} ({$variant->getLabelAttribute()}).");
@@ -48,7 +55,7 @@ class InventoryService
             }
 
             if ($orderItem->product_variant_id) {
-                $variant = \App\Models\ProductVariant::withTrashed()->find($orderItem->product_variant_id);
+                $variant = ProductVariant::find($orderItem->product_variant_id);
                 if ($variant) {
                     $variant->increment('stock', $orderItem->quantity);
                 }

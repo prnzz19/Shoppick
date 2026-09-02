@@ -10,84 +10,79 @@
 
 <form method="GET" action="{{ route('admin.products.index') }}" class="mb-5 flex flex-wrap gap-3">
     <input type="text" name="q" value="{{ request('q') }}" placeholder="Search by name or SKU..." class="input !w-64">
+    <select name="shop_id" class="input !w-auto" onchange="this.form.submit()">
+        <option value="">All shops</option>
+        @foreach($shops as $shop)<option value="{{ $shop->id }}" @selected((string)request('shop_id') === (string)$shop->id)>{{ $shop->name }}</option>@endforeach
+        <option value="unassigned" @selected(request('shop_id') === 'unassigned')>Unassigned / Legacy Products</option>
+    </select>
     <select name="category_id" class="input !w-auto" onchange="this.form.submit()">
         <option value="">All categories</option>
         @foreach($categories as $cat)
             <option value="{{ $cat->id }}" @selected((string)request('category_id') === (string)$cat->id)>{{ $cat->name }}</option>
-            @foreach($cat->children as $child)
-                <option value="{{ $child->id }}" @selected((string)request('category_id') === (string)$child->id)>&nbsp;&nbsp;{{ $child->name }}</option>
-            @endforeach
+            @foreach($cat->children as $child)<option value="{{ $child->id }}" @selected((string)request('category_id') === (string)$child->id)>&nbsp;&nbsp;{{ $child->name }}</option>@endforeach
         @endforeach
     </select>
     <select name="status" class="input !w-auto" onchange="this.form.submit()">
         <option value="">All status</option>
         <option value="active" @selected(request('status') === 'active')>Active</option>
         <option value="inactive" @selected(request('status') === 'inactive')>Inactive</option>
+        <option value="pending" @selected(request('status') === 'pending')>Pending moderation</option>
+        <option value="rejected" @selected(request('status') === 'rejected')>Rejected</option>
+        <option value="low_stock" @selected(request('status') === 'low_stock')>Low stock</option>
+        <option value="out_of_stock" @selected(request('status') === 'out_of_stock')>Out of stock</option>
+        <option value="archived" @selected(request('status') === 'archived')>Archived</option>
     </select>
     <button type="submit" class="btn-primary">Filter</button>
 </form>
 
-<div class="card overflow-hidden">
-    <div class="overflow-x-auto">
-        <table class="w-full min-w-[800px]">
-            <thead class="bg-slate-50">
-                <tr>
-                    <th class="table-th">Product</th>
-                    <th class="table-th">Category</th>
-                    <th class="table-th">Price</th>
-                    <th class="table-th">Stock</th>
-                    <th class="table-th">Sold</th>
-                    <th class="table-th">Status</th>
-                    <th class="table-th text-right">Actions</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-                @forelse($products as $product)
-                    <tr>
-                        <td class="table-td">
-                            <div class="flex items-center gap-3">
-                                <div class="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-slate-100">
-                                    @if($product->getMainImageAttribute())<img src="{{ asset('storage/'.$product->getMainImageAttribute()) }}" class="h-full w-full object-cover">@endif
-                                </div>
-                                <div class="min-w-0">
-                                    <p class="line-clamp-1 font-medium text-navy-800">{{ $product->name }}</p>
-                                    <p class="text-xs text-slate-500">SKU: {{ $product->sku ?? '—' }}</p>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="table-td">{{ $product->category?->name }}</td>
-                        <td class="table-td">
-                            <p class="font-semibold text-navy-800">₱{{ number_format($product->salePrice(), 2) }}</p>
-                            @if($product->hasDiscount())<p class="text-xs text-slate-400 line-through">₱{{ number_format($product->originalPrice(), 2) }}</p>@endif
-                        </td>
-                        <td class="table-td">
-                            <span class="{{ $product->isOutOfStock() ? 'text-rose-600 font-semibold' : ($product->isLowStock() ? 'text-sun-500 font-semibold' : 'text-navy-700') }}">{{ $product->stock }}</span>
-                        </td>
-                        <td class="table-td">{{ number_format($product->sold_count) }}</td>
-                        <td class="table-td">
-                            <form method="POST" action="{{ route('admin.products.toggle', $product->id) }}">
-                                @csrf
-                                <button type="submit" class="badge {{ $product->is_active ? 'bg-leaf-100 text-leaf-500' : 'bg-slate-100 text-slate-500' }}">{{ $product->is_active ? 'Active' : 'Inactive' }}</button>
-                            </form>
-                            @if($product->is_featured)<span class="badge bg-accent-100 text-accent-600 ml-1">Featured</span>@endif
-                        </td>
-                        <td class="table-td">
-                            <div class="flex justify-end gap-1">
-                                <a href="{{ route('products.show', $product->slug) }}" class="p-2 text-slate-400 hover:text-brand-600" title="View" target="_blank"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm7-3a9 9 0 01-14 0M22 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></a>
-                                <a href="{{ route('admin.products.edit', $product->id) }}" class="p-2 text-slate-400 hover:text-brand-600" title="Edit"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></a>
-                                <form method="POST" action="{{ route('admin.products.destroy', $product->id) }}" onsubmit="return confirm('Delete this product?')">
-                                    @csrf @method('DELETE')
-                                    <button type="submit" class="p-2 text-slate-400 hover:text-rose-600" title="Delete"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
-                                </form>
-                            </div>
-                        </td>
-                    </tr>
-                @empty
-                    <tr><td colspan="7" class="table-td py-10 text-center text-slate-400">No products found.</td></tr>
-                @endforelse
-            </tbody>
-        </table>
+@if($productGroups->isNotEmpty())
+    <div class="mb-3 flex items-center justify-between gap-3">
+        <p class="text-sm text-slate-500">Grouped by Seller Shop · {{ $products->total() }} matching product(s)</p>
+        <div class="flex gap-3 text-xs font-semibold">
+            <button type="button" class="text-brand-600 hover:text-brand-700" @click="$dispatch('products-expand-all')">Expand All</button>
+            <button type="button" class="text-slate-500 hover:text-navy-800" @click="$dispatch('products-collapse-all')">Collapse All</button>
+        </div>
     </div>
-</div>
+
+    <div class="space-y-4">
+        @foreach($productGroups as $group)
+            @php($panelId = 'shop-products-'.($group->store?->id ?? 'unassigned'))
+            <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" x-data="{ open: {{ $loop->first ? 'true' : 'false' }} }" @products-expand-all.window="open=true" @products-collapse-all.window="open=false">
+                <div class="flex flex-wrap items-center gap-3 border-l-4 px-4 py-4 transition" :class="open ? 'border-brand-500 bg-brand-50/40' : 'border-transparent bg-white'">
+                    <button type="button" class="flex min-w-0 flex-1 items-center gap-3 text-left" @click="open=!open" :aria-expanded="open.toString()" aria-controls="{{ $panelId }}">
+                        <svg class="h-5 w-5 shrink-0 text-brand-600 transition" :class="open && 'rotate-90'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        <div class="min-w-0">
+                            <h2 class="truncate text-base font-bold text-navy-800">{{ $group->store?->name ?? 'Unassigned / Legacy Products' }}</h2>
+                            <p class="truncate text-xs text-slate-500">{{ $group->store ? 'Seller: '.($group->store->user?->name ?? 'Unknown Seller') : 'Products without a Shop relationship' }}</p>
+                        </div>
+                    </button>
+                    @if($group->stats)
+                        <div class="flex flex-wrap gap-1.5 text-xs">
+                            <span class="badge bg-slate-100 text-slate-600">Products: {{ $group->stats->total_count }}</span>
+                            <span class="badge bg-leaf-100 text-leaf-500">Active: {{ $group->stats->active_count }}</span>
+                            <span class="badge bg-slate-100 text-slate-600">Inactive: {{ $group->stats->inactive_count }}</span>
+                            @if($group->stats->low_stock_count)<span class="badge bg-accent-100 text-accent-600">Low Stock: {{ $group->stats->low_stock_count }}</span>@endif
+                            @if($group->stats->out_of_stock_count)<span class="badge bg-rose-100 text-rose-600">Out of Stock: {{ $group->stats->out_of_stock_count }}</span>@endif
+                        </div>
+                    @endif
+                    @if($group->store && (auth()->user()->isSuperAdmin() || auth()->user()->hasPermissionTo('view_shops')))
+                        <a href="{{ route('admin.shops.show', $group->store) }}" class="btn-outline btn-sm">View Shop</a>
+                    @endif
+                </div>
+                <div id="{{ $panelId }}" x-show="open" x-cloak>
+                    <div class="overflow-x-auto border-t border-slate-100">
+                        <table class="w-full min-w-[800px]">
+                            <thead class="bg-slate-50"><tr><th class="table-th">Product</th><th class="table-th">Category</th><th class="table-th">Price</th><th class="table-th">Stock</th><th class="table-th">Sold</th><th class="table-th">Status</th><th class="table-th text-right">Actions</th></tr></thead>
+                            <tbody class="divide-y divide-slate-100">@foreach($group->products as $product)@include('admin.products._row', ['product' => $product])@endforeach</tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        @endforeach
+    </div>
+@else
+    <div class="card py-12 text-center text-slate-400">No products found.</div>
+@endif
+
 <div class="mt-4">{{ $products->links('components.pagination') }}</div>
 @endsection

@@ -9,7 +9,7 @@ class Store extends Model
 {
     use SoftDeletes;
     protected $fillable = ['user_id', 'seller_profile_id', 'name', 'slug', 'description', 'logo', 'banner',
-        'location', 'rating_avg', 'rating_count', 'status', 'administrative_notes', 'status_reason'];
+        'location', 'rating_avg', 'rating_count', 'status', 'administrative_notes', 'status_reason', 'status_changed_by'];
     protected $casts = ['rating_avg' => 'decimal:2'];
     public function user() { return $this->belongsTo(User::class); }
     public function sellerProfile() { return $this->belongsTo(SellerProfile::class); }
@@ -19,5 +19,18 @@ class Store extends Model
     public function vouchers() { return $this->hasMany(Voucher::class); }
     public function violations() { return $this->hasMany(Violation::class); }
     public function reports() { return $this->morphMany(Report::class, 'target'); }
+    public function statusChangedBy() { return $this->belongsTo(User::class, 'status_changed_by'); }
     public function scopeActive($query) { return $query->where('status', 'active'); }
+    public function scopeMarketplaceActive($query)
+    {
+        return $query->where('status', 'active')
+            ->whereHas('user', fn ($user) => $user->where('is_active', true))
+            ->whereHas('sellerProfile', fn ($profile) => $profile->where('status', 'approved'));
+    }
+    public function isMarketplaceActive(): bool
+    {
+        return $this->status === 'active'
+            && (bool) $this->user?->is_active
+            && $this->sellerProfile?->status === 'approved';
+    }
 }

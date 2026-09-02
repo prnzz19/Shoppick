@@ -31,6 +31,9 @@
             <button type="submit" class="btn-primary w-full">Login</button>
         </form>
 
+        <div class="my-5 flex items-center gap-3 text-xs font-semibold uppercase text-slate-400"><span class="h-px flex-1 bg-slate-200"></span>Or<span class="h-px flex-1 bg-slate-200"></span></div>
+        <a href="{{ route('auth.google.redirect') }}" class="btn-outline flex w-full items-center justify-center gap-3"><span class="text-lg font-bold text-brand-600">G</span>Continue with Google</a>
+
         <div class="mt-6 flex flex-col items-center gap-2 rounded-xl bg-slate-50 p-4 text-center text-xs text-slate-500">
             <p>Demo accounts:</p>
             <div class="grid grid-cols-1 gap-1 text-left">

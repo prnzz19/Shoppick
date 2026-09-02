@@ -29,4 +29,11 @@ class NotificationController extends Controller
         $notification->markAsRead();
         return back();
     }
+
+    public function open(Request $request, $id)
+    {
+        $notification = $request->user()->notificationsData()->findOrFail($id);
+        $notification->markAsRead();
+        return redirect($notification->link ?: route('notifications.index'));
+    }
 }

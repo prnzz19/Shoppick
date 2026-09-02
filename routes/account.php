@@ -15,6 +15,7 @@ Route::middleware(['auth'])->group(function () {
     // Cart
     Route::get('cart', [CartController::class, 'index'])->name('cart.index');
     Route::post('cart/add', [CartController::class, 'add'])->name('cart.add');
+    Route::post('buy-now', [CartController::class, 'buyNow'])->name('buy-now');
     Route::post('cart/items/{itemId}/quantity', [CartController::class, 'updateQuantity'])->name('cart.update');
     Route::post('cart/items/{itemId}/remove', [CartController::class, 'remove'])->name('cart.remove');
     Route::post('cart/items/{itemId}/selected', [CartController::class, 'toggleSelected'])->name('cart.toggle');
@@ -33,8 +34,10 @@ Route::middleware(['auth'])->group(function () {
     // Orders
     Route::get('orders', [OrderController::class, 'index'])->name('orders.index');
     Route::get('orders/{orderNumber}', [OrderController::class, 'show'])->name('orders.show');
+    Route::get('orders/{orderNumber}/shipments/{shipment}/tracking', [OrderController::class, 'tracking'])->name('orders.tracking');
     Route::post('orders/{orderNumber}/cancel', [OrderController::class, 'cancel'])->name('orders.cancel');
     Route::post('orders/{orderNumber}/confirm', [OrderController::class, 'confirmReceived'])->name('orders.confirm');
+    Route::post('orders/{orderNumber}/items/{item}/buy-again', [OrderController::class, 'buyAgain'])->name('orders.buy-again');
 
     // Reviews
     Route::get('orders/{orderNumber}/review/{productId}', [ReviewController::class, 'create'])->name('review.create');
@@ -44,6 +47,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
     Route::post('notifications/{id}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
+    Route::get('notifications/{id}/open', [NotificationController::class, 'open'])->name('notifications.open');
 
     // Account / profile
     Route::get('account', [AccountController::class, 'profile'])->name('account.profile');

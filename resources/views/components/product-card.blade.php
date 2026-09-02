@@ -1,4 +1,7 @@
 @props(['product'])
+@php
+    $isWishlisted = in_array($product->id, $sharedWishlistProductIds ?? [], true);
+@endphp
 
 <div class="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
     <a href="{{ route('products.show', $product->slug) }}" class="relative block aspect-square overflow-hidden bg-slate-100">
@@ -20,12 +23,10 @@
         @endif
 
         {{-- Wishlist --}}
-        @auth
-            <button type="button" onclick="toggleWishlist(event, {{ $product->id }})" class="absolute right-2 top-2 rounded-full bg-white/90 p-2 text-navy-700 shadow backdrop-blur hover:text-rose-500"
-                data-wishlist data-product-id="{{ $product->id }}">
-                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-            </button>
-        @endauth
+        <button type="button" onclick="toggleWishlist(event)" class="absolute right-2 top-2 rounded-full bg-white/90 p-2 shadow backdrop-blur transition hover:text-rose-500 disabled:opacity-60 {{ $isWishlisted ? 'text-rose-500' : 'text-navy-700' }}"
+            data-wishlist data-product-id="{{ $product->id }}" aria-label="{{ $isWishlisted ? 'Remove from wishlist' : 'Add to wishlist' }}" aria-pressed="{{ $isWishlisted ? 'true' : 'false' }}" title="{{ $isWishlisted ? 'Remove from wishlist' : 'Add to wishlist' }}">
+            <svg data-wishlist-icon class="h-5 w-5" fill="{{ $isWishlisted ? 'currentColor' : 'none' }}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+        </button>
     </a>
 
     <div class="flex flex-1 flex-col p-3">
@@ -49,7 +50,7 @@
                     <p class="text-xs text-slate-400 line-through">₱{{ number_format($product->originalPrice(), 2) }}</p>
                 @endif
             </div>
-            <button type="button" onclick="quickAdd(event, {{ $product->id }})" class="rounded-lg bg-brand-500 p-2 text-white shadow-sm transition hover:bg-brand-600 disabled:opacity-40" title="Add to cart" @if($product->isOutOfStock()) disabled @endif>
+            <button type="button" onclick="quickAdd(event)" data-product-id="{{ $product->id }}" class="rounded-lg bg-brand-500 p-2 text-white shadow-sm transition hover:bg-brand-600 disabled:opacity-40" title="Add to cart" @if($product->isOutOfStock()) disabled @endif>
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
             </button>
         </div>

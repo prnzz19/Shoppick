@@ -25,6 +25,7 @@
                     ['superadmin.users.index', 'Users', 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z'],
                     ['superadmin.admins.index', 'Admins', 'M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z'],
                     ['superadmin.shops.index', 'Shops', 'M3 10l2-6h14l2 6M5 10v10h14V10M9 20v-6h6v6'],
+                    ['superadmin.categories.index', 'Categories', 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z'],
                     ['superadmin.reports.index', 'Reports', 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v14a2 2 0 01-2 2z'],
                     ['superadmin.moderation.index', 'Moderation', 'M9 12l2 2 4-4m5-3a9 9 0 11-16 0'],
                     ['superadmin.roles.index', 'Roles & Permissions', 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z'],
@@ -40,12 +41,17 @@
                     ['admin.moderation.index', 'Moderation', 'M9 12l2 2 4-4m5-3a9 9 0 11-16 0'],
                     ['admin.analytics.index', 'Analytics', 'M4 19h16M7 16V8m5 8V4m5 12v-6'],
                 ];
+                if (! $superAdmin && auth()->user()->hasPermissionTo('view_shops')) {
+                    array_splice($common, 1, 0, [[
+                        'admin.shops.index', 'Shops', 'M3 10l2-6h14l2 6M5 10v10h14V10M9 20v-6h6v6',
+                    ]]);
+                }
                 if ($superAdmin) {
-                    $common = array_values(array_filter($common, fn ($item) => ! in_array($item[0], ['admin.reports.index', 'admin.moderation.index'])));
+                    $common = array_values(array_filter($common, fn ($item) => ! in_array($item[0], ['admin.categories.index', 'admin.reports.index', 'admin.moderation.index'])));
                 }
             @endphp
 
-            <nav class="flex-1 space-y-1 px-3 py-4">
+            <nav class="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-4">
                 <p class="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Admin Panel</p>
                 @foreach($common as [$route, $label, $icon])
                     <a href="{{ route($route) }}" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white {{ request()->routeIs($route) ? 'bg-brand-500/20 text-brand-300' : '' }}">
@@ -63,7 +69,7 @@
                 @endif
             </nav>
 
-            <div class="border-t border-white/10 p-4">
+            <div class="shrink-0 border-t border-white/10 bg-navy-900 p-4">
                 <div class="flex items-center gap-3">
                     <span class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-brand-500/20 text-brand-300">
                         @if(auth()->user()->avatar)<img src="{{ auth()->user()->avatar_url }}" class="h-full w-full object-cover">@else<span class="text-sm font-bold">{{ strtoupper(substr(auth()->user()->name,0,1)) }}</span>@endif
@@ -77,7 +83,10 @@
                     <a href="{{ route('home') }}" class="btn-sm flex-1 bg-white/10 text-left text-slate-200 hover:bg-white/20">Store</a>
                     <form method="POST" action="{{ route('logout') }}" class="flex-1">
                         @csrf
-                        <button type="submit" class="btn-sm w-full bg-rose-500/20 text-rose-300 hover:bg-rose-500/30">Logout</button>
+                        <button type="submit" class="btn-sm flex w-full items-center justify-center gap-2 bg-rose-500/20 text-rose-300 hover:bg-rose-500/30" aria-label="Logout from SHOPPICK">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                            Logout
+                        </button>
                     </form>
                 </div>
             </div>
@@ -107,6 +116,15 @@
                     @endforeach
                 @endif
             </nav>
+            <form method="POST" action="{{ route('logout') }}" class="mt-4 border-t border-white/10 pt-4">
+                @csrf
+                <button type="submit" class="btn-sm flex w-full items-center justify-center gap-2 bg-rose-500/20 text-rose-300 hover:bg-rose-500/30" aria-label="Logout from SHOPPICK">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Logout
+                </button>
+            </form>
         </div>
 
         {{-- Content --}}
@@ -117,6 +135,7 @@
             @yield('content')
         </div>
     </div>
+    <x-admin.confirm-modal />
     @stack('scripts')
 </body>
 </html>

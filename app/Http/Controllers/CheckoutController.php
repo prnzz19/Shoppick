@@ -20,34 +20,50 @@ class CheckoutController extends Controller
     public function index(Request $request)
     {
         $user = auth()->user();
-        $items = $this->cartService->items($user->id)->filter->selected;
+        if ($user->isBuyer() && ! $user->hasCompleteBuyerProfile()) {
+            return redirect()->route('profile.complete')->with('error', 'Complete your mobile number and address before checkout.');
+        }
+        $checkoutMode = $request->input('mode') === 'buy_now' ? 'buy_now' : 'cart';
+
+        try {
+            $items = $checkoutMode === 'buy_now'
+                ? collect([$this->buyNowItem($user->id)])
+                : $this->cartService->items($user->id)->filter->selected;
+        } catch (Exception $e) {
+            return redirect()->route('products.index')->with('error', $e->getMessage());
+        }
 
         if ($items->isEmpty()) {
             return redirect()->route('cart.index')->with('error', 'Your cart is empty.');
         }
 
-        foreach ($items as $item) {
-            if ($item->availableStock() <= 0 || $item->quantity > $item->availableStock()) {
-                return redirect()->route('cart.index')
-                    ->with('error', "{$item->product->name} is out of stock or exceeds available stock.");
-            }
+        try {
+            $computed = $this->orderService->computeTotals($user->id, null, $items);
+        } catch (Exception $e) {
+            return redirect()->route($checkoutMode === 'buy_now' ? 'products.index' : 'cart.index')
+                ->with('error', $e->getMessage());
         }
-
-        $totals = $this->cartService->selectedSubtotal($user->id);
-        $shipping = $this->cartService->shippingFee($totals);
+        $totals = $computed['subtotal'];
+        $shipping = $computed['shipping_fee'];
 
         $addresses = $user->addresses;
         $paymentMethods = PaymentService::availableMethods();
 
-        return view('storefront.checkout.index', compact('items', 'totals', 'shipping', 'addresses', 'paymentMethods'));
+        return view('storefront.checkout.index', compact('items', 'totals', 'shipping', 'addresses', 'paymentMethods', 'checkoutMode'));
     }
 
     public function applyVoucher(Request $request)
     {
-        $validated = $request->validate(['voucher_code' => ['required', 'string', 'max:50']]);
+        $validated = $request->validate([
+            'voucher_code' => ['required', 'string', 'max:50'],
+            'checkout_mode' => ['nullable', 'in:cart,buy_now'],
+        ]);
 
         try {
-            $totals = $this->orderService->computeTotals(auth()->id(), $validated['voucher_code']);
+            $items = ($validated['checkout_mode'] ?? 'cart') === 'buy_now'
+                ? collect([$this->buyNowItem(auth()->id())])
+                : null;
+            $totals = $this->orderService->computeTotals(auth()->id(), $validated['voucher_code'], $items);
         } catch (Exception $e) {
             return redirect()->back()->withErrors(['voucher_code' => $e->getMessage()]);
         }
@@ -61,11 +77,15 @@ class CheckoutController extends Controller
 
     public function store(Request $request)
     {
+        if ($request->user()->isBuyer() && ! $request->user()->hasCompleteBuyerProfile()) {
+            return redirect()->route('profile.complete')->with('error', 'Complete your mobile number and address before placing an order.');
+        }
         $validated = $request->validate([
             'address_id' => ['required', 'exists:addresses,id'],
             'payment_method' => ['required', 'string', 'in:cod,gcash,maya,card'],
             'voucher_code' => ['nullable', 'string', 'max:50'],
             'note' => ['nullable', 'string', 'max:500'],
+            'checkout_mode' => ['nullable', 'in:cart,buy_now'],
         ]);
 
         // Ensure the address belongs to the authenticated user.
@@ -74,7 +94,12 @@ class CheckoutController extends Controller
         }
 
         try {
-            $result = $this->orderService->placeOrder(auth()->id(), $validated);
+            $buyNow = ($validated['checkout_mode'] ?? 'cart') === 'buy_now';
+            $items = $buyNow ? collect([$this->buyNowItem(auth()->id())]) : null;
+            $result = $this->orderService->placeOrder(auth()->id(), $validated, $items, ! $buyNow);
+            if ($buyNow) {
+                session()->forget('buy_now');
+            }
         } catch (Exception $e) {
             return back()->with('error', $e->getMessage());
         }
@@ -95,5 +120,20 @@ class CheckoutController extends Controller
 
         return redirect()->route('orders.show', $order->order_number)
             ->with('success', 'Order placed successfully!');
+    }
+
+    protected function buyNowItem($userId)
+    {
+        $data = session('buy_now');
+        if (! is_array($data)) {
+            throw new Exception('Your Buy Now checkout has expired. Please select the product again.');
+        }
+
+        return $this->cartService->purchaseItem(
+            $userId,
+            $data['product_id'] ?? null,
+            $data['product_variant_id'] ?? null,
+            $data['quantity'] ?? 1
+        );
     }
 }

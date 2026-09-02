@@ -6,14 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Models\AdminActivityLog;
 use App\Models\Category;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class AdminCategoryController extends Controller
 {
     public function index()
     {
-        $categories = Category::with('children.products')->whereNull('parent_id')->orderBy('sort_order')->get();
-        $allCategories = Category::whereNull('parent_id')->get();
+        $categories = Category::with('children.products')->whereNull('parent_id')->orderBy('sort_order')->orderBy('name')->get();
+        $allCategories = Category::whereNull('parent_id')->orderBy('sort_order')->orderBy('name')->get();
         return view('admin.categories.index', compact('categories', 'allCategories'));
     }
 
@@ -21,8 +22,9 @@ class AdminCategoryController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:1000'],
             'parent_id' => ['nullable', 'exists:categories,id'],
-            'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp,svg', 'max:2048'],
+            'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],
             'icon' => ['nullable', 'string', 'max:100'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'is_active' => ['nullable', 'boolean'],
@@ -46,25 +48,29 @@ class AdminCategoryController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:1000'],
             'parent_id' => ['nullable', 'exists:categories,id'],
-            'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp,svg', 'max:2048'],
+            'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'],
             'icon' => ['nullable', 'string', 'max:100'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'is_active' => ['nullable', 'boolean'],
         ]);
 
-        $data['parent_id'] = $data['parent_id'] ?? null;
-
         // Prevent setting a category as its own child.
-        if ($data['parent_id'] == $category->id) {
+        if (isset($data['parent_id']) && (int) $data['parent_id'] === $category->id) {
             $data['parent_id'] = $category->parent_id;
         }
 
+        $oldImage = $category->image;
         if (! empty($data['image'])) {
             $data['image'] = $request->file('image')->store('categories', 'public');
         }
 
         $category->update($data);
+
+        if (isset($data['image']) && $oldImage && $oldImage !== $data['image']) {
+            Storage::disk('public')->delete($oldImage);
+        }
 
         AdminActivityLog::record('category.updated', 'category', $category->id, ['name' => $category->name]);
 
@@ -77,8 +83,13 @@ class AdminCategoryController extends Controller
             return back()->with('error', 'Cannot delete a category that still has products.');
         }
 
+        $image = $category->image;
         AdminActivityLog::record('category.deleted', 'category', $category->id, ['name' => $category->name]);
         $category->delete();
+
+        if ($image) {
+            Storage::disk('public')->delete($image);
+        }
 
         return back()->with('success', 'Category deleted.');
     }

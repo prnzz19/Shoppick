@@ -24,7 +24,14 @@
                     <div class="w-28 text-center">Subtotal</div>
                     <div class="w-10"></div>
                 </div>
-                @foreach($items as $item)
+                @foreach($items->groupBy(fn ($item) => $item->product->store_id) as $storeItems)
+                    @php($store = $storeItems->first()->product->store)
+                    <div class="rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
+                        <a href="{{ $store ? route('shops.show', $store->slug) : '#' }}" class="text-sm font-bold text-navy-800 hover:text-brand-600">
+                            {{ $store?->name ?? 'SHOPPICK' }}
+                        </a>
+                    </div>
+                @foreach($storeItems as $item)
                     <div class="card flex flex-wrap items-center gap-4 p-4">
                         <input type="checkbox" @checked($item->selected) onchange="toggleSelect('{{ route('cart.toggle', $item->id) }}', this)"
                                class="h-5 w-5 rounded border-slate-300 text-brand-500 focus:ring-brand-300">
@@ -37,6 +44,15 @@
                             <div class="min-w-0">
                                 <p class="line-clamp-2 text-sm font-medium text-navy-800 hover:text-brand-600">{{ $item->product->name }}</p>
                                 @if($item->variant)<p class="mt-0.5 text-xs text-slate-500">{{ $item->variant->getLabelAttribute() }}</p>@endif
+                                <p class="mt-1 text-xs {{ $item->quantity > $item->availableStock() ? 'font-semibold text-rose-600' : 'text-leaf-600' }}">
+                                    @if($item->quantity > $item->availableStock())
+                                        Only {{ $item->availableStock() }} items are currently available.
+                                    @elseif($item->availableStock() > 0)
+                                        In stock
+                                    @else
+                                        Out of stock
+                                    @endif
+                                </p>
                             </div>
                         </a>
                         <div class="w-28 text-center text-sm text-navy-800">₱{{ number_format($item->unitPrice(), 2) }}</div>
@@ -57,6 +73,7 @@
                             </form>
                         </div>
                     </div>
+                @endforeach
                 @endforeach
             </div>
 

@@ -36,6 +36,13 @@ class UserSeeder extends Seeder
         );
         $admin->syncRoles('admin');
 
+        if (app()->environment(['local','testing'])) {
+            $logistics=User::firstOrCreate(['email'=>'logistics@shoppick.test'],[
+                'name'=>'SHOPPICK Logistics','phone'=>'09170000008','password'=>Hash::make('password'),'is_active'=>true,'email_verified_at'=>now(),
+            ]);
+            $logistics->syncRoles('logistics');
+        }
+
         $buyer = User::firstOrCreate(
             ['email' => 'buyer@shoppick.test'],
             [

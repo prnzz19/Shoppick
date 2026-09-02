@@ -23,7 +23,11 @@ Route::middleware('auth')->group(function () {
 Route::prefix('seller')->name('seller.')->middleware(['auth', 'role:seller'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::get('products', [CenterController::class, 'products'])->name('products.index');
+    Route::get('products/{product}/archived', [ProductController::class, 'showArchived'])->withTrashed()->name('products.archived.show');
+    Route::post('products/{product}/restore', [ProductController::class, 'restore'])->withTrashed()->name('products.restore');
+    Route::delete('products/{product}/permanent', [ProductController::class, 'forceDestroy'])->withTrashed()->name('products.force-destroy');
     Route::resource('products', ProductController::class)->except(['show','index']);
+    Route::post('products/{product}/publication', [ProductController::class, 'publication'])->name('products.publication');
     Route::get('orders', [CenterController::class, 'orders'])->name('orders.index');
     Route::get('orders/{sellerOrder}', [OrderController::class, 'show'])->name('orders.show');
     Route::post('orders/{sellerOrder}/status', [OrderController::class, 'update'])->name('orders.status');

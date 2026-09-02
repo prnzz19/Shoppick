@@ -5,6 +5,13 @@ return [
     'image_moderation' => [
         'provider' => env('IMAGE_MODERATION_PROVIDER', 'local'),
         'api_key' => env('IMAGE_MODERATION_API_KEY'),
+        'queued' => env('IMAGE_MODERATION_QUEUED', false),
+    ],
+
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI', rtrim(env('APP_URL', 'http://127.0.0.1:8000'), '/').'/auth/google/callback'),
     ],
 
     /*

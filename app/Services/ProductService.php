@@ -32,7 +32,21 @@ class ProductService
         return DB::transaction(function () use ($product, $data) {
             $product->update($this->extractProductData($data));
 
-            if (! empty($data['variants'])) {
+            foreach ($data['remove_image_ids'] ?? [] as $imageId) {
+                $image = $product->images()->find($imageId);
+                if ($image && $product->images()->count() > 1) {
+                    $image->delete();
+                }
+            }
+            if (! $product->images()->where('is_primary', true)->exists()) {
+                $product->images()->first()?->update(['is_primary' => true]);
+            }
+
+            if (! empty($data['images'])) {
+                $this->storeImages($product, $data['images']);
+            }
+
+            if (array_key_exists('variants', $data)) {
                 $this->syncVariants($product, $data['variants']);
             }
 
@@ -62,7 +76,11 @@ class ProductService
                         'status' => 'pending_scan',
                     ]);
                     $product->update(['moderation_status' => 'pending_scan', 'is_active' => false]);
-                    ModerateProductImage::dispatch($scan->id)->afterCommit();
+                    if (config('services.image_moderation.queued')) {
+                        ModerateProductImage::dispatch($scan->id)->afterCommit();
+                    } else {
+                        DB::afterCommit(fn () => ModerateProductImage::dispatchSync($scan->id));
+                    }
                 }
                 $first = false;
             }
@@ -95,8 +113,18 @@ class ProductService
 
     public function syncVariants(Product $product, array $variants): void
     {
-        $product->variants()->delete();
-        $this->storeVariants($product, $variants);
+        $kept = [];
+        foreach ($variants as $variant) {
+            if (empty($variant['type']) || empty($variant['value'])) continue;
+            $values = [
+                'type'=>$variant['type'],'value'=>$variant['value'],'sku'=>$variant['sku'] ?? null,
+                'price'=>($variant['price'] ?? '') !== '' ? $variant['price'] : null,'stock'=>$variant['stock'] ?? 0,
+            ];
+            $existing = ! empty($variant['id']) ? $product->variants()->find($variant['id']) : null;
+            if ($existing) { $existing->update($values); $kept[]=$existing->id; }
+            else { $kept[]=$product->variants()->create($values)->id; }
+        }
+        $product->variants()->when($kept, fn($q)=>$q->whereNotIn('id',$kept))->delete();
     }
 
     public function deleteImage(Product $product, $imageId): void
@@ -121,7 +149,7 @@ class ProductService
         $fields = [
             'store_id', 'category_id', 'name', 'description', 'specifications', 'brand', 'sku',
             'price', 'original_price', 'discount', 'stock', 'low_stock_threshold',
-            'is_featured', 'is_active',
+            'is_featured', 'is_active', 'publication_status',
         ];
 
         $product = [];

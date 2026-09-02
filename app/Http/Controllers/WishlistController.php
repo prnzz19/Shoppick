@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\Wishlist;
+use Exception;
 use Illuminate\Http\Request;
 
 class WishlistController extends Controller
@@ -16,14 +17,18 @@ class WishlistController extends Controller
     public function index()
     {
         $wishlist = Wishlist::firstOrCreate(['user_id' => auth()->id()]);
-        $items = $wishlist->items()->with('product.images')->get()
+        $items = $wishlist->items()->with(['product.images', 'product.store', 'product.variants'])->get()
             ->filter(fn ($i) => $i->product !== null);
+        $availableProductIds = Product::publiclyVisible()
+            ->whereIn('id', $items->pluck('product_id'))
+            ->pluck('id');
 
-        return view('storefront.wishlist.index', compact('items'));
+        return view('storefront.wishlist.index', compact('items', 'availableProductIds'));
     }
 
     public function toggle(Request $request)
     {
+        abort_unless($request->user()->isBuyer(), 403, 'Only Buyer accounts can use a wishlist.');
         $request->validate(['product_id' => ['required', 'exists:products,id']]);
 
         $wishlist = Wishlist::firstOrCreate(['user_id' => auth()->id()]);
@@ -33,6 +38,9 @@ class WishlistController extends Controller
             $wishlist->items()->where('product_id', $request->input('product_id'))->delete();
             $added = false;
         } else {
+            if (! Product::publiclyVisible()->whereKey($request->input('product_id'))->exists()) {
+                return response()->json(['success' => false, 'message' => 'This product is currently unavailable.'], 422);
+            }
             $wishlist->items()->create(['product_id' => $request->input('product_id')]);
             $added = true;
         }
@@ -45,7 +53,7 @@ class WishlistController extends Controller
             ]);
         }
 
-        return back()->with('success', $added ? 'Added to wishlist' : 'Removed from wishlist');
+        return back()->with('success', $added ? 'Added to your wishlist.' : 'Removed from your wishlist.');
     }
 
     public function remove($itemId)
@@ -63,20 +71,26 @@ class WishlistController extends Controller
         $wishlist = Wishlist::firstOrCreate(['user_id' => auth()->id()]);
         $item = $wishlist->items()->with('product')->findOrFail($itemId);
 
-        $product = $item->product;
-        if (! $product || ! $product->is_active) {
-            return back()->with('error', 'This product is not available.');
+        $product = Product::publiclyVisible()->with('variants')->find($item->product_id);
+        if (! $product) {
+            return back()->with('error', 'This product is currently unavailable.');
+        }
+        if ($product->variants->isNotEmpty()) {
+            return redirect()->route('products.show', $product->slug)
+                ->with('error', 'Please select a product option.');
         }
 
-        app(\App\Services\CartService::class)->add(
-            auth()->id(),
-            $product->id,
-            null,
-            min($request->input('quantity', 1), $product->stock)
-        );
+        try {
+            app(\App\Services\CartService::class)->add(
+                auth()->id(),
+                $product->id,
+                null,
+                $request->input('quantity', 1)
+            );
+        } catch (Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
 
-        $item->delete();
-
-        return back()->with('success', 'Moved to cart');
+        return back()->with('success', 'Product added to cart.');
     }
 }

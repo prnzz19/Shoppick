@@ -4,7 +4,86 @@ document.addEventListener('DOMContentLoaded', () => {
     setupGlobalState();
     setupSearchAutocomplete();
     setupFlashToast();
+    setupConfirmModal();
 });
+
+function setupConfirmModal() {
+    const modal = document.getElementById('shoppick-confirm');
+    if (!modal) return;
+    const panel = modal.querySelector('[data-confirm-panel]');
+    const title = modal.querySelector('#shoppick-confirm-title');
+    const message = modal.querySelector('#shoppick-confirm-message');
+    const icon = modal.querySelector('[data-confirm-icon]');
+    const cancel = modal.querySelector('[data-confirm-cancel]');
+    const submit = modal.querySelector('[data-confirm-submit]');
+    const reasonWrap = modal.querySelector('[data-confirm-reason-wrap]');
+    const reason = modal.querySelector('#shoppick-confirm-reason');
+    const reasonError = modal.querySelector('[data-confirm-reason-error]');
+    let targetForm = null;
+    let trigger = null;
+
+    const styles = {
+        success: ['bg-brand-600 hover:bg-brand-700', 'border-brand-400 bg-brand-50 text-brand-600', '✓'],
+        warning: ['bg-accent-500 hover:bg-accent-600', 'border-accent-400 bg-accent-50 text-accent-500', '!'],
+        danger: ['bg-rose-600 hover:bg-rose-700', 'border-rose-400 bg-rose-50 text-rose-600', '!'],
+    };
+
+    function closeModal() {
+        panel.classList.add('scale-95', 'opacity-0');
+        panel.classList.remove('scale-100', 'opacity-100');
+        setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('flex'); }, 180);
+        document.body.style.overflow = '';
+        targetForm = null;
+        trigger?.focus();
+    }
+
+    document.addEventListener('submit', (event) => {
+        const form = event.target.closest('form[data-confirm-title]');
+        if (!form || form.dataset.confirmed === 'true') return;
+        event.preventDefault();
+        targetForm = form;
+        trigger = event.submitter || document.activeElement;
+        const type = form.dataset.confirmType || 'warning';
+        const style = styles[type] || styles.warning;
+        title.textContent = form.dataset.confirmTitle;
+        message.textContent = form.dataset.confirmMessage || '';
+        submit.textContent = form.dataset.confirmAction || 'Confirm';
+        submit.className = `min-w-32 rounded-xl px-5 py-2.5 text-sm font-bold text-white shadow-sm transition ${style[0]}`;
+        icon.className = `mx-auto flex h-20 w-20 items-center justify-center rounded-full border-2 text-3xl font-black ${style[1]}`;
+        icon.textContent = style[2];
+        const needsReason = form.dataset.confirmReason === 'true';
+        reasonWrap.classList.toggle('hidden', !needsReason);
+        reason.value = '';
+        reasonError.classList.add('hidden');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+        requestAnimationFrame(() => {
+            panel.classList.remove('scale-95', 'opacity-0');
+            panel.classList.add('scale-100', 'opacity-100');
+            (needsReason ? reason : cancel).focus();
+        });
+    });
+
+    submit.addEventListener('click', () => {
+        if (!targetForm) return;
+        if (targetForm.dataset.confirmReason === 'true' && !reason.value.trim()) {
+            reasonError.classList.remove('hidden');
+            reason.focus();
+            return;
+        }
+        if (targetForm.dataset.confirmReason === 'true') {
+            let input = targetForm.querySelector('input[name="reason"]');
+            if (!input) { input = document.createElement('input'); input.type = 'hidden'; input.name = 'reason'; targetForm.appendChild(input); }
+            input.value = reason.value.trim();
+        }
+        targetForm.dataset.confirmed = 'true';
+        targetForm.requestSubmit();
+    });
+    cancel.addEventListener('click', closeModal);
+    modal.addEventListener('click', (event) => { if (event.target === modal && targetForm?.dataset.confirmReason !== 'true') closeModal(); });
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !modal.classList.contains('hidden')) closeModal(); });
+}
 
 function setupGlobalState() {
     window.showToast = function (message, type = 'success') {
@@ -35,8 +114,9 @@ async function api(url, options = {}) {
         headers: {
             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
             'Accept': 'application/json',
-            ...(options.body ? {} : { 'Content-Type': 'application/json' }),
+            ...(options.body && !(options.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
         },
+        credentials: 'same-origin',
         ...options,
     };
     if (options.body && !(options.body instanceof FormData)) {
@@ -48,41 +128,76 @@ async function api(url, options = {}) {
     return data;
 }
 
-window.toggleWishlist = async function (event, productId) {
+window.toggleWishlist = async function (event) {
     event.preventDefault();
     event.stopPropagation();
+    const button = event.currentTarget;
+    const productId = Number.parseInt(button?.dataset.productId || '', 10);
+    if (!Number.isInteger(productId) || productId < 1) {
+        window.showToast('Unable to identify this product. Please refresh and try again.', 'error');
+        return;
+    }
+    if (button?.disabled) return;
+    if (button) button.disabled = true;
     try {
         const data = await api('/wishlist/toggle', { method: 'POST', body: { product_id: productId } });
-        if (data.added) {
-            window.showToast('Added to wishlist', 'success');
-        } else {
-            window.showToast('Removed from wishlist', 'info');
-        }
-        const btn = event.currentTarget;
-        if (btn) btn.classList.toggle('text-rose-500');
+        updateWishlistButtons(productId, data.added);
+        refreshWishlistBadge(data.count);
+        window.showToast(data.added ? 'Added to your wishlist.' : 'Removed from your wishlist.', data.added ? 'success' : 'info');
     } catch (e) {
-        if (e.includes && e.includes('Login')) {
+        const message = typeof e === 'string' ? e : (e.message || 'Unable to update your wishlist.');
+        if (message === 'Unauthenticated.' || message.includes('Login')) {
             window.location.href = '/login';
+            return;
         }
-        window.showToast(e.message || 'Something went wrong', 'error');
+        window.showToast(message, 'error');
+    } finally {
+        if (button) button.disabled = false;
     }
 };
 
-window.quickAdd = async function (event, productId) {
+function updateWishlistButtons(productId, added) {
+    document.querySelectorAll(`[data-wishlist][data-product-id="${productId}"]`).forEach((button) => {
+        button.classList.toggle('text-rose-500', added);
+        button.classList.toggle('text-navy-700', !added);
+        button.setAttribute('aria-pressed', added ? 'true' : 'false');
+        button.setAttribute('aria-label', added ? 'Remove from wishlist' : 'Add to wishlist');
+        button.title = added ? 'Remove from wishlist' : 'Add to wishlist';
+        const icon = button.querySelector('[data-wishlist-icon]');
+        if (icon) icon.setAttribute('fill', added ? 'currentColor' : 'none');
+    });
+}
+
+function refreshWishlistBadge(count) {
+    document.querySelectorAll('[data-wishlist-count]').forEach((el) => {
+        el.textContent = count;
+        el.classList.toggle('hidden', !(count > 0));
+    });
+}
+
+window.quickAdd = async function (event) {
     event.preventDefault();
     event.stopPropagation();
+    const button = event.currentTarget;
+    const productId = Number.parseInt(button?.dataset.productId || '', 10);
+    if (!Number.isInteger(productId) || productId < 1) {
+        window.showToast('Unable to identify this product. Please refresh and try again.', 'error');
+        return;
+    }
+    if (button) button.disabled = true;
     try {
         const form = new FormData();
         form.append('product_id', productId);
         form.append('quantity', 1);
         const data = await api('/cart/add', { method: 'POST', body: form });
-        window.showToast('Added to cart', 'success');
+        window.showToast('Product added to cart.', 'success');
         refreshCartBadge(data.cart_count);
-        setTimeout(() => location.reload(), 600);
     } catch (e) {
-        if (e === 'Unauthenticated.') { window.location.href = '/login'; return; }
-        window.showToast(e.message || 'Please login to add to cart', 'error');
-        window.location.href = '/login';
+        const message = typeof e === 'string' ? e : (e.message || 'Unable to add this product.');
+        if (message === 'Unauthenticated.') { window.location.href = '/login'; return; }
+        window.showToast(message, 'error');
+    } finally {
+        if (button) button.disabled = false;
     }
 };
 

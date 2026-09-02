@@ -14,6 +14,7 @@
     @else
     <form method="POST" action="{{ route('checkout.store') }}" id="checkout-form">
         @csrf
+        <input type="hidden" name="checkout_mode" value="{{ $checkoutMode }}">
         <input type="hidden" name="address_id" id="selected-address" value="{{ $addresses->firstWhere('is_default', true)?->id ?? $addresses->first()?->id ?? '' }}">
         <input type="hidden" name="payment_method" id="selected-payment" value="cod">
         <input type="hidden" name="voucher_code" id="voucher-code-input" value="{{ session('applied_voucher') ?? '' }}">
@@ -137,6 +138,7 @@
         if (!code) return;
         const form = new FormData();
         form.append('voucher_code', code);
+        form.append('checkout_mode', '{{ $checkoutMode }}');
         fetch('{{ route("checkout.voucher") }}', {method: 'POST', headers: {'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content}, body: form, redirect: 'follow'})
             .then(r => { window.location.href = r.url; });
     }

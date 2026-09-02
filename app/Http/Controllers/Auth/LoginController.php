@@ -51,8 +51,13 @@ class LoginController extends Controller
         if ($user->hasRole('admin')) {
             return redirect()->route('admin.dashboard');
         }
+        if ($user->hasRole('logistics')) return redirect()->route('logistics.dashboard');
+        if ($user->hasRole('rider')) return redirect()->route('rider.dashboard');
         if ($user->hasRole('seller')) {
             return redirect()->route('seller.dashboard');
+        }
+        if ($user->sellerApplications()->whereIn('status', ['pending','escalated','awaiting_final_review','rejected'])->exists()) {
+            return redirect()->route('seller.apply');
         }
         return redirect()->intended(route('home'));
     }

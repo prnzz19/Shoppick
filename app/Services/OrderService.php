@@ -16,9 +16,9 @@ class OrderService
     ) {
     }
 
-    public function computeTotals($userId, $voucherCode = null): array
+    public function computeTotals($userId, $voucherCode = null, $items = null): array
     {
-        $selectedItems = $this->cartService->items($userId)->filter->selected;
+        $selectedItems = $items ?? $this->cartService->items($userId)->filter->selected;
 
         if ($selectedItems->isEmpty()) {
             throw new Exception('Your cart is empty.');
@@ -28,6 +28,7 @@ class OrderService
 
         // Validate stock before checkout
         foreach ($selectedItems as $item) {
+            $this->cartService->validateItem($userId, $item);
             $maxStock = $item->availableStock();
             if ($maxStock <= 0) {
                 throw new Exception("{$item->product->name} is out of stock.");
@@ -60,18 +61,17 @@ class OrderService
         ];
     }
 
-    public function placeOrder($userId, array $data): array
+    public function placeOrder($userId, array $data, $items = null, bool $clearCart = true): array
     {
-        $totals = $this->computeTotals($userId, $data['voucher_code'] ?? null);
+        $selectedItems = $items ?? $this->cartService->items($userId)->filter->selected;
+        $totals = $this->computeTotals($userId, $data['voucher_code'] ?? null, $selectedItems);
 
         $address = \App\Models\Address::where('user_id', $userId)->findOrFail($data['address_id']);
         $paymentMethod = $data['payment_method'];
         $payment = PaymentService::driver($paymentMethod);
 
-        $selectedItems = $this->cartService->items($userId)->filter->selected;
-
         $order = DB::transaction(function () use (
-            $userId, $data, $totals, $address, $paymentMethod, $payment, $selectedItems
+            $userId, $data, $totals, $address, $paymentMethod, $payment, $selectedItems, $clearCart
         ) {
             // Reserve inventory (transaction-safe, prevents overselling)
             $this->inventory->reserveItems($selectedItems);
@@ -115,10 +115,6 @@ class OrderService
                     'seller_total' => $groupSubtotal - $commissionAmount,
                 ]);
                 $sellerOrder->histories()->create(['order_id' => $order->id, 'status' => $order->status, 'note' => 'Order placed']);
-                if ($sellerOrder->store) {
-                    NotificationService::send($sellerOrder->store->user_id, 'New seller order',
-                        "You received {$sellerOrder->seller_order_number}.", 'order', route('seller.orders.index'));
-                }
                 foreach ($items as $item) {
                     $order->items()->create([
                     'seller_order_id' => $sellerOrder->id,
@@ -132,6 +128,18 @@ class OrderService
                     'quantity' => $item->quantity,
                     'total' => $item->lineTotal(),
                 ]);
+                }
+                if ($sellerOrder->store) {
+                    $itemCount = $items->sum('quantity');
+                    NotificationService::send(
+                        $sellerOrder->store->user_id,
+                        'New order received!',
+                        "Order #{$order->order_number} contains {$itemCount} item".($itemCount === 1 ? '' : 's')." from your store. Seller total: ₱".number_format($sellerOrder->seller_total, 2).'.',
+                        'order',
+                        route('seller.orders.show', $sellerOrder),
+                        ['order_number' => $order->order_number, 'seller_order_id' => $sellerOrder->id, 'item_count' => $itemCount],
+                        'package'
+                    );
                 }
             }
 
@@ -157,16 +165,19 @@ class OrderService
             $result = $payment->charge($order);
 
             // Update payment record with gateway result
+            $settled = (bool) ($result['settled'] ?? false);
             $order->payments()->latest('id')->first()?->update([
-                'status' => $result['success'] ? 'paid' : 'failed',
+                'status' => $result['payment_status'] ?? ($settled ? 'paid' : ($result['success'] ? 'pending' : 'failed')),
                 'reference' => $result['reference'] ?? null,
                 'transaction_id' => $result['reference'] ?? null,
                 'details' => $result['details'] ?? [],
-                'paid_at' => $result['success'] ? now() : null,
+                'paid_at' => $settled ? now() : null,
             ]);
 
             // Clear selected cart items
-            $this->cartService->clearSelected($userId);
+            if ($clearCart) {
+                $this->cartService->clearSelected($userId);
+            }
 
             return $order;
         });
@@ -189,6 +200,10 @@ class OrderService
                 'cancellation_reason' => $reason,
             ]);
             $order->sellerOrders()->update(['status' => 'cancelled', 'cancelled_at' => now(), 'cancellation_reason' => $reason]);
+            if ($order->payment_method === 'cod' && ! in_array($order->payment_status, ['paid','refunded'], true)) {
+                $order->update(['payment_status'=>'cancelled','paid_at'=>null]);
+                $order->payments()->whereNotIn('status',['paid','refunded'])->update(['status'=>'cancelled','paid_at'=>null]);
+            }
 
             // Release voucher usage count
             if ($order->voucher_id && $order->voucher) {

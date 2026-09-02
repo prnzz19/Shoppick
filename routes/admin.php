@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\AdminReportController;
 use App\Http\Controllers\Admin\SellerApplicationController;
 use App\Http\Controllers\Admin\ReportManagementController;
 use App\Http\Controllers\Admin\ModerationController;
+use App\Http\Controllers\Admin\ShopController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin,super_admin'])->group(function () {
@@ -17,6 +18,15 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin,super_ad
     Route::get('dashboard', [AdminDashboardController::class, 'index']);
     Route::get('sellers/applications', [SellerApplicationController::class, 'index'])->name('sellers.applications.index')->middleware('permission:manage_sellers');
     Route::post('sellers/applications/{application}', [SellerApplicationController::class, 'review'])->name('sellers.applications.review')->middleware('permission:manage_sellers');
+    Route::post('sellers/applications/{application}/escalate', [SellerApplicationController::class, 'escalate'])->name('sellers.applications.escalate')->middleware('permission:review_shops');
+
+    Route::middleware('permission:view_shops')->group(function () {
+        Route::get('shops', [ShopController::class, 'index'])->name('shops.index');
+        Route::get('shops/{shop}', [ShopController::class, 'show'])->name('shops.show');
+    });
+    Route::post('shops/{shop}/status', [ShopController::class, 'status'])->name('shops.status');
+    Route::post('shops/{shop}/notes', [ShopController::class, 'note'])->name('shops.notes')->middleware('permission:add_shop_notes');
+    Route::post('shops/{shop}/escalate', [ShopController::class, 'escalate'])->name('shops.escalate')->middleware('permission:review_shops');
 
     // Products
     Route::get('products', [AdminProductController::class, 'index'])->name('products.index')
@@ -32,12 +42,13 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin,super_ad
     Route::post('products/{product}/images/{imageId}/primary', [AdminProductController::class, 'setPrimaryImage'])->name('products.images.primary');
 
     // Categories
-    Route::get('categories', [AdminCategoryController::class, 'index'])->name('categories.index')
-        ->middleware('permission:manage_categories');
-    Route::post('categories', [AdminCategoryController::class, 'store'])->name('categories.store');
-    Route::put('categories/{category}', [AdminCategoryController::class, 'update'])->name('categories.update');
-    Route::delete('categories/{category}', [AdminCategoryController::class, 'destroy'])->name('categories.destroy');
-    Route::post('categories/{category}/toggle', [AdminCategoryController::class, 'toggleActive'])->name('categories.toggle');
+    Route::middleware('permission:manage_categories')->group(function () {
+        Route::get('categories', [AdminCategoryController::class, 'index'])->name('categories.index');
+        Route::post('categories', [AdminCategoryController::class, 'store'])->name('categories.store');
+        Route::put('categories/{category}', [AdminCategoryController::class, 'update'])->name('categories.update');
+        Route::delete('categories/{category}', [AdminCategoryController::class, 'destroy'])->name('categories.destroy');
+        Route::post('categories/{category}/toggle', [AdminCategoryController::class, 'toggleActive'])->name('categories.toggle');
+    });
 
     // Inventory
     Route::get('inventory', [AdminInventoryController::class, 'index'])->name('inventory.index')

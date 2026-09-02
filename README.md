@@ -1,61 +1,83 @@
-# SHOPPICK E-Commerce Marketplace
+# SHOPPICK Marketplace
 
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+SHOPPICK is a Laravel multi-vendor marketplace connecting Buyers, Sellers, Admins, Super Admins, Logistics managers, and Riders. It includes seller-created products, cart and checkout, COD collection, multi-seller fulfillment, order tracking, moderation, shop management, and logistics operations.
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+## Requirements
 
-## About Laravel
+- PHP 8.2+
+- Composer
+- Node.js and npm
+- SQLite or MySQL
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Install
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+```bash
+composer install
+npm install
+cp .env.example .env
+php artisan key:generate
+```
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+Configure the `DB_*` values in `.env`. For SQLite, create `database/database.sqlite` and set:
 
-## Learning Laravel
+```env
+DB_CONNECTION=sqlite
+```
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+For MySQL, set `DB_CONNECTION=mysql` plus the host, port, database, username, and password. Never commit `.env` or a local database file.
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+Build and initialize the application:
 
-## Laravel Sponsors
+```bash
+php artisan migrate
+php artisan db:seed
+php artisan storage:link
+npm run build
+php artisan serve
+```
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+Run the regression suite with:
 
-### Premium Partners
+```bash
+php artisan test
+```
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+## Development accounts
 
-## Contributing
+Development users and RBAC permissions are created by the project seeders. Review `database/seeders/UserSeeder.php` for the current local-only accounts and change credentials outside local development.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+The Logistics demo is explicitly development data. It uses the same Order, SellerOrder, Shipment, notification, tracking, and dispatch architecture as normal seller-created products.
 
-## Code of Conduct
+## Optional integrations
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+`.env.example` documents optional Google authentication, image moderation, routing, maps, and live tracking settings. Empty keys safely leave external integrations unconfigured. Critical order, notification, and shipment creation runs synchronously and does not depend on a queue worker.
 
-## Security Vulnerabilities
+## Git workflow
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+The consolidated marketplace and logistics work is prepared on:
 
-## License
+```text
+shoppick-latest-update
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Clone that branch directly for testing:
+
+```bash
+git clone -b shoppick-latest-update https://github.com/prnzz19/Shoppick.git
+```
+
+A normal `git clone https://github.com/prnzz19/Shoppick.git` checks out the repository's default branch, usually `main`, and will not include this branch until it is explicitly checked out or merged.
+
+Do not merge into `main` without first fetching `origin`, reviewing newer team commits, running migrations on an isolated database, and passing the full test/build suite.
+
+## Safe reconciliation commands
+
+The following commands are idempotent and support `--dry-run` where applicable:
+
+```bash
+php artisan logistics:reconcile-ready-orders --dry-run
+php artisan orders:reconcile-buyer-progress-notifications --dry-run
+php artisan payments:reconcile-premature-cod --dry-run
+```
+
+These are intended for repairing older local records after deployment of the relevant migrations. They do not replace normal fulfillment workflows.

@@ -6,6 +6,7 @@
         'confirmed' => ['bg-brand-100', 'text-brand-700'],
         'processing' => ['bg-brand-100', 'text-brand-700'],
         'packed' => ['bg-brand-100', 'text-brand-700'],
+        'ready_to_ship' => ['bg-sun-100', 'text-sun-500'],
         'shipped' => ['bg-brand-100', 'text-brand-700'],
         'delivered' => ['bg-brand-100', 'text-brand-700'],
         'completed' => ['bg-leaf-100', 'text-leaf-500'],

@@ -55,8 +55,7 @@
                                         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                                     </button>
                                 </form>
-                                <a href="{{ route('admin.promotions.destroy', $voucher->id) }}" onclick="event.preventDefault(); if(confirm('Delete this voucher?')) document.getElementById('vf-{{ $voucher->id }}').submit();" class="p-2 text-slate-400 hover:text-rose-600"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></a>
-                                <form id="vf-{{ $voucher->id }}" method="POST" action="{{ route('admin.promotions.destroy', $voucher->id) }}">@csrf @method('DELETE')</form>
+                                <form method="POST" action="{{ route('admin.promotions.destroy', $voucher->id) }}" data-confirm-title="Delete this voucher?" data-confirm-message="This action may permanently remove the selected voucher." data-confirm-action="Delete" data-confirm-type="danger">@csrf @method('DELETE')<button type="submit" class="p-2 text-slate-400 hover:text-rose-600"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button></form>
                             </div>
                         </td>
                     </tr>

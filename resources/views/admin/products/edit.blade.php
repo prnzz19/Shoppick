@@ -27,7 +27,7 @@
                             <button type="submit" class="btn-sm w-full bg-brand-50 text-brand-600 hover:bg-brand-100">Set main</button>
                         </form>
                     @endif
-                    <form method="POST" action="{{ route('admin.products.images.destroy', [$product->id, $img->id]) }}" onsubmit="return confirm('Delete image?')">
+                    <form method="POST" action="{{ route('admin.products.images.destroy', [$product->id, $img->id]) }}" data-confirm-title="Delete this image?" data-confirm-message="This image will be permanently removed from the product." data-confirm-action="Delete" data-confirm-type="danger">
                         @csrf @method('DELETE')
                         <button type="submit" class="btn-sm bg-rose-50 text-rose-600 hover:bg-rose-100">
                             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>

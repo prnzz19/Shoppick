@@ -14,7 +14,18 @@ class UserController extends Controller
 {
     public function index(Request $request)
     {
+        $tab = in_array($request->input('tab'), ['buyers', 'sellers', 'other'], true)
+            ? $request->input('tab')
+            : 'all';
+
         $query = User::with('roles');
+
+        match ($tab) {
+            'buyers' => $query->whereHas('roles', fn ($q) => $q->where('slug', 'buyer')),
+            'sellers' => $query->whereHas('roles', fn ($q) => $q->where('slug', 'seller')),
+            'other' => $query->whereDoesntHave('roles', fn ($q) => $q->whereIn('slug', ['buyer', 'seller'])),
+            default => null,
+        };
 
         if ($request->filled('q')) {
             $query->where(function ($q) use ($request) {
@@ -33,8 +44,14 @@ class UserController extends Controller
 
         $users = $query->latest()->paginate(12)->withQueryString();
         $roles = Role::all();
+        $tabCounts = [
+            'all' => User::count(),
+            'buyers' => User::whereHas('roles', fn ($q) => $q->where('slug', 'buyer'))->count(),
+            'sellers' => User::whereHas('roles', fn ($q) => $q->where('slug', 'seller'))->count(),
+            'other' => User::whereDoesntHave('roles', fn ($q) => $q->whereIn('slug', ['buyer', 'seller']))->count(),
+        ];
 
-        return view('superadmin.users.index', compact('users', 'roles'));
+        return view('superadmin.users.index', compact('users', 'roles', 'tab', 'tabCounts'));
     }
 
     public function create()

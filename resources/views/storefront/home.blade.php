@@ -24,9 +24,10 @@
                     </div>
                 </div>
                 <div class="hidden lg:block">
-                    <div class="mx-auto max-w-md rounded-3xl bg-white/10 p-6 backdrop-blur">
-                        <x-shoppick.logo class="mx-auto h-40 w-40" />
-                        <p class="mt-4 text-center text-sm font-medium text-white">The cutest way to shop online</p>
+                    <div class="mx-auto max-w-md rounded-3xl bg-white/10 p-6 text-center shadow-sm backdrop-blur sm:p-8">
+                        <x-shoppick.logo class="mx-auto h-32 w-32 transition duration-500 hover:scale-[1.03] sm:h-40 sm:w-40" />
+                        <p class="mt-6 text-2xl font-semibold tracking-[0.01em] text-white sm:text-[28px] lg:text-4xl" style="font-family: 'Fredoka', sans-serif;">Too cute to scroll past! 🐾</p>
+                        <p class="mt-3 text-sm font-normal leading-relaxed text-slate-100/90 sm:text-base lg:text-lg">Find your next favorite pick on SHOPPICK.</p>
                     </div>
                 </div>
             </div>
@@ -39,18 +40,26 @@
         <div class="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-9">
             @foreach($categories as $cat)
                 <a href="{{ route('products.category', $cat->id) }}" class="group flex flex-col items-center gap-2 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-                    <span class="flex h-14 w-14 items-center justify-center rounded-full from-brand-100 to-sun-100 bg-gradient-to-br text-brand-500 transition group-hover:scale-105">
-                        @if($cat->image)
-                            <img src="{{ asset('storage/'.$cat->image) }}" class="h-full w-full rounded-full object-cover" alt="{{ $cat->name }}">
-                        @else
-                            <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
-                        @endif
+                    <span class="flex h-14 w-14 items-center justify-center rounded-full transition group-hover:scale-105">
+                        <x-category-visual :category="$cat" />
                     </span>
                     <span class="text-center text-xs font-medium text-navy-700">{{ $cat->name }}</span>
                 </a>
             @endforeach
         </div>
     </section>
+
+    {{-- Latest products --}}
+    @if($latestProducts->isNotEmpty())
+    <section class="mx-auto max-w-7xl px-4 pb-10">
+        <x-section-heading title="Latest Products" subtitle="Fresh picks from SHOPPICK sellers" link="{{ route('products.index', ['sort' => 'latest']) }}" linkText="View all" />
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            @foreach($latestProducts as $product)
+                <x-product-card :product="$product" />
+            @endforeach
+        </div>
+    </section>
+    @endif
 
     {{-- Flash deals --}}
     @if($flashDeals->isNotEmpty())
@@ -128,17 +137,6 @@
     </section>
     @endif
 
-    {{-- New arrivals --}}
-    @if($newArrivals->isNotEmpty())
-    <section class="mx-auto max-w-7xl px-4 py-10">
-        <x-section-heading title="New Arrivals" subtitle="Fresh from the warehouse" link="{{ route('products.index', ['sort' => 'latest']) }}" />
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-            @foreach($newArrivals as $product)
-                <x-product-card :product="$product" />
-            @endforeach
-        </div>
-    </section>
-    @endif
 @endsection
 
 @push('scripts')

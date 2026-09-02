@@ -56,19 +56,24 @@
     </div>
 
     <div class="space-y-6">
-        {{-- Update status --}}
+        {{-- Marketplace intervention only; routine delivery operations belong to Logistics/Rider. --}}
         <div class="card p-5">
-            <h3 class="mb-4 text-sm font-bold uppercase tracking-wide text-navy-800">Update Status</h3>
+            <h3 class="mb-4 text-sm font-bold uppercase tracking-wide text-navy-800">Marketplace Intervention</h3>
             <form method="POST" action="{{ route('admin.orders.status', $order->id) }}" class="space-y-3">
                 @csrf
                 <select name="status" class="input">
-                    @foreach(\App\Models\Order::STATUSES as $status)
+                    @foreach(['cancelled','refunded'] as $status)
                         <option value="{{ $status }}" @selected($order->status === $status)>{{ ucfirst($status) }}</option>
                     @endforeach
                 </select>
                 <input type="text" name="reason" placeholder="Reason (for cancel/refund)" class="input">
-                <button type="submit" class="btn-accent w-full">Update Status</button>
+                <button type="submit" class="btn-accent w-full">Apply Intervention</button>
             </form>
+        </div>
+
+        <div class="card p-5">
+            <h3 class="mb-4 text-sm font-bold uppercase tracking-wide text-navy-800">Delivery Oversight</h3>
+            @forelse($order->shipments as $shipment)<div class="border-t py-3 text-sm"><div class="flex justify-between"><b>{{ $shipment->shipment_number }}</b><x-admin.status-badge :status="$shipment->status"/></div><p class="mt-1 text-slate-500">Shop: {{ $shipment->store?->name }}</p><p>Rider: {{ $shipment->rider?->name??'Unassigned' }}</p><p>Vehicle: {{ $shipment->vehicle?->code??'Unassigned' }}</p><p>POD: {{ ucfirst($shipment->proofOfDelivery?->status??'none') }}</p><p class="text-xs text-slate-400">Last update: {{ $shipment->updated_at->format('M d, Y g:i A') }}</p></div>@empty<p class="text-sm text-slate-500">No shipment has entered Logistics yet.</p>@endforelse
         </div>
 
         {{-- Payment --}}

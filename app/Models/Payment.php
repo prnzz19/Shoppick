@@ -11,13 +11,15 @@ class Payment extends Model
 
     protected $fillable = [
         'order_id', 'method', 'status', 'reference', 'transaction_id',
-        'gateway', 'details', 'amount', 'paid_at',
+        'gateway', 'details', 'amount', 'paid_at', 'collected_by', 'collected_at',
     ];
 
-    protected $casts = ['details' => 'array', 'paid_at' => 'datetime'];
+    protected $casts = ['details' => 'array', 'paid_at' => 'datetime', 'collected_at' => 'datetime'];
 
     public function order()
     {
         return $this->belongsTo(Order::class);
     }
+
+    public function collector(){return $this->belongsTo(User::class,'collected_by');}
 }

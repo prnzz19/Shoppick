@@ -13,7 +13,7 @@ class Product extends Model
     protected $fillable = [
         'store_id', 'category_id', 'name', 'slug', 'description', 'specifications', 'brand', 'sku',
         'price', 'original_price', 'discount', 'stock', 'low_stock_threshold',
-        'sold_count', 'rating_avg', 'rating_count', 'is_featured', 'is_active', 'moderation_status', 'suspension_reason',
+        'sold_count', 'rating_avg', 'rating_count', 'is_featured', 'is_active', 'moderation_status', 'publication_status', 'suspension_reason',
     ];
 
     protected $casts = [
@@ -52,6 +52,7 @@ class Product extends Model
     {
         return $this->hasMany(Review::class);
     }
+    public function orderItems() { return $this->hasMany(OrderItem::class); }
     public function moderationScans() { return $this->hasMany(ModerationScan::class); }
     public function violations() { return $this->hasMany(Violation::class); }
     public function reports() { return $this->morphMany(Report::class, 'target'); }
@@ -96,9 +97,44 @@ class Product extends Model
 
     public function scopeActive($q)
     {
-        return $q->where('is_active', true)->where(function($query){
-            $query->whereNull('store_id')->orWhereHas('store', fn($store) => $store->where('status', 'active'));
-        });
+        return $q->publiclyVisible();
+    }
+
+    public function scopePubliclyVisible($q)
+    {
+        return $q->where('is_active', true)
+            ->where('publication_status', 'published')
+            ->where('price', '>', 0)
+            ->whereIn('moderation_status', ['clean', 'approved'])
+            ->whereHas('store', fn ($store) => $store->marketplaceActive());
+    }
+
+    public function sellerStatus(): string
+    {
+        if ($this->trashed()) return 'Archived';
+        if ($this->store?->status !== 'active') return 'Store Suspended';
+        if ($this->publication_status === 'draft') return 'Draft';
+        if (in_array($this->moderation_status, ['pending_scan', 'scanning', 'under_review', 'flagged'])) return 'Under Moderation';
+        if ($this->moderation_status === 'rejected') return 'Rejected';
+        if ($this->moderation_status === 'scan_failed') return 'Review Required';
+        if (! $this->is_active) return 'Suspended';
+        if ($this->stock < 1) return 'Out of Stock';
+        return 'Active';
+    }
+
+    public function sellerVisibilityReason(): string
+    {
+        return match ($this->sellerStatus()) {
+            'Archived' => 'Archived products are hidden from Buyers until restored and republished.',
+            'Under Moderation' => 'Waiting for image review.',
+            'Rejected' => $this->suspension_reason ?: 'This product was rejected during review.',
+            'Review Required' => 'The image check could not finish. An Admin can review it.',
+            'Suspended' => $this->suspension_reason ?: 'This product is currently suspended.',
+            'Store Suspended' => 'Your store is currently suspended.',
+            'Draft' => 'Publish this draft when it is ready.',
+            'Out of Stock' => 'Restock this product to make it purchasable.',
+            default => 'Visible to Buyers.',
+        };
     }
 
     public function scopeInStock($q)
@@ -137,7 +173,7 @@ class Product extends Model
             $q->where('discount', '>', 0);
         }
 
-        if (isset($filters['sort'])) {
+        if (!empty($filters['sort']) && $filters['sort'] !== 'relevance') {
             switch ($filters['sort']) {
                 case 'latest':
                     $q->latest();

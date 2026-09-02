@@ -11,7 +11,15 @@ class HomeController extends Controller
 {
     public function __invoke(Request $request)
     {
-        $categories = Category::whereNull('parent_id')->active()->orderBy('sort_order')->with('children')->get();
+        $categories = Category::whereNull('parent_id')->active()->orderBy('sort_order')->orderBy('name')->with('children')->get();
+
+        // Products currently have no published_at timestamp, so created_at is the
+        // canonical and indexed fallback for newest publicly purchasable products.
+        $latestProducts = Product::active()
+            ->with(['images', 'category', 'store'])
+            ->orderByDesc('created_at')
+            ->take(5)
+            ->get();
 
         $flashDeals = Product::active()
             ->where('discount', '>', 0)
@@ -25,8 +33,6 @@ class HomeController extends Controller
 
         $popular = Product::active()->orderBy('sold_count', 'desc')->with('images')->take(8)->get();
 
-        $newArrivals = Product::active()->latest()->with('images')->take(8)->get();
-
         $vouchers = Voucher::where('status', 'active')
             ->where(function ($q) {
                 $q->whereNull('ends_at')->orWhere('ends_at', '>=', now());
@@ -35,7 +41,7 @@ class HomeController extends Controller
             ->get();
 
         return view('storefront.home', compact(
-            'categories', 'flashDeals', 'featured', 'popular', 'newArrivals', 'vouchers'
+            'categories', 'latestProducts', 'flashDeals', 'featured', 'popular', 'vouchers'
         ));
     }
 }

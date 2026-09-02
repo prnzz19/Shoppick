@@ -6,6 +6,7 @@ use App\Http\Controllers\SuperAdmin\UserController;
 use App\Http\Controllers\Admin\SellerApplicationController;
 use App\Http\Controllers\Admin\ReportManagementController;
 use App\Http\Controllers\Admin\ModerationController;
+use App\Http\Controllers\Admin\AdminCategoryController;
 use App\Http\Controllers\SuperAdmin\ShopController;
 use Illuminate\Support\Facades\Route;
 
@@ -23,6 +24,15 @@ Route::prefix('superadmin')->name('superadmin.')->middleware(['auth', 'role:supe
     Route::post('moderation/{scan}/review', [ModerationController::class, 'review'])->name('moderation.review');
     Route::get('shops', [ShopController::class, 'index'])->name('shops.index');
     Route::get('shops/{shop}', [ShopController::class, 'show'])->name('shops.show');
+    Route::post('shops/{shop}/status', [ShopController::class, 'status'])->name('shops.status');
+    Route::post('shops/{shop}/notes', [ShopController::class, 'note'])->name('shops.notes');
+    Route::post('shops/{shop}/escalate', [ShopController::class, 'escalate'])->name('shops.escalate');
+
+    Route::get('categories', [AdminCategoryController::class, 'index'])->name('categories.index');
+    Route::post('categories', [AdminCategoryController::class, 'store'])->name('categories.store');
+    Route::put('categories/{category}', [AdminCategoryController::class, 'update'])->name('categories.update');
+    Route::delete('categories/{category}', [AdminCategoryController::class, 'destroy'])->name('categories.destroy');
+    Route::post('categories/{category}/toggle', [AdminCategoryController::class, 'toggleActive'])->name('categories.toggle');
 
     // User management
     Route::get('users', [UserController::class, 'index'])->name('users.index');

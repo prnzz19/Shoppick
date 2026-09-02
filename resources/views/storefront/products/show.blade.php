@@ -3,6 +3,9 @@
 @section('title', $product->name)
 
 @section('content')
+@php
+    $isWishlisted = in_array($product->id, $sharedWishlistProductIds ?? [], true);
+@endphp
 <div class="mx-auto max-w-7xl px-4 py-6">
     {{-- Breadcrumb --}}
     <nav class="mb-4 text-sm text-slate-500">
@@ -53,11 +56,9 @@
         <div>
             <div class="flex items-start justify-between gap-4">
                 <h1 class="text-2xl font-bold text-navy-800">{{ $product->name }}</h1>
-                @auth
-                    <button type="button" onclick="toggleWishlist(event, {{ $product->id }})" class="shrink-0 rounded-xl border border-slate-200 p-2.5 text-navy-700 hover:border-rose-200 hover:text-rose-500" title="Add to wishlist">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                    </button>
-                @endauth
+                <button type="button" onclick="toggleWishlist(event)" class="shrink-0 rounded-xl border border-slate-200 p-2.5 transition hover:border-rose-200 hover:text-rose-500 disabled:opacity-60 {{ $isWishlisted ? 'text-rose-500' : 'text-navy-700' }}" data-wishlist data-product-id="{{ $product->id }}" aria-label="{{ $isWishlisted ? 'Remove from wishlist' : 'Add to wishlist' }}" aria-pressed="{{ $isWishlisted ? 'true' : 'false' }}" title="{{ $isWishlisted ? 'Remove from wishlist' : 'Add to wishlist' }}">
+                    <svg data-wishlist-icon class="h-6 w-6" fill="{{ $isWishlisted ? 'currentColor' : 'none' }}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                </button>
             </div>
 
             @if($product->brand)<p class="mt-1 text-sm text-slate-500">Brand: <span class="font-semibold text-navy-700">{{ $product->brand }}</span></p>@endif
@@ -112,8 +113,9 @@
                                 <div class="flex flex-wrap gap-2">
                                     @foreach($options as $option)
                                         <button type="button" data-variant-id="{{ $option->id }}" onclick="selectVariant(this, {{ $option->id }})"
-                                            class="chip border-slate-200 bg-white text-navy-700 hover:border-brand-400">
-                                            {{ $option->value }}
+                                            data-variant-stock="{{ $option->stock }}"
+                                            class="chip border-slate-200 bg-white text-navy-700 hover:border-brand-400 disabled:cursor-not-allowed disabled:opacity-40" @disabled($option->stock < 1)>
+                                            {{ $option->value }} @if($option->stock < 1)(Out of stock)@endif
                                         </button>
                                     @endforeach
                                 </div>
@@ -134,7 +136,7 @@
                             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
                             Add to Cart
                         </button>
-                        <button type="submit" name="checkout_now" value="1" class="btn-primary flex-1 whitespace-nowrap" @if($product->isOutOfStock()) disabled @endif>Buy Now</button>
+                        <button type="submit" formaction="{{ route('buy-now') }}" class="btn-primary flex-1 whitespace-nowrap" @if($product->isOutOfStock()) disabled @endif>Buy Now</button>
                     </div>
                 </div>
             </form>
@@ -247,11 +249,15 @@
         document.querySelectorAll('[data-variant-id]').forEach(b => b.classList.remove('border-brand-400', 'bg-brand-50', 'text-brand-600'));
         btn.classList.add('border-brand-400', 'bg-brand-50', 'text-brand-600');
         selectedVariantEl = btn;
+        const max = parseInt(btn.dataset.variantStock || '1');
+        const qty = Math.min(parseInt(document.getElementById('selected-qty').value), max);
+        document.getElementById('selected-qty').value = qty;
+        document.getElementById('qty-display').textContent = qty;
     }
     function changeQty(delta) {
         const el = document.getElementById('qty-display');
         let q = parseInt(el.textContent) + delta;
-        const max = {{ $product->stock ?: 1 }};
+        const max = selectedVariantEl ? parseInt(selectedVariantEl.dataset.variantStock || '1') : {{ $product->stock ?: 1 }};
         q = Math.max(1, Math.min(q, max));
         el.textContent = q;
         document.getElementById('selected-qty').value = q;

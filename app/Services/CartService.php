@@ -6,6 +6,7 @@ use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\User;
 use Exception;
 use Illuminate\Support\Facades\DB;
 
@@ -27,19 +28,7 @@ class CartService
 
     public function add($userId, $productId, $variantId = null, $quantity = 1): array
     {
-        $product = Product::findOrFail($productId);
-
-        if (! $product->is_active) {
-            throw new Exception('This product is not available.');
-        }
-
-        $variant = null;
-        $maxStock = $product->stock;
-
-        if ($variantId) {
-            $variant = ProductVariant::where('product_id', $product->id)->findOrFail($variantId);
-            $maxStock = $variant->stock;
-        }
+        [$product, $variant, $maxStock] = $this->validatePurchase($userId, $productId, $variantId, $quantity);
 
         $cart = $this->getOrCreateCart($userId);
 
@@ -53,10 +42,7 @@ class CartService
             $newQty = $currentQty + (int) $quantity;
 
             if ($newQty > $maxStock) {
-                $newQty = (int) $maxStock;
-            }
-            if ($newQty <= 0) {
-                throw new Exception('This product is out of stock.');
+                throw new Exception("Only {$maxStock} items are currently available.");
             }
 
             if ($item) {
@@ -74,6 +60,71 @@ class CartService
         });
     }
 
+    public function purchaseItem($userId, $productId, $variantId = null, $quantity = 1): CartItem
+    {
+        [$product, $variant] = $this->validatePurchase($userId, $productId, $variantId, $quantity);
+
+        $item = new CartItem([
+            'product_id' => $product->id,
+            'product_variant_id' => $variant?->id,
+            'quantity' => (int) $quantity,
+            'selected' => true,
+        ]);
+        $item->setRelation('product', $product);
+        $item->setRelation('variant', $variant);
+
+        return $item;
+    }
+
+    public function validateItem($userId, CartItem $item): void
+    {
+        $this->validatePurchase(
+            $userId,
+            $item->product_id,
+            $item->product_variant_id,
+            $item->quantity
+        );
+    }
+
+    protected function validatePurchase($userId, $productId, $variantId, $quantity): array
+    {
+        $user = User::with('roles')->findOrFail($userId);
+        if (! $user->isBuyer()) {
+            throw new Exception('Only Buyer accounts can place marketplace orders.');
+        }
+
+        $product = Product::active()->with(['variants', 'images', 'store.user', 'store.sellerProfile'])->find($productId);
+        if (! $product) {
+            throw new Exception('This product is currently unavailable.');
+        }
+        if ($product->store?->user_id === $user->id) {
+            throw new Exception('You cannot purchase your own product.');
+        }
+
+        $variant = null;
+        if ($product->variants->isNotEmpty()) {
+            if (! $variantId) {
+                throw new Exception('Please select a product option.');
+            }
+            $variant = $product->variants->firstWhere('id', (int) $variantId);
+            if (! $variant) {
+                throw new Exception('The selected product option is invalid.');
+            }
+        } elseif ($variantId) {
+            throw new Exception('The selected product option is invalid.');
+        }
+
+        $maxStock = (int) ($variant?->stock ?? $product->stock);
+        if ($maxStock < 1) {
+            throw new Exception('This product is out of stock.');
+        }
+        if ((int) $quantity < 1 || (int) $quantity > $maxStock) {
+            throw new Exception("Only {$maxStock} items are currently available.");
+        }
+
+        return [$product, $variant, $maxStock];
+    }
+
     public function updateQuantity($userId, $itemId, $quantity): array
     {
         $cart = $this->getOrCreateCart($userId);
@@ -87,7 +138,7 @@ class CartService
 
         $maxStock = $item->availableStock();
         if ($quantity > $maxStock) {
-            $quantity = (int) $maxStock;
+            throw new Exception("Only {$maxStock} items are currently available.");
         }
 
         $item->update(['quantity' => $quantity]);

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AdminActivityLog;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\Store;
 use App\Services\ProductService;
 use Illuminate\Http\Request;
 
@@ -17,11 +18,19 @@ class AdminProductController extends Controller
 
     public function index(Request $request)
     {
-        $query = Product::with(['category', 'images', 'variants']);
+        $query = Product::withTrashed()->with(['category', 'images', 'variants', 'store.user']);
 
         if ($request->filled('q')) {
-            $query->where('name', 'like', "%{$request->input('q')}%")
-                ->orWhere('sku', 'like', "%{$request->input('q')}%");
+            $query->where(function ($product) use ($request) {
+                $product->where('name', 'like', "%{$request->input('q')}%")
+                    ->orWhere('sku', 'like', "%{$request->input('q')}%");
+            });
+        }
+
+        if ($request->filled('shop_id')) {
+            $request->input('shop_id') === 'unassigned'
+                ? $query->whereNull('store_id')
+                : $query->where('store_id', $request->integer('shop_id'));
         }
 
         if ($request->filled('category_id')) {
@@ -29,13 +38,53 @@ class AdminProductController extends Controller
         }
 
         if ($request->filled('status')) {
-            $query->where('is_active', $request->input('status') === 'active');
+            match ($request->input('status')) {
+                'archived' => $query->onlyTrashed(),
+                'active' => $query->whereNull('deleted_at')->where('is_active', true),
+                'inactive' => $query->whereNull('deleted_at')->where('is_active', false),
+                'pending' => $query->whereNull('deleted_at')->whereIn('moderation_status', ['pending_scan', 'scanning', 'under_review', 'scan_failed']),
+                'rejected' => $query->whereNull('deleted_at')->where('moderation_status', 'rejected'),
+                'low_stock' => $query->whereNull('deleted_at')->where('stock', '>', 0)->whereColumn('stock', '<=', 'low_stock_threshold'),
+                'out_of_stock' => $query->whereNull('deleted_at')->where('stock', '<=', 0),
+                default => null,
+            };
         }
 
         $products = $query->latest()->paginate(12)->withQueryString();
         $categories = Category::with('children')->whereNull('parent_id')->get();
+        $shops = Store::with('user')->orderBy('name')->get();
 
-        return view('admin.products.index', compact('products', 'categories'));
+        $storeIds = $products->getCollection()->pluck('store_id')->filter()->unique()->values();
+        $stats = Product::withTrashed()
+            ->where(function ($query) use ($storeIds, $products) {
+                $query->whereIn('store_id', $storeIds);
+                if ($products->getCollection()->contains(fn ($product) => $product->store_id === null)) {
+                    $query->orWhereNull('store_id');
+                }
+            })
+            ->selectRaw('store_id, COUNT(*) as total_count')
+            ->selectRaw('SUM(CASE WHEN deleted_at IS NULL AND is_active = 1 THEN 1 ELSE 0 END) as active_count')
+            ->selectRaw('SUM(CASE WHEN deleted_at IS NULL AND is_active = 0 THEN 1 ELSE 0 END) as inactive_count')
+            ->selectRaw('SUM(CASE WHEN deleted_at IS NULL AND stock > 0 AND stock <= low_stock_threshold THEN 1 ELSE 0 END) as low_stock_count')
+            ->selectRaw('SUM(CASE WHEN deleted_at IS NULL AND stock <= 0 THEN 1 ELSE 0 END) as out_of_stock_count')
+            ->groupBy('store_id')
+            ->get()
+            ->keyBy(fn ($row) => $row->store_id === null ? 'unassigned' : (string) $row->store_id);
+
+        $productGroups = $products->getCollection()
+            ->groupBy(fn ($product) => $product->store_id === null ? 'unassigned' : (string) $product->store_id)
+            ->map(function ($groupProducts, $key) use ($stats) {
+                $store = $groupProducts->first()->store;
+                return (object) [
+                    'key' => $key,
+                    'store' => $store,
+                    'products' => $groupProducts->sortByDesc('created_at')->values(),
+                    'stats' => $stats->get($key),
+                ];
+            })
+            ->sortBy(fn ($group) => $group->store?->name ?? '~~~ Unassigned');
+
+        return view('admin.products.index', compact('products', 'productGroups', 'categories', 'shops'));
     }
 
     public function create()

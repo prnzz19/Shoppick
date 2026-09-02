@@ -12,14 +12,24 @@ class ProductController extends Controller
     {
         $query = Product::active()->with('images', 'category', 'store');
 
+        $search = preg_replace('/\s+/u', ' ', trim((string) $request->input('q', '')));
+        $request->merge(['q' => $search]);
+
         $filters = $request->only(['category', 'brand', 'min_price', 'max_price', 'rating', 'availability', 'discount', 'sort', 'q']);
 
-        if ($request->filled('q')) {
-            $search = $request->input('q');
+        if ($search !== '') {
+            $like = "%{$search}%";
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                     ->orWhere('description', 'like', "%{$search}%")
-                    ->orWhere('brand', 'like', "%{$search}%");
+                    ->orWhere('brand', 'like', "%{$search}%")
+                    ->orWhereHas('category', fn ($category) => $category->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('store', fn ($store) => $store->where('name', 'like', "%{$search}%"));
+            })->when(! $request->filled('sort') || $request->input('sort') === 'relevance', function ($q) use ($search, $like) {
+                $q->orderByRaw(
+                    'CASE WHEN LOWER(name) = LOWER(?) THEN 1 WHEN LOWER(name) LIKE LOWER(?) THEN 2 WHEN LOWER(name) LIKE LOWER(?) THEN 3 ELSE 4 END',
+                    [$search, $search.'%', $like]
+                )->orderByDesc('rating_avg');
             });
         }
 
@@ -33,7 +43,7 @@ class ProductController extends Controller
 
         $products = $query->paginate(12)->withQueryString();
 
-        $categories = Category::whereNull('parent_id')->active()->with('children')->get();
+        $categories = Category::whereNull('parent_id')->active()->orderBy('sort_order')->orderBy('name')->with('children')->get();
         $brands = Product::active()->whereNotNull('brand')->distinct()->pluck('brand');
 
         return view('storefront.products.index', compact('products', 'categories', 'brands'));
@@ -76,11 +86,12 @@ class ProductController extends Controller
     public function autocomplete(Request $request)
     {
         $request->validate(['q' => ['required', 'string', 'max:100']]);
-        $q = $request->input('q');
+        $q = preg_replace('/\s+/u', ' ', trim((string) $request->input('q')));
 
         $products = Product::active()
             ->where('name', 'like', "%{$q}%")
             ->with('images')
+            ->orderByRaw('CASE WHEN LOWER(name) = LOWER(?) THEN 1 WHEN LOWER(name) LIKE LOWER(?) THEN 2 ELSE 3 END', [$q, $q.'%'])
             ->take(6)
             ->get(['id', 'name', 'slug', 'price', 'discount']);
 

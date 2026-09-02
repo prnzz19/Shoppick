@@ -30,6 +30,8 @@ class CashOnDeliveryService implements PaymentServiceInterface
 
         return [
             'success' => true,
+            'payment_status' => 'pending',
+            'settled' => false,
             'reference' => 'COD-' . $order->order_number,
             'message' => 'You will pay in cash upon delivery.',
             'details' => [],
