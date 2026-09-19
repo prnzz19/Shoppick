@@ -11,6 +11,8 @@
             <div>
                 <h4 class="mb-3 text-sm font-semibold text-brand-300">Shop</h4>
                 <ul class="space-y-2 text-sm text-slate-300">
+                    <li><a href="{{ route('landing') }}" class="hover:text-white">About SHOPPICK</a></li>
+                    <li><a href="{{ route('home') }}" class="hover:text-white">Marketplace</a></li>
                     <li><a href="{{ route('products.index') }}" class="hover:text-white">All Products</a></li>
                     <li><a href="{{ route('products.index', ['sort' => 'popular']) }}" class="hover:text-white">Popular</a></li>
                     <li><a href="{{ route('products.index', ['sort' => 'latest']) }}" class="hover:text-white">New Arrivals</a></li>

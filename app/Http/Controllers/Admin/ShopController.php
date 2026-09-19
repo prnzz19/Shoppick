@@ -48,8 +48,4 @@ class ShopController extends Controller
         $data=$request->validate(['note'=>['required','string','max:1500']]);$this->shops->addNote($shop,$request->user(),$data['note']);return back()->with('success','Administrative note added.');
     }
 
-    public function escalate(Request $request, Store $shop)
-    {
-        $data=$request->validate(['reason'=>['required','string','max:1000']]);$this->shops->escalate($shop,$request->user(),$data['reason']);return back()->with('success','Shop case escalated to Super Admin.');
-    }
 }

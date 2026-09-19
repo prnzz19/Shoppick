@@ -4,9 +4,8 @@ namespace Database\Seeders;
 
 use App\Models\Category;
 use App\Models\Product;
-use App\Models\ProductImage;
-use App\Models\ProductVariant;
 use App\Models\Store;
+use App\Services\ProductImageModerationEnrollmentService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -79,11 +78,13 @@ class ProductSeeder extends Seeder
             $this->createImages($product, $brand);
             $this->createVariants($product);
         }
+
+        app(ProductImageModerationEnrollmentService::class)->reconcile();
     }
 
     protected function createImages(Product $product, string $brand): void
     {
-        $catalogPath = 'products/' . $product->slug . '-catalog.png';
+        $catalogPath = 'products/'.$product->slug.'-catalog.png';
         if (Storage::disk('public')->exists($catalogPath)) {
             $product->images()->update(['is_primary' => false]);
             $product->images()->updateOrCreate(['path' => $catalogPath], [
@@ -100,7 +101,7 @@ class ProductSeeder extends Seeder
 
         for ($i = 0; $i < 3; $i++) {
             $color = $colors[$i % count($colors)];
-            $path = $this->placeholderSvg('products', $product->slug . '-' . $i . '.svg', $brand, $color);
+            $path = $this->placeholderSvg('products', $product->slug.'-'.$i.'.svg', $brand, $color);
             $product->images()->create([
                 'path' => $path,
                 'is_primary' => $i === 0,
@@ -121,7 +122,7 @@ class ProductSeeder extends Seeder
             $product->variants()->create([
                 'type' => 'Color',
                 'value' => $color,
-                'sku' => strtoupper($product->slug) . '-' . strtoupper(substr($color, 0, 2)),
+                'sku' => strtoupper($product->slug).'-'.strtoupper(substr($color, 0, 2)),
                 'price' => $product->price,
                 'stock' => max(0, $product->stock / count($colors)),
             ]);
@@ -132,14 +133,14 @@ class ProductSeeder extends Seeder
     {
         $label = mb_substr($label, 0, 12);
         $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600">'
-            . '<rect width="600" height="600" fill="' . $color . '"/>'
-            . '<circle cx="300" cy="240" r="90" fill="rgba(255,255,255,0.25)"/>'
-            . '<text x="300" y="460" font-family="Arial, sans-serif" font-size="46" fill="#ffffff" text-anchor="middle" font-weight="bold">' . htmlspecialchars($label) . '</text>'
-            . '<text x="300" y="520" font-family="Arial, sans-serif" font-size="26" fill="rgba(255,255,255,0.85)" text-anchor="middle">SHOPPICK</text>'
-            . '</svg>';
+            .'<rect width="600" height="600" fill="'.$color.'"/>'
+            .'<circle cx="300" cy="240" r="90" fill="rgba(255,255,255,0.25)"/>'
+            .'<text x="300" y="460" font-family="Arial, sans-serif" font-size="46" fill="#ffffff" text-anchor="middle" font-weight="bold">'.htmlspecialchars($label).'</text>'
+            .'<text x="300" y="520" font-family="Arial, sans-serif" font-size="26" fill="rgba(255,255,255,0.85)" text-anchor="middle">SHOPPICK</text>'
+            .'</svg>';
 
-        Storage::disk('public')->put($dir . '/' . $filename, $svg);
+        Storage::disk('public')->put($dir.'/'.$filename, $svg);
 
-        return $dir . '/' . $filename;
+        return $dir.'/'.$filename;
     }
 }

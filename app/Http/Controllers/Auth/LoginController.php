@@ -31,6 +31,20 @@ class LoginController extends Controller
 
         $user = Auth::user();
 
+        if ($user->registration_type === 'rider' && in_array($user->registration_status, ['pending','rejected','needs_resubmission'], true)) {
+            $request->session()->regenerate();
+            return redirect()->route('rider.application.status');
+        }
+
+        if (in_array($user->registration_status, ['pending', 'rejected'], true)) {
+            Auth::logout();
+            throw ValidationException::withMessages([
+                'email' => $user->registration_status === 'pending'
+                    ? 'Your account is still waiting for administrator approval.'
+                    : 'Your registration was not approved. Reason: '.($user->registration_review_notes ?: 'Please contact SHOPPICK support.'),
+            ]);
+        }
+
         if (! $user->is_active) {
             Auth::logout();
             throw ValidationException::withMessages([
@@ -45,9 +59,6 @@ class LoginController extends Controller
 
     protected function redirectTo($user)
     {
-        if ($user->hasRole('super_admin')) {
-            return redirect()->route('superadmin.dashboard');
-        }
         if ($user->hasRole('admin')) {
             return redirect()->route('admin.dashboard');
         }

@@ -13,7 +13,7 @@ class ShipmentService
             $sellerOrder=SellerOrder::with(['order','store'])->whereKey($sellerOrder->id)->lockForUpdate()->firstOrFail();
             if($sellerOrder->status!=='ready_to_ship') throw ValidationException::withMessages(['status'=>'Shipment requires a ready-to-ship Seller Order.']);
             $shipment=Shipment::firstOrCreate(['seller_order_id'=>$sellerOrder->id],[
-                'shipment_number'=>Shipment::number(),'order_id'=>$sellerOrder->order_id,'store_id'=>$sellerOrder->store_id,
+                'shipment_number'=>Shipment::number(),'parcel_code'=>'PCL-'.strtoupper(substr(uniqid(),-8)),'order_id'=>$sellerOrder->order_id,'store_id'=>$sellerOrder->store_id,
                 'status'=>'ready_for_pickup','pickup_address'=>['address'=>$sellerOrder->store?->location],
                 'delivery_address'=>$sellerOrder->order->shipping_address,'ready_at'=>now(),
             ]);
@@ -52,8 +52,10 @@ class ShipmentService
         return DB::transaction(function()use($shipment,$actor,$rider,$vehicle,$reason){
             $shipment=Shipment::whereKey($shipment->id)->lockForUpdate()->firstOrFail();
             $profile=$rider->riderProfile()->lockForUpdate()->first();
-            if(!$rider->hasRole('rider')||!$rider->is_active||!$profile||$profile->account_status!=='active'||$profile->availability!=='available')
-                throw ValidationException::withMessages(['rider_id'=>'This Rider is not available for assignment.']);
+            if(!$rider->hasRole('rider')||!$rider->is_active||!$profile||!$profile->isAssignmentEligible())
+                throw ValidationException::withMessages(['rider_id'=>'This Rider is not assignment-eligible. Check account, availability, and verified Driver license validity.']);
+            $conflict=Shipment::whereKeyNot($shipment->id)->where(fn($q)=>$q->where('pickup_rider_id',$rider->id)->orWhere('rider_id',$rider->id))->whereNotIn('status',['delivered','returned','completed'])->exists();
+            if($conflict)throw ValidationException::withMessages(['rider_id'=>'This Rider already has an active assignment.']);
             if($vehicle){$vehicle=Vehicle::whereKey($vehicle->id)->lockForUpdate()->firstOrFail();if($vehicle->status!=='available')throw ValidationException::withMessages(['vehicle_id'=>'This Vehicle is not available.']);}
             if($shipment->rider_id&&$shipment->rider_id!==$rider->id)$shipment->rider?->riderProfile?->update(['availability'=>'available']);
             if($shipment->vehicle_id&&$shipment->vehicle_id!==$vehicle?->id)$shipment->vehicle?->update(['status'=>'available']);
@@ -70,13 +72,16 @@ class ShipmentService
     public function transition(Shipment $shipment,User $actor,string $status,?string $note=null): Shipment
     {
         $logistics=['pickup_scheduled','picked_up','at_hub','hub_transfer','in_transit','exception'];
-        $rider=['out_for_delivery','delivery_attempted','delivered','exception'];
+        $rider=['picked_up','in_transit','out_for_delivery','delivery_attempted','delivered','exception'];
         abort_unless(($actor->hasRole('logistics')&&in_array($status,$logistics,true))||($actor->hasRole('rider')&&$shipment->rider_id===$actor->id&&in_array($status,$rider,true)),403);
         return DB::transaction(function()use($shipment,$actor,$status,$note){
             $shipment=Shipment::whereKey($shipment->id)->lockForUpdate()->firstOrFail();
             $allowed=['assigned'=>['pickup_scheduled','picked_up','exception'],'pickup_scheduled'=>['picked_up','exception'],'picked_up'=>['at_hub','in_transit','exception'],'at_hub'=>['hub_transfer','in_transit','exception'],'hub_transfer'=>['at_hub','in_transit','exception'],'in_transit'=>['out_for_delivery','exception'],'out_for_delivery'=>['delivered','delivery_attempted','exception'],'delivery_attempted'=>['out_for_delivery','exception'],'exception'=>['assigned','in_transit','out_for_delivery']];
             if(!in_array($status,$allowed[$shipment->status]??[],true))throw ValidationException::withMessages(['status'=>'That shipment transition is not allowed.']);
-            if($status==='delivered')app(CodCollectionService::class)->settleForDelivery($shipment);
+            if($status==='delivered'){
+                app(CodCollectionService::class)->settleForDelivery($shipment);
+                if(!$shipment->proofOfDelivery)throw ValidationException::withMessages(['pod'=>'Submit Proof of Delivery before completing this delivery.']);
+            }
             $shipment->update(['status'=>$status,'picked_up_at'=>$status==='picked_up'?now():$shipment->picked_up_at,'delivered_at'=>$status==='delivered'?now():$shipment->delivered_at]);
             $shipment->events()->create(['actor_id'=>$actor->id,'status'=>$status,'note'=>$note]);
             $shipment->sellerOrder->histories()->create(['order_id'=>$shipment->order_id,'changed_by'=>$actor->id,'status'=>$status,'note'=>$note]);

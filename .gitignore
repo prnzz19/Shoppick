@@ -24,3 +24,12 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Local credentials and deployment secrets
+.env.*
+!.env.example
+/.cloudflared/
+/cloudflared/
+*.pem
+*.p12
+*.pfx

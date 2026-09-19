@@ -11,7 +11,7 @@ use App\Http\Controllers\WishlistController;
 use App\Http\Controllers\ProductReportController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'registration.approved'])->group(function () {
     // Cart
     Route::get('cart', [CartController::class, 'index'])->name('cart.index');
     Route::post('cart/add', [CartController::class, 'add'])->name('cart.add');
@@ -34,7 +34,6 @@ Route::middleware(['auth'])->group(function () {
     // Orders
     Route::get('orders', [OrderController::class, 'index'])->name('orders.index');
     Route::get('orders/{orderNumber}', [OrderController::class, 'show'])->name('orders.show');
-    Route::get('orders/{orderNumber}/shipments/{shipment}/tracking', [OrderController::class, 'tracking'])->name('orders.tracking');
     Route::post('orders/{orderNumber}/cancel', [OrderController::class, 'cancel'])->name('orders.cancel');
     Route::post('orders/{orderNumber}/confirm', [OrderController::class, 'confirmReceived'])->name('orders.confirm');
     Route::post('orders/{orderNumber}/items/{item}/buy-again', [OrderController::class, 'buyAgain'])->name('orders.buy-again');

@@ -9,8 +9,8 @@
             <h1 class="text-xl font-bold text-navy-800">Order {{ $order->order_number }}</h1>
             <p class="text-sm text-slate-500">Placed on {{ $order->created_at->format('F d, Y h:i A') }}</p>
         </div>
-        @php $badge = ['pending' => ['bg-sun-100','text-sun-500'], 'confirmed'=>['bg-brand-100','text-brand-700'],'processing'=>['bg-brand-100','text-brand-700'],'packed'=>['bg-brand-100','text-brand-700'],'shipped'=>['bg-brand-100','text-brand-700'],'delivered'=>['bg-brand-100','text-brand-700'],'completed'=>['bg-leaf-100','text-leaf-500'],'cancelled'=>['bg-rose-100','text-rose-600'],'refunded'=>['bg-rose-100','text-rose-600']]; @endphp
-        <span class="badge {{ ($badge[$order->status] ?? ['bg-slate-100','text-slate-500'])[0] }} {{ ($badge[$order->status] ?? ['bg-slate-100','text-slate-500'])[1] }}">{{ ucfirst($order->status) }}</span>
+        @php $badge = ['pending' => ['bg-sun-100','text-sun-500'], 'confirmed'=>['bg-brand-100','text-brand-700'],'processing'=>['bg-brand-100','text-brand-700'],'packed'=>['bg-brand-100','text-brand-700'],'ready_to_ship'=>['bg-brand-100','text-brand-700'],'shipped'=>['bg-brand-100','text-brand-700'],'delivered'=>['bg-brand-100','text-brand-700'],'completed'=>['bg-leaf-100','text-leaf-500'],'cancelled'=>['bg-rose-100','text-rose-600'],'refunded'=>['bg-rose-100','text-rose-600']]; @endphp
+        <span class="badge {{ ($badge[$tracker['status']] ?? ['bg-slate-100','text-slate-500'])[0] }} {{ ($badge[$tracker['status']] ?? ['bg-slate-100','text-slate-500'])[1] }}">{{ str($tracker['status'])->replace('_',' ')->title() }}</span>
     </div>
 
     {{-- Timeline --}}
@@ -29,7 +29,7 @@
                         <span class="flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold {{ $done ? 'bg-brand-500 text-white' : ($current ? 'bg-brand-100 text-brand-700 ring-2 ring-brand-500' : 'bg-slate-100 text-slate-400') }}" @if($current) aria-current="step" @endif>
                             @if($done)<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>@else{{ $i + 1 }}@endif
                         </span>
-                        <span class="mt-1 text-[11px] text-slate-500">{{ ucfirst($step) }}</span>
+                        <span class="mt-1 text-center text-[11px] text-slate-500">{{ str($step)->replace('_',' ')->title() }}</span>
                     </div>
                     @if(!$isLast)<div class="mx-2 h-0.5 flex-1 rounded {{ $i < $idx ? 'bg-brand-400' : 'bg-slate-200' }}"></div>@endif
                 </li>
@@ -53,7 +53,7 @@
     @endif
 
     @if($order->shipments->isNotEmpty())
-    <div class="card mb-6 p-5"><h2 class="font-bold text-navy-800">Delivery Tracking</h2>@foreach($order->shipments as $shipment)<div class="mt-3 border-t pt-3 text-sm"><div class="flex justify-between"><b>{{ $shipment->shipment_number }} · {{ $shipment->store?->name }}</b><x-admin.status-badge :status="$shipment->status"/></div><p class="mt-1 text-slate-500">Rider: {{ $shipment->rider?->name??'Not assigned yet' }} · Vehicle: {{ $shipment->vehicle?->code??'Not assigned' }}</p><div class="mt-2 flex flex-wrap gap-2">@foreach($shipment->events->sortBy('created_at') as $event)<span class="badge bg-brand-50 text-brand-700">{{ ucwords(str_replace('_',' ',$event->status)) }}</span>@endforeach</div><p class="mt-2 text-xs text-slate-400">POD: {{ ucfirst($shipment->proofOfDelivery?->status??'not submitted') }} · Updated {{ $shipment->updated_at->diffForHumans() }}</p><p class="mt-2 text-xs font-semibold text-brand-700" data-buyer-tracking="{{ route('orders.tracking',[$order->order_number,$shipment]) }}">Checking live delivery location…</p></div>@endforeach</div>
+    <div class="card mb-6 p-5"><h2 class="font-bold text-navy-800">Delivery Tracking</h2><p class="mt-1 text-sm text-slate-500">Status updates are shown without exposing a Rider's physical location.</p>@foreach($order->shipments as $shipment)<div class="mt-3 border-t pt-3 text-sm"><div class="flex justify-between"><b>{{ $shipment->shipment_number }} · {{ $shipment->store?->name }}</b><x-admin.status-badge :status="$shipment->status"/></div><p class="mt-1 text-slate-500">Delivery partner assigned: {{ $shipment->rider?'Yes':'Not yet' }} · Vehicle: {{ $shipment->vehicle?->code??'Not assigned' }}</p><div class="mt-3 space-y-2">@foreach($shipment->events->sortBy('created_at') as $event)<div class="flex items-start justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2"><div><b>{{ ucwords(str_replace('_',' ',$event->status)) }}</b>@if($event->note)<p class="text-xs text-slate-500">{{ $event->note }}</p>@endif</div><time class="whitespace-nowrap text-xs text-slate-400">{{ $event->created_at->format('M d · g:i A') }}</time></div>@endforeach</div><p class="mt-2 text-xs text-slate-400">POD: {{ ucfirst($shipment->proofOfDelivery?->status??'not submitted') }} · Latest update {{ $shipment->events->sortByDesc('created_at')->first()?->created_at?->diffForHumans()??$shipment->updated_at->diffForHumans() }}</p></div>@endforeach</div>
     @endif
 
     {{-- Status actions --}}
@@ -115,7 +115,8 @@
         <h3 class="mb-3 text-sm font-bold uppercase tracking-wide text-navy-800">Order Summary</h3>
         <div class="space-y-2 text-sm">
             <div class="flex justify-between"><span class="text-slate-500">Subtotal</span><span>₱{{ number_format($order->subtotal, 2) }}</span></div>
-            @if($order->voucher_discount > 0)<div class="flex justify-between"><span class="text-slate-500">Voucher ({{ $order->voucher?->code }})</span><span class="text-leaf-500">−₱{{ number_format($order->voucher_discount, 2) }}</span></div>@endif
+            @if($order->voucher_discount > 0)<div class="flex justify-between"><span class="text-slate-500">Voucher Discount @if($order->voucherUsages->where('discount_amount','>',0)->isNotEmpty())({{ $order->voucherUsages->where('discount_amount','>',0)->pluck('voucher_code')->join(', ') }})@endif</span><span class="text-leaf-500">−₱{{ number_format($order->voucher_discount, 2) }}</span></div>@endif
+            @if($order->shipping_discount > 0)<div class="flex justify-between"><span class="text-slate-500">Shipping Discount</span><span class="text-leaf-500">−₱{{ number_format($order->shipping_discount, 2) }}</span></div>@endif
             <div class="flex justify-between"><span class="text-slate-500">Shipping</span><span>{{ $order->shipping_fee > 0 ? '₱'.number_format($order->shipping_fee, 2) : 'Free' }}</span></div>
             <div class="flex justify-between border-t border-slate-100 pt-2 text-base font-bold"><span>Total</span><span>₱{{ number_format($order->total, 2) }}</span></div>
             <div class="flex justify-between"><span class="text-slate-500">Payment Method</span><span>{{ $order->paymentMethodLabel() }}</span></div>
@@ -135,21 +136,3 @@
     @endif
 </div>
 @endsection
-
-@push('scripts')
-<script>
-document.querySelectorAll('[data-buyer-tracking]').forEach((status) => {
-    const refresh = async () => {
-        try {
-            const response = await fetch(status.dataset.buyerTracking, {headers:{Accept:'application/json'}, credentials:'same-origin'});
-            if (!response.ok) throw new Error();
-            const data = await response.json();
-            status.textContent = data.location
-                ? (data.location.source === 'simulation' ? 'GPS Simulation — Development Only' : `${data.live ? 'Live Rider location' : 'Last Rider location'} · Updated ${new Date(data.location.recorded_at).toLocaleString()}`)
-                : 'Live location is not available yet.';
-        } catch (_) { status.textContent = 'Live location is currently unavailable.'; }
-    };
-    refresh(); setInterval(refresh, 30000);
-});
-</script>
-@endpush

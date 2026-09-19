@@ -1,0 +1,20 @@
+# Lifestyle hero asset
+
+Asset: public/images/landing/shoppick-lifestyle-shopper.png
+Source: original image generated with the built-in image generation tool for SHOPPICK. Not a real customer testimonial or a reference-site photo.
+
+Generation prompt: Create an original photorealistic-natural lifestyle photograph for the RIGHT HALF of SHOPPICK online marketplace homepage. Portrait 4:5 composition. Friendly adult Southeast Asian woman about 28 in casual cream cotton blouse and relaxed blue jeans, standing naturally, smiling softly toward camera, carrying one plain teal (#14b8a6) paper shopping bag and one small kraft cardboard parcel, smartphone held naturally. Three-quarter length from head to mid thighs, ample margin above head. Bright modern warm-white studio with very pale mint background and subtle soft daylight shadows. Authentic approachable everyday shopper, realistic anatomy and hands, restrained editorial ecommerce photography. Person fills frame prominently. No words, logos, watermark, UI, product cards, reference-brand clothing, sneakers focus, or exaggerated fashion pose. This is a standalone website photo asset, not a website screenshot.
+
+Hero-only changes: large local photo, 50/50 desktop composition, image below controls on mobile, no text over the model. Existing shared logo, palette, routes and backend remain unchanged. Tested widths 1440, 1280, 1024, 768, 430, 390, 375: HTTP 200, photo decoded, no horizontal overflow. Shop/login/register returned 200; category anchor resolved.
+
+## Lifestyle carousel
+
+Hero-only frontend carousel with three exact requested taglines: Find What Fits Your Life.; Better Picks for Everyday Life.; Little Finds. Better Days. The shared Shop Now and Browse Categories controls remain stable, as does search. Random initial slide per page load; 6-second autoplay; previous/next, indicators and pause/play; pauses on mouse hover, focus within hero and hidden tab. Reduced motion disables autoplay and fades, retaining manual navigation. No database or route changes.
+
+Assets: public/images/landing/lifestyle-slide-1.jpg (197654 bytes), lifestyle-slide-2.jpg (217831), lifestyle-slide-3.jpg (229610). First image reuses the original generated shopper; two new original images generated with built-in imagegen. All stored locally, compressed as JPEG. Other photos preload after initial page load. Images depict fictional lifestyle models, not customer testimonials or actual product endorsements.
+
+Slide 2 generation prompt: Original photorealistic lifestyle ecommerce hero asset, portrait 4:5. Friendly Southeast Asian adult man age 32 with short hair and casual pale teal overshirt, seated naturally at a bright home table, looking at smartphone, with plain stainless tumbler and headphones on table. Everyday online shopping, warm approachable smile. Light mint and warm white room, restrained orange accent notebook, natural daylight, ample headroom, three-quarter body. No text logos watermarks or UI. Not fashion advertising. Distinct original person, clean professional photography.
+
+Slide 3 generation prompt: Original photorealistic lifestyle ecommerce hero asset portrait 4:5. Friendly Southeast Asian woman around 55 with short dark bob, casual soft apricot cardigan over white blouse, standing in bright welcoming home entryway holding a small plain kraft delivery parcel in both hands at waist, relaxed warm smile toward camera. Pale mint wall, soft white curtains and subtle greenery, natural daylight. Three-quarter body, generous margin above head, person prominent. Everyday marketplace convenience, not fashion advertising. Different original model. No text, logo, watermark or UI. Professional realistic photography, anatomically correct hands.
+
+Browser checks: all three slide headlines and images, previous/next/indicators, six-second autoplay, reduced-motion stability, and seven widths 375-1440 without overflow. No JavaScript page errors. Shared Shop Now still targets /shop. Changed landing.blade.php, landing.css; added hero-carousel.js and three JPEG assets; updated this provenance document.

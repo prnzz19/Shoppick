@@ -72,6 +72,19 @@ class CategoryManagementTest extends TestCase
             ->assertDontSee('Temporary');
     }
 
+    public function test_inactive_development_category_is_absent_from_every_storefront_category_surface(): void
+    {
+        $legitimate=Category::create(['name'=>'Electronics','slug'=>'electronics','sort_order'=>1,'is_active'=>true]);
+        $development=Category::create(['name'=>'Logistics Demo','slug'=>'logistics-demo','sort_order'=>2,'is_active'=>false]);
+        $seller=$this->approvedSeller();
+
+        $this->get(route('home'))->assertOk()->assertSee($legitimate->name)->assertDontSee($development->name);
+        $this->get(route('products.index'))->assertOk()->assertSee($legitimate->name)->assertDontSee($development->name);
+        $this->get(route('products.index',['category'=>$development->id]))->assertNotFound();
+        $this->get(route('products.category',$development))->assertNotFound();
+        $this->actingAs($seller)->get(route('seller.products.create'))->assertOk()->assertSee($legitimate->name)->assertDontSee($development->name);
+    }
+
     public function test_updating_an_image_keeps_the_category_id_and_removes_the_old_file(): void
     {
         Storage::fake('public');
@@ -96,14 +109,12 @@ class CategoryManagementTest extends TestCase
         $this->assertDatabaseCount('categories', 1);
     }
 
-    public function test_super_admin_has_its_own_category_management_url(): void
+    public function test_legacy_category_url_redirects_admin_to_current_url(): void
     {
-        $superAdmin = User::factory()->create(['is_active' => true]);
-        $superAdmin->assignRole('super_admin');
+        $admin = $this->adminWithCategoryPermission();
 
-        $this->actingAs($superAdmin)->get(route('superadmin.categories.index'))
-            ->assertOk()
-            ->assertSee('Categories');
+        $this->actingAs($admin)->get('/superadmin/categories')
+            ->assertRedirect('/admin/categories');
     }
 
     public function test_admin_without_category_permission_cannot_mutate_categories(): void

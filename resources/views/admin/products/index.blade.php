@@ -65,7 +65,7 @@
                             @if($group->stats->out_of_stock_count)<span class="badge bg-rose-100 text-rose-600">Out of Stock: {{ $group->stats->out_of_stock_count }}</span>@endif
                         </div>
                     @endif
-                    @if($group->store && (auth()->user()->isSuperAdmin() || auth()->user()->hasPermissionTo('view_shops')))
+                    @if($group->store && (auth()->user()->hasPermissionTo('view_shops')))
                         <a href="{{ route('admin.shops.show', $group->store) }}" class="btn-outline btn-sm">View Shop</a>
                     @endif
                 </div>

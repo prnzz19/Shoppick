@@ -20,13 +20,14 @@ class SellerOrder extends Model
         'cancelled' => ['cancelled'],
     ];
     protected $fillable = ['order_id', 'store_id', 'seller_order_number', 'status', 'subtotal', 'shipping_fee',
-        'discount', 'commission_rate', 'commission_amount', 'seller_total', 'completed_at', 'cancelled_at', 'cancellation_reason'];
+        'discount', 'voucher_discount', 'shipping_discount', 'platform_shipping_discount', 'commission_rate', 'commission_amount', 'seller_total', 'completed_at', 'cancelled_at', 'cancellation_reason'];
     protected $casts = ['completed_at' => 'datetime', 'cancelled_at' => 'datetime'];
     public function order() { return $this->belongsTo(Order::class); }
     public function store() { return $this->belongsTo(Store::class); }
     public function items() { return $this->hasMany(OrderItem::class); }
     public function histories() { return $this->hasMany(OrderStatusHistory::class); }
     public function shipment() { return $this->hasOne(Shipment::class); }
+    public function voucherUsages() { return $this->hasMany(VoucherUsage::class); }
 
     public function nextSellerStatus(): ?string
     {

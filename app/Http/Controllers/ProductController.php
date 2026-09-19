@@ -34,7 +34,7 @@ class ProductController extends Controller
         }
 
         if ($request->filled('category')) {
-            $cat = Category::find($request->input('category'));
+            $cat = Category::active()->findOrFail($request->input('category'));
             $ids = $cat ? array_merge([$cat->id], $cat->children()->pluck('id')->all()) : [];
             $filters['category_ids'] = $ids;
         }

@@ -38,6 +38,7 @@ Route::prefix('seller')->name('seller.')->middleware(['auth', 'role:seller'])->g
     Route::get('sales', [CenterController::class, 'sales'])->name('sales.index');
     Route::get('marketing', [MarketingController::class, 'index'])->name('marketing.index');
     Route::post('marketing/vouchers', [MarketingController::class, 'store'])->name('marketing.vouchers.store');
+    Route::put('marketing/vouchers/{voucher}', [MarketingController::class, 'update'])->name('marketing.vouchers.update');
     Route::post('marketing/vouchers/{voucher}/toggle', [MarketingController::class, 'toggle'])->name('marketing.vouchers.toggle');
     Route::get('notifications', [SellerNotificationController::class, 'index'])->name('notifications.index');
     Route::post('notifications/read-all', [SellerNotificationController::class, 'readAll'])->name('notifications.read-all');

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\BirthdayAge;
 use App\Traits\HasRoles;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -20,9 +21,12 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'first_name', 'middle_initial', 'last_name', 'sex', 'birthday',
         'email',
         'phone',
         'avatar',
+        'valid_id_path', 'registration_type', 'registration_status', 'registration_review_notes',
+        'registration_reviewed_by', 'registration_reviewed_at',
         'password',
         'is_active',
         'email_verified_at',
@@ -36,6 +40,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'valid_id_path',
     ];
 
     /**
@@ -49,6 +54,8 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'birthday' => 'date',
+            'registration_reviewed_at' => 'datetime',
         ];
     }
 
@@ -91,6 +98,7 @@ class User extends Authenticatable
     public function sellerProfile() { return $this->hasOne(SellerProfile::class); }
     public function store() { return $this->hasOne(Store::class); }
     public function riderProfile() { return $this->hasOne(RiderProfile::class); }
+    public function riderMessages() { return $this->hasMany(RiderMessage::class, 'rider_id'); }
     public function assignedShipments() { return $this->hasMany(Shipment::class, 'rider_id'); }
     public function reportedCases() { return $this->hasMany(Report::class, 'reporter_id'); }
     public function violations() { return $this->hasMany(Violation::class, 'seller_id'); }
@@ -110,20 +118,22 @@ class User extends Authenticatable
         return $this->addresses()->where('is_default', true)->first() ?? $this->addresses()->first();
     }
 
-    public function isSuperAdmin(): bool
-    {
-        return $this->hasRole('super_admin');
-    }
-
     public function isAdmin(): bool
     {
-        return $this->hasAnyRole(['super_admin', 'admin']);
+        return $this->hasRole('admin');
     }
 
     public function isBuyer(): bool
     {
         return $this->hasRole('buyer');
     }
+
+    public function getAgeAttribute(): ?int
+    {
+        return BirthdayAge::calculate($this->birthday);
+    }
+
+    public function registrationReviewer() { return $this->belongsTo(User::class, 'registration_reviewed_by'); }
 
     public function getAvatarUrlAttribute()
     {

@@ -1,0 +1,323 @@
+{
+    "backup": "C:\\xampp\\htdocs\\E-commerce\\storage\\app\/private\/mysql-transfer-20260914-065244",
+    "database": "shoppick",
+    "host": "127.0.0.1",
+    "port": 3307,
+    "sqlite_tables": 62,
+    "mysql_tables": 62,
+    "tables": {
+        "addresses": {
+            "sqlite": 5,
+            "mysql": 5,
+            "source_rows_match": true
+        },
+        "admin_activity_logs": {
+            "sqlite": 58,
+            "mysql": 58,
+            "source_rows_match": true
+        },
+        "cache": {
+            "sqlite": 3,
+            "mysql": 3,
+            "source_rows_match": true
+        },
+        "cache_locks": {
+            "sqlite": 0,
+            "mysql": 0,
+            "source_rows_match": true
+        },
+        "cart_items": {
+            "sqlite": 5,
+            "mysql": 5,
+            "source_rows_match": true
+        },
+        "carts": {
+            "sqlite": 7,
+            "mysql": 7,
+            "source_rows_match": true
+        },
+        "categories": {
+            "sqlite": 38,
+            "mysql": 38,
+            "source_rows_match": true
+        },
+        "commission_settings": {
+            "sqlite": 1,
+            "mysql": 1,
+            "source_rows_match": true
+        },
+        "delivery_area_rider": {
+            "sqlite": 3,
+            "mysql": 3,
+            "source_rows_match": true
+        },
+        "delivery_areas": {
+            "sqlite": 3,
+            "mysql": 3,
+            "source_rows_match": true
+        },
+        "failed_jobs": {
+            "sqlite": 0,
+            "mysql": 0,
+            "source_rows_match": true
+        },
+        "hub_movements": {
+            "sqlite": 2,
+            "mysql": 2,
+            "source_rows_match": true
+        },
+        "job_batches": {
+            "sqlite": 0,
+            "mysql": 0,
+            "source_rows_match": true
+        },
+        "jobs": {
+            "sqlite": 0,
+            "mysql": 0,
+            "source_rows_match": true
+        },
+        "logistics_hubs": {
+            "sqlite": 3,
+            "mysql": 3,
+            "source_rows_match": true
+        },
+        "logistics_insights": {
+            "sqlite": 12,
+            "mysql": 12,
+            "source_rows_match": true
+        },
+        "logistics_invoices": {
+            "sqlite": 6,
+            "mysql": 6,
+            "source_rows_match": true
+        },
+        "logistics_settings": {
+            "sqlite": 10,
+            "mysql": 10,
+            "source_rows_match": true
+        },
+        "migrations": {
+            "sqlite": 36,
+            "mysql": 37,
+            "source_rows_match": true
+        },
+        "moderation_scans": {
+            "sqlite": 66,
+            "mysql": 66,
+            "source_rows_match": true
+        },
+        "notifications_custom": {
+            "sqlite": 50,
+            "mysql": 50,
+            "source_rows_match": true
+        },
+        "order_items": {
+            "sqlite": 32,
+            "mysql": 32,
+            "source_rows_match": true
+        },
+        "order_status_history": {
+            "sqlite": 11,
+            "mysql": 11,
+            "source_rows_match": true
+        },
+        "orders": {
+            "sqlite": 23,
+            "mysql": 23,
+            "source_rows_match": true
+        },
+        "password_reset_tokens": {
+            "sqlite": 0,
+            "mysql": 0,
+            "source_rows_match": true
+        },
+        "payments": {
+            "sqlite": 23,
+            "mysql": 23,
+            "source_rows_match": true
+        },
+        "permission_role": {
+            "sqlite": 46,
+            "mysql": 46,
+            "source_rows_match": true
+        },
+        "permissions": {
+            "sqlite": 34,
+            "mysql": 34,
+            "source_rows_match": true
+        },
+        "product_images": {
+            "sqlite": 66,
+            "mysql": 66,
+            "source_rows_match": true
+        },
+        "product_variants": {
+            "sqlite": 33,
+            "mysql": 33,
+            "source_rows_match": true
+        },
+        "product_voucher": {
+            "sqlite": 0,
+            "mysql": 0,
+            "source_rows_match": true
+        },
+        "products": {
+            "sqlite": 27,
+            "mysql": 27,
+            "source_rows_match": true
+        },
+        "proof_of_deliveries": {
+            "sqlite": 3,
+            "mysql": 3,
+            "source_rows_match": true
+        },
+        "report_actions": {
+            "sqlite": 0,
+            "mysql": 0,
+            "source_rows_match": true
+        },
+        "report_evidence": {
+            "sqlite": 0,
+            "mysql": 0,
+            "source_rows_match": true
+        },
+        "report_notes": {
+            "sqlite": 0,
+            "mysql": 0,
+            "source_rows_match": true
+        },
+        "reports": {
+            "sqlite": 0,
+            "mysql": 0,
+            "source_rows_match": true
+        },
+        "review_replies": {
+            "sqlite": 0,
+            "mysql": 0,
+            "source_rows_match": true
+        },
+        "reviews": {
+            "sqlite": 0,
+            "mysql": 0,
+            "source_rows_match": true
+        },
+        "rider_license_audits": {
+            "sqlite": 0,
+            "mysql": 0,
+            "source_rows_match": true
+        },
+        "rider_messages": {
+            "sqlite": 0,
+            "mysql": 0,
+            "source_rows_match": true
+        },
+        "rider_profiles": {
+            "sqlite": 3,
+            "mysql": 3,
+            "source_rows_match": true
+        },
+        "role_user": {
+            "sqlite": 28,
+            "mysql": 28,
+            "source_rows_match": true
+        },
+        "roles": {
+            "sqlite": 5,
+            "mysql": 5,
+            "source_rows_match": true
+        },
+        "seller_applications": {
+            "sqlite": 2,
+            "mysql": 2,
+            "source_rows_match": true
+        },
+        "seller_orders": {
+            "sqlite": 17,
+            "mysql": 17,
+            "source_rows_match": true
+        },
+        "seller_profiles": {
+            "sqlite": 9,
+            "mysql": 9,
+            "source_rows_match": true
+        },
+        "sessions": {
+            "sqlite": 5,
+            "mysql": 5,
+            "source_rows_match": true
+        },
+        "shipment_assignments": {
+            "sqlite": 7,
+            "mysql": 7,
+            "source_rows_match": true
+        },
+        "shipment_events": {
+            "sqlite": 72,
+            "mysql": 72,
+            "source_rows_match": true
+        },
+        "shipment_tracking_points": {
+            "sqlite": 0,
+            "mysql": 0,
+            "source_rows_match": true
+        },
+        "shipments": {
+            "sqlite": 16,
+            "mysql": 16,
+            "source_rows_match": true
+        },
+        "social_accounts": {
+            "sqlite": 0,
+            "mysql": 0,
+            "source_rows_match": true
+        },
+        "store_settings": {
+            "sqlite": 1,
+            "mysql": 1,
+            "source_rows_match": true
+        },
+        "stores": {
+            "sqlite": 9,
+            "mysql": 9,
+            "source_rows_match": true
+        },
+        "users": {
+            "sqlite": 27,
+            "mysql": 27,
+            "source_rows_match": true
+        },
+        "vehicles": {
+            "sqlite": 3,
+            "mysql": 3,
+            "source_rows_match": true
+        },
+        "violations": {
+            "sqlite": 0,
+            "mysql": 0,
+            "source_rows_match": true
+        },
+        "voucher_usages": {
+            "sqlite": 0,
+            "mysql": 0,
+            "source_rows_match": true
+        },
+        "vouchers": {
+            "sqlite": 6,
+            "mysql": 6,
+            "source_rows_match": true
+        },
+        "wishlist_items": {
+            "sqlite": 3,
+            "mysql": 3,
+            "source_rows_match": true
+        },
+        "wishlists": {
+            "sqlite": 3,
+            "mysql": 3,
+            "source_rows_match": true
+        }
+    },
+    "foreign_keys_checked": 118,
+    "foreign_key_violations": 0,
+    "verified": true
+}

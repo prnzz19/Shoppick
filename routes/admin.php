@@ -11,14 +11,18 @@ use App\Http\Controllers\Admin\SellerApplicationController;
 use App\Http\Controllers\Admin\ReportManagementController;
 use App\Http\Controllers\Admin\ModerationController;
 use App\Http\Controllers\Admin\ShopController;
+use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\RoleController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin,super_admin'])->group(function () {
-    Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
-    Route::get('dashboard', [AdminDashboardController::class, 'index']);
+Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->group(function () {
+    Route::get('/', fn () => redirect()->route('admin.dashboard'))->name('root');
+    Route::get('dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
     Route::get('sellers/applications', [SellerApplicationController::class, 'index'])->name('sellers.applications.index')->middleware('permission:manage_sellers');
     Route::post('sellers/applications/{application}', [SellerApplicationController::class, 'review'])->name('sellers.applications.review')->middleware('permission:manage_sellers');
-    Route::post('sellers/applications/{application}/escalate', [SellerApplicationController::class, 'escalate'])->name('sellers.applications.escalate')->middleware('permission:review_shops');
+    Route::post('registrations/buyers/{user}', [SellerApplicationController::class, 'reviewBuyer'])->name('registrations.buyers.review')->middleware('permission:manage_sellers');
+    Route::get('registrations/buyers/{user}/valid-id', [SellerApplicationController::class, 'buyerDocument'])->name('registrations.buyers.document')->middleware('permission:manage_sellers');
+    Route::get('registrations/sellers/{application}/{document}', [SellerApplicationController::class, 'sellerDocument'])->name('registrations.sellers.document')->middleware('permission:manage_sellers');
 
     Route::middleware('permission:view_shops')->group(function () {
         Route::get('shops', [ShopController::class, 'index'])->name('shops.index');
@@ -26,7 +30,6 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin,super_ad
     });
     Route::post('shops/{shop}/status', [ShopController::class, 'status'])->name('shops.status');
     Route::post('shops/{shop}/notes', [ShopController::class, 'note'])->name('shops.notes')->middleware('permission:add_shop_notes');
-    Route::post('shops/{shop}/escalate', [ShopController::class, 'escalate'])->name('shops.escalate')->middleware('permission:review_shops');
 
     // Products
     Route::get('products', [AdminProductController::class, 'index'])->name('products.index')
@@ -62,14 +65,16 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin,super_ad
     Route::post('orders/{order}/status', [AdminOrderController::class, 'updateStatus'])->name('orders.status');
 
     // Promotions
-    Route::get('promotions', [AdminPromotionController::class, 'index'])->name('promotions.index')
-        ->middleware('permission:manage_promotions');
-    Route::get('promotions/create', [AdminPromotionController::class, 'create'])->name('promotions.create');
-    Route::post('promotions', [AdminPromotionController::class, 'store'])->name('promotions.store');
-    Route::get('promotions/{voucher}/edit', [AdminPromotionController::class, 'edit'])->name('promotions.edit');
-    Route::put('promotions/{voucher}', [AdminPromotionController::class, 'update'])->name('promotions.update');
-    Route::delete('promotions/{voucher}', [AdminPromotionController::class, 'destroy'])->name('promotions.destroy');
-    Route::post('promotions/{voucher}/toggle', [AdminPromotionController::class, 'toggleStatus'])->name('promotions.toggle');
+    Route::middleware('permission:manage_promotions')->group(function () {
+        Route::get('promotions', [AdminPromotionController::class, 'index'])->name('promotions.index');
+        Route::get('promotions/create', [AdminPromotionController::class, 'create'])->name('promotions.create');
+        Route::post('promotions', [AdminPromotionController::class, 'store'])->name('promotions.store');
+        Route::get('promotions/{voucher}/edit', [AdminPromotionController::class, 'edit'])->name('promotions.edit');
+        Route::get('promotions/{voucher}', [AdminPromotionController::class, 'show'])->name('promotions.show');
+        Route::put('promotions/{voucher}', [AdminPromotionController::class, 'update'])->name('promotions.update');
+        Route::delete('promotions/{voucher}', [AdminPromotionController::class, 'destroy'])->name('promotions.destroy');
+        Route::post('promotions/{voucher}/toggle', [AdminPromotionController::class, 'toggleStatus'])->name('promotions.toggle');
+    });
 
     // Reports
     Route::get('analytics', [AdminReportController::class, 'index'])->name('analytics.index')
@@ -80,4 +85,26 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin,super_ad
     Route::get('moderation', [ModerationController::class, 'index'])->name('moderation.index')->middleware('permission:moderate_products');
     Route::get('moderation/{scan}', [ModerationController::class, 'show'])->name('moderation.show')->middleware('permission:moderate_products');
     Route::post('moderation/{scan}/review', [ModerationController::class, 'review'])->name('moderation.review')->middleware('permission:moderate_products');
+    Route::post('moderation/{scan}/retry', [ModerationController::class, 'retry'])->name('moderation.retry')->middleware('permission:moderate_products');
+    Route::post('reports/{report}/enforce', [ReportManagementController::class, 'enforce'])->name('reports.enforce')->middleware('permission:manage_reports');
+
+    Route::middleware('permission:manage_users')->group(function () {
+        Route::get('users', [UserController::class, 'index'])->name('users.index');
+        Route::get('users/create', [UserController::class, 'create'])->name('users.create');
+        Route::post('users', [UserController::class, 'store'])->name('users.store');
+        Route::get('users/{user}', [UserController::class, 'show'])->name('users.show');
+        Route::get('users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
+        Route::put('users/{user}', [UserController::class, 'update'])->name('users.update');
+        Route::delete('users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+        Route::post('users/{user}/toggle', [UserController::class, 'toggleActive'])->name('users.toggle');
+        Route::get('users/{user}/reset-password', [UserController::class, 'resetPasswordForm'])->name('users.reset-password');
+        Route::post('users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password.store');
+        Route::get('admins', [UserController::class, 'admins'])->name('admins.index');
+    });
+
+    Route::middleware('permission:manage_roles')->group(function () {
+        Route::get('roles', [RoleController::class, 'index'])->name('roles.index');
+        Route::get('roles/{role}/edit', [RoleController::class, 'edit'])->name('roles.edit');
+        Route::put('roles/{role}', [RoleController::class, 'update'])->name('roles.update');
+    });
 });

@@ -16,10 +16,6 @@ class EnsurePermission
             return redirect()->route('login');
         }
 
-        if ($user->hasRole('super_admin')) {
-            return $next($request);
-        }
-
         foreach ($permissions as $permission) {
             if ($user->hasPermissionTo($permission)) {
                 return $next($request);

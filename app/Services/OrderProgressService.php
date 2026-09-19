@@ -8,10 +8,10 @@ use App\Models\Shipment;
 
 class OrderProgressService
 {
-    public const BUYER_STEPS = ['pending', 'confirmed', 'processing', 'packed', 'shipped', 'delivered', 'completed'];
+    public const BUYER_STEPS = ['pending', 'confirmed', 'processing', 'packed', 'ready_to_ship', 'shipped', 'delivered', 'completed'];
 
     public const SHIPPED_SHIPMENT_STATUSES = [
-        'picked_up', 'at_hub', 'hub_transfer', 'in_transit', 'out_for_delivery', 'delivery_attempted',
+        'picked_up', 'at_sorting_center', 'sorted', 'assigned_to_rider', 'at_hub', 'hub_transfer', 'in_transit', 'out_for_delivery', 'delivery_attempted', 'delivery_failed',
     ];
 
     public const BUYER_TABS = ['all','to_pay','to_ship','to_receive','completed','cancelled','history'];
@@ -49,7 +49,6 @@ class OrderProgressService
         }
 
         return match ($sellerOrder->status) {
-            'ready_to_ship' => 'packed',
             'cancelled' => 'cancelled',
             default => in_array($sellerOrder->status, self::BUYER_STEPS, true)
                 ? $sellerOrder->status

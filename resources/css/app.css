@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './logistics.css';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
@@ -43,6 +44,15 @@
     --color-navy-800: #182245;
     --color-navy-900: #101a38;
 }
+
+/* Rider work app */
+.rider-sidebar{position:fixed;inset:0 auto 0 0;z-index:40;display:flex;width:16rem;flex-direction:column;overflow-y:auto;border-right:1px solid #e2e8f0;background:#fff;padding:1.25rem 1rem}
+.rider-nav-link{display:flex;min-height:44px;align-items:center;justify-content:space-between;border-radius:.75rem;padding:.65rem .75rem;font-size:.875rem;font-weight:600;color:#334155}
+.rider-nav-link:hover{background:#f8fafc}.rider-nav-link.active{background:#ecfdf5;color:#0f766e}.rider-nav-link b,.rider-bottom-nav b{border-radius:999px;background:#0d9488;padding:.05rem .4rem;font-size:10px;color:#fff}
+.rider-bottom-nav{display:none}
+@media(max-width:1023px){.rider-sidebar{transform:translateX(-100%);transition:transform .2s}.peer:checked~.rider-sidebar{transform:translateX(0)}.rider-bottom-nav{position:fixed;inset:auto 0 0 0;z-index:30;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid #e2e8f0;background:#fff;padding:.45rem max(.35rem,env(safe-area-inset-right)) calc(.45rem + env(safe-area-inset-bottom)) max(.35rem,env(safe-area-inset-left));box-shadow:0 -6px 20px rgb(15 23 42/.06)}.rider-bottom-nav a{display:flex;min-height:48px;min-width:0;align-items:center;justify-content:center;gap:.2rem;border-radius:.75rem;padding:.25rem;font-size:11px;font-weight:700;color:#64748b}.rider-bottom-nav a.active{background:#f0fdfa;color:#0f766e}}
+.rider-sticky-action{position:sticky;bottom:4.5rem;z-index:15;margin:1.25rem -.5rem 0;border:1px solid #ccfbf1;border-radius:1rem;background:rgb(255 255 255/.96);padding:.75rem;box-shadow:0 12px 30px rgb(15 23 42/.15);backdrop-filter:blur(8px)}
+@media(min-width:1024px){.rider-sticky-action{bottom:1rem}}
 
 @layer base {
     body {

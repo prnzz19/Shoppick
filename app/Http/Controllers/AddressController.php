@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Address;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AddressController extends Controller
 {
@@ -23,27 +24,35 @@ class AddressController extends Controller
         $data = $request->validate([
             'full_name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:20'],
-            'province' => ['required', 'string', 'max:100'],
+            'region' => ['nullable', 'string', 'max:100'],
+            'region_code' => ['nullable', 'string', 'max:20'],
+            'province' => ['required_without:region_code', 'nullable', 'string', 'max:100'],
+            'province_code' => ['nullable', 'string', 'max:20'],
             'city' => ['required', 'string', 'max:100'],
+            'city_code' => ['nullable', 'string', 'max:20'],
             'barangay' => ['required', 'string', 'max:100'],
+            'barangay_code' => ['nullable', 'string', 'max:20'],
             'postal_code' => ['required', 'string', 'max:10'],
             'address_line' => ['required', 'string', 'max:255'],
             'label' => ['nullable', 'string', 'max:50'],
             'is_default' => ['nullable', 'boolean'],
         ]);
 
-        if (! empty($data['is_default'])) {
-            $this->clearDefault();
-        }
+        $data['is_default'] = $request->boolean('is_default');
+        DB::transaction(function () use ($data) {
+            if ($data['is_default']) {
+                $this->clearDefault();
+            }
 
-        $address = auth()->user()->addresses()->create($data);
+            $address = auth()->user()->addresses()->create($data);
 
-        // First address automatically becomes default.
-        if (auth()->user()->addresses()->count() === 1) {
-            $address->update(['is_default' => true]);
-        }
+            // First address automatically becomes default.
+            if (auth()->user()->addresses()->count() === 1) {
+                $address->update(['is_default' => true]);
+            }
+        });
 
-        return back()->with('success', 'Address added.');
+        return back()->with('success', 'Address added successfully.');
     }
 
     public function update(Request $request, Address $address)
@@ -53,22 +62,31 @@ class AddressController extends Controller
         $data = $request->validate([
             'full_name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:20'],
-            'province' => ['required', 'string', 'max:100'],
+            'region' => ['nullable', 'string', 'max:100'],
+            'region_code' => ['nullable', 'string', 'max:20'],
+            'province' => ['required_without:region_code', 'nullable', 'string', 'max:100'],
+            'province_code' => ['nullable', 'string', 'max:20'],
             'city' => ['required', 'string', 'max:100'],
+            'city_code' => ['nullable', 'string', 'max:20'],
             'barangay' => ['required', 'string', 'max:100'],
+            'barangay_code' => ['nullable', 'string', 'max:20'],
             'postal_code' => ['required', 'string', 'max:10'],
             'address_line' => ['required', 'string', 'max:255'],
             'label' => ['nullable', 'string', 'max:50'],
             'is_default' => ['nullable', 'boolean'],
         ]);
 
-        if (! empty($data['is_default'])) {
-            $this->clearDefault();
-        }
+        $data['is_default'] = $request->boolean('is_default');
+        DB::transaction(function () use ($address, $data) {
+            if ($data['is_default']) {
+                $this->clearDefault();
+                $address->refresh();
+            }
 
-        $address->update($data);
+            $address->update($data);
+        });
 
-        return back()->with('success', 'Address updated.');
+        return back()->with('success', 'Address updated successfully.');
     }
 
     public function destroy(Address $address)
@@ -82,8 +100,10 @@ class AddressController extends Controller
     public function setDefault(Address $address)
     {
         $this->authorizeAddress($address);
-        $this->clearDefault();
-        $address->update(['is_default' => true]);
+        DB::transaction(function () use ($address) {
+            $this->clearDefault();
+            $address->refresh()->update(['is_default' => true]);
+        });
 
         return back()->with('success', 'Default address updated.');
     }

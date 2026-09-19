@@ -1,6 +1,6 @@
 # SHOPPICK Marketplace
 
-SHOPPICK is a Laravel multi-vendor marketplace connecting Buyers, Sellers, Admins, Super Admins, Logistics managers, and Riders. It includes seller-created products, cart and checkout, COD collection, multi-seller fulfillment, order tracking, moderation, shop management, and logistics operations.
+SHOPPICK is a Laravel multi-vendor marketplace connecting Buyers, Sellers, the sole system Admin, Logistics managers, and Riders. It includes seller-created products, cart and checkout, COD collection, multi-seller fulfillment, order tracking, moderation, shop management, and logistics operations.
 
 ## Requirements
 
@@ -47,6 +47,8 @@ php artisan test
 Development users and RBAC permissions are created by the project seeders. Review `database/seeders/UserSeeder.php` for the current local-only accounts and change credentials outside local development.
 
 The Logistics demo is explicitly development data. It uses the same Order, SellerOrder, Shipment, notification, tracking, and dispatch architecture as normal seller-created products.
+
+Fresh installations contain exactly the five roles Admin, Seller, Buyer, Logistics, and Rider. Existing installations are upgraded non-destructively by `php artisan migrate`; the former owner keeps the same user ID, credentials, and relationships while duplicate Admin authority is removed and its development identity is safely normalized. Development credentials are defined in the non-production seeders and are intentionally not published in this README or the login interface. Administrators should sign in again after deployment so authorization state is refreshed.
 
 ## Optional integrations
 

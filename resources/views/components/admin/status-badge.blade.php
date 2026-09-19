@@ -18,7 +18,13 @@
         'paid' => ['bg-leaf-100', 'text-leaf-500'],
         'unpaid' => ['bg-sun-100', 'text-sun-500'],
         'cod' => ['bg-brand-100', 'text-brand-700'],
+        'approved' => ['bg-leaf-100', 'text-leaf-600'],
+        'pending_scan' => ['bg-sun-100', 'text-sun-600'],
+        'under_review' => ['bg-sun-100', 'text-sun-600'],
+        'flagged' => ['bg-rose-100', 'text-rose-600'],
+        'rejected' => ['bg-rose-100', 'text-rose-700'],
+        'scan_failed' => ['bg-slate-200', 'text-slate-700'],
     ];
     $classes = $map[$status] ?? ['bg-slate-100', 'text-slate-600'];
 @endphp
-<span class="badge {{ $classes[0] }} {{ $classes[1] }}">{{ ucwords(str_replace('_', ' ', $status)) }}</span>
+<span class="badge {{ $classes[0] }} {{ $classes[1] }}" data-status="{{ $status }}">{{ ucwords(str_replace('_', ' ', $status)) }}</span>

@@ -19,7 +19,6 @@ class AdminShopManagementTest extends TestCase
     use RefreshDatabase;
 
     protected Role $adminRole;
-    protected Role $superRole;
     protected User $seller;
     protected Store $shop;
 
@@ -27,7 +26,6 @@ class AdminShopManagementTest extends TestCase
     {
         parent::setUp();
         $this->adminRole=Role::create(['name'=>'Admin','slug'=>'admin','guard_name'=>'web']);
-        $this->superRole=Role::create(['name'=>'Super Admin','slug'=>'super_admin','guard_name'=>'web']);
         Role::create(['name'=>'Seller','slug'=>'seller','guard_name'=>'web']);
         $this->seller=User::factory()->create(['is_active'=>true]);$this->seller->assignRole('seller');
         $this->shop=Store::create(['user_id'=>$this->seller->id,'name'=>'Panda Picks','slug'=>'panda-picks','status'=>'active']);
@@ -66,16 +64,16 @@ class AdminShopManagementTest extends TestCase
         $this->assertTrue(AdminActivityLog::where('action','shop.suspend')->where('target_id',$this->shop->id)->exists());
     }
 
-    public function test_admin_cannot_bypass_missing_permission_or_super_admin_restriction(): void
+    public function test_admin_cannot_bypass_missing_permission(): void
     {
         $admin=User::factory()->create(['is_active'=>true]);$admin->assignRole('admin');
         $this->adminRole->permissions()->attach([$this->permission('view_shops')->id,$this->permission('reactivate_shops')->id]);
         $this->actingAs($admin)->post(route('admin.shops.status',$this->shop),['action'=>'suspend','reason'=>'No permission'])->assertForbidden();
 
-        $super=User::factory()->create(['is_active'=>true]);$super->assignRole('super_admin');
-        $this->actingAs($super)->post(route('superadmin.shops.status',$this->shop),['action'=>'suspend','reason'=>'Protected platform action'])->assertSessionHasNoErrors();
-        $this->actingAs($admin)->post(route('admin.shops.status',$this->shop->fresh()),['action'=>'reactivate'])->assertForbidden();
-        $this->assertSame('suspended',$this->shop->fresh()->status);
+        $this->adminRole->permissions()->attach($this->permission('suspend_shops'));
+        $this->actingAs($admin)->post(route('admin.shops.status',$this->shop),['action'=>'suspend','reason'=>'Protected platform action'])->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post(route('admin.shops.status',$this->shop->fresh()),['action'=>'reactivate'])->assertSessionHasNoErrors();
+        $this->assertSame('active',$this->shop->fresh()->status);
     }
 
     public function test_admin_approval_immediately_activates_normal_shop(): void
@@ -98,9 +96,7 @@ class AdminShopManagementTest extends TestCase
         $this->assertDatabaseHas('notifications_custom',['user_id'=>$applicant->id,'title'=>'Your seller application has been approved.']);
         $this->assertDatabaseHas('admin_activity_logs',['action'=>'seller_shop.admin_approved','target_id'=>$shop->id]);
 
-        $super=User::factory()->create(['is_active'=>true]);$super->assignRole('super_admin');
-        $this->actingAs($super)->get(route('superadmin.shops.show',$shop))->assertOk()->assertDontSee('Final Approve')->assertDontSee('Final Decline');
-        $this->post(route('superadmin.shops.status',$shop),['action'=>'approve'])->assertSessionHasErrors('action');
+        $this->actingAs($admin)->get('/superadmin/shops/'.$shop->id)->assertRedirect('/admin/shops/'.$shop->id);
     }
 
     public function test_admin_rejection_is_final_for_normal_application(): void
@@ -118,34 +114,24 @@ class AdminShopManagementTest extends TestCase
         $this->actingAs($applicant)->get(route('seller.apply'))->assertOk()->assertSee('Admin found incomplete information.');
     }
 
-    public function test_only_authorized_admin_can_escalate_a_shop_to_super_admin(): void
+    public function test_legacy_escalated_shop_is_decided_by_admin_without_another_escalation(): void
     {
         Role::firstOrCreate(['slug'=>'buyer'],['name'=>'Buyer','guard_name'=>'web']);
         $applicant=User::factory()->create(['is_active'=>true]);$applicant->assignRole('buyer');
         $profile=SellerProfile::create(['user_id'=>$applicant->id,'status'=>'pending']);
         $shop=Store::create(['user_id'=>$applicant->id,'seller_profile_id'=>$profile->id,'name'=>'Review Shop','slug'=>'review-shop','status'=>'pending']);
-        $application=SellerApplication::create(['user_id'=>$applicant->id,'store_name'=>'Review Shop','phone'=>'09171234567','address'=>'Manila','status'=>'pending']);
+        $application=SellerApplication::create(['user_id'=>$applicant->id,'store_name'=>'Review Shop','phone'=>'09171234567','address'=>'Manila','status'=>'escalated','escalation_reason'=>'Legacy review queue']);
         $admin=User::factory()->create(['is_active'=>true]);$admin->assignRole('admin');
         $this->adminRole->permissions()->attach([
             $this->permission('view_shops')->id,
-            $this->permission('review_shops')->id,
+            $this->permission('approve_shops')->id,
             $this->permission('add_shop_notes')->id,
         ]);
 
         $this->actingAs($admin)->get(route('admin.shops.show',$shop))
-            ->assertOk()->assertSee('Private Administrative Note')->assertSee('Escalate to Super Admin');
-        $this->post(route('admin.shops.escalate',$shop),['reason'=>'Suspicious information'])
-            ->assertSessionHasNoErrors()->assertSessionHas('success');
-        $this->assertSame('escalated',$application->fresh()->status);$this->assertSame('pending',$shop->fresh()->status);$this->assertFalse($applicant->fresh()->isSeller());
-        $this->assertSame('Suspicious information',$application->fresh()->escalation_reason);
-        $this->assertDatabaseHas('admin_activity_logs',['action'=>'seller_shop.admin_escalated','target_id'=>$shop->id]);
-
-        $super=User::factory()->create(['is_active'=>true]);$super->assignRole('super_admin');
-        $this->actingAs($super)->get(route('superadmin.shops.index',['status'=>'escalated']))->assertOk()->assertSee('Review Shop')->assertSee('Approve')->assertSee('Reject')->assertDontSee('Final Approve');
-        $this->get(route('superadmin.shops.show',$shop))->assertOk()->assertSee('Suspicious information')->assertDontSee('Escalate to Super Admin');
-        $this->post(route('superadmin.shops.escalate',$shop),['reason'=>'Self escalation'])->assertForbidden();
-        $this->post(route('superadmin.shops.status',$shop),['action'=>'approve'])->assertSessionHasNoErrors();
+            ->assertOk()->assertSee('Private Administrative Note')->assertSee('Admin Review')->assertDontSee('Escalate');
+        $this->post(route('admin.shops.status',$shop),['action'=>'approve'])->assertSessionHasNoErrors();
         $this->assertSame('approved',$application->fresh()->status);$this->assertSame('active',$shop->fresh()->status);$this->assertTrue($applicant->fresh()->isSeller());
-        $this->assertDatabaseHas('admin_activity_logs',['action'=>'seller_shop.escalated_approved','target_id'=>$shop->id]);
+        $this->assertDatabaseHas('admin_activity_logs',['action'=>'seller_shop.admin_approved','target_id'=>$shop->id]);
     }
 }

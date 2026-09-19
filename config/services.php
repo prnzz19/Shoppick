@@ -2,10 +2,17 @@
 
 return [
 
+    'psgc' => [
+        'base_url' => env('PSGC_API_URL', 'https://psgc.cloud/api'),
+        'timeout' => env('PSGC_API_TIMEOUT', 10),
+        'cache_ttl' => env('PSGC_CACHE_TTL', 86400),
+    ],
+
     'image_moderation' => [
         'provider' => env('IMAGE_MODERATION_PROVIDER', 'local'),
         'api_key' => env('IMAGE_MODERATION_API_KEY'),
         'queued' => env('IMAGE_MODERATION_QUEUED', false),
+        'local_enabled' => env('IMAGE_MODERATION_LOCAL_ENABLED', env('APP_ENV', 'production') !== 'production'),
     ],
 
     'google' => [

@@ -95,7 +95,7 @@
                 <div class="card overflow-hidden">
                     <div class="flex items-stretch">
                         <div class="tag-gradient flex flex-col items-center justify-center px-4 text-white">
-                            <span class="text-xl font-extrabold">{{ $voucher->type === 'percent' ? $voucher->value.'%' : '₱'.number_format($voucher->value) }}</span>
+                            <span class="text-xl font-extrabold">{{ $voucher->type === 'free_shipping' ? 'FREE SHIPPING' : ($voucher->type === 'percent' ? $voucher->value.'%' : '₱'.number_format($voucher->value)) }}</span>
                             <span class="text-[10px] uppercase">OFF</span>
                         </div>
                         <div class="flex flex-1 flex-col justify-center p-3">

@@ -1,4 +1,6 @@
 import './bootstrap';
+import './philippine-locations';
+import './birthday-age';
 
 document.addEventListener('DOMContentLoaded', () => {
     setupGlobalState();
@@ -124,7 +126,11 @@ async function api(url, options = {}) {
     }
     const res = await fetch(url, defaults);
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw (data.message || 'Request failed');
+    if (!res.ok) {
+        const error = new Error(data.message || (res.status === 419 ? 'Your page session expired. Refresh the page and try again.' : 'Request failed'));
+        error.status = res.status;
+        throw error;
+    }
     return data;
 }
 
@@ -146,7 +152,7 @@ window.toggleWishlist = async function (event) {
         window.showToast(data.added ? 'Added to your wishlist.' : 'Removed from your wishlist.', data.added ? 'success' : 'info');
     } catch (e) {
         const message = typeof e === 'string' ? e : (e.message || 'Unable to update your wishlist.');
-        if (message === 'Unauthenticated.' || message.includes('Login')) {
+        if (e?.status === 401) {
             window.location.href = '/login';
             return;
         }
@@ -194,7 +200,7 @@ window.quickAdd = async function (event) {
         refreshCartBadge(data.cart_count);
     } catch (e) {
         const message = typeof e === 'string' ? e : (e.message || 'Unable to add this product.');
-        if (message === 'Unauthenticated.') { window.location.href = '/login'; return; }
+        if (e?.status === 401) { window.location.href = '/login'; return; }
         window.showToast(message, 'error');
     } finally {
         if (button) button.disabled = false;

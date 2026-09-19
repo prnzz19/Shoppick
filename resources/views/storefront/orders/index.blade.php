@@ -69,12 +69,12 @@
                 @php
                     $shops=$order->sellerOrders->pluck('store.name')->filter()->unique()->values(); $payment=$order->payments->sortByDesc('created_at')->first(); $firstItem=$order->items->first();
                     $reviewItem=$order->status==='completed'?$order->items->first(fn($item)=>$item->product_id&&!$order->reviews->contains('product_id',$item->product_id)):null;
-                    $activeStatuses=['pending','confirmed','processing','packed','shipped','delivered'];
+                    $activeStatuses=['pending','confirmed','processing','packed','ready_to_ship','shipped','delivered'];
                 @endphp
                 <article class="card overflow-hidden">
                     <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 lg:px-6">
                         <div class="flex flex-wrap items-center gap-x-3 gap-y-1"><span class="font-mono text-sm font-bold text-navy-800">{{ $order->order_number }}</span><span class="hidden text-slate-300 sm:inline">•</span><time class="text-sm text-slate-500">{{ $order->created_at->format('M d, Y · h:i A') }}</time></div>
-                        <div class="flex items-center gap-2"><span class="badge {{ $badges[$order->status]??'bg-slate-100 text-slate-600' }}">{{ str($order->status)->replace('_',' ')->title() }}</span>@if($unreadOrderIds->contains($order->id))<span class="inline-flex items-center gap-1 text-xs font-semibold text-brand-600"><span class="h-2 w-2 rounded-full bg-brand-500"></span>New update</span>@endif</div>
+                        <div class="flex items-center gap-2"><span class="badge {{ $badges[$order->buyer_status]??'bg-slate-100 text-slate-600' }}">{{ str($order->buyer_status)->replace('_',' ')->title() }}</span>@if($unreadOrderIds->contains($order->id))<span class="inline-flex items-center gap-1 text-xs font-semibold text-brand-600"><span class="h-2 w-2 rounded-full bg-brand-500"></span>New update</span>@endif</div>
                     </div>
                     <div class="grid gap-6 p-5 lg:grid-cols-[minmax(0,1.7fr)_minmax(210px,.7fr)_minmax(190px,.55fr)] lg:items-center lg:p-6">
                         <div class="min-w-0">
@@ -95,7 +95,7 @@
                         </dl>
                         <div class="flex flex-col gap-3 lg:items-end lg:border-l lg:border-slate-100 lg:pl-6 lg:text-right">
                             <div><p class="text-sm text-slate-500">{{ $order->items->sum('quantity') }} {{ str('item')->plural($order->items->sum('quantity')) }}</p><p class="text-xl font-bold text-navy-800">₱{{ number_format($order->total,2) }}</p></div>
-                            <div class="flex w-full flex-wrap gap-2 lg:justify-end"><a href="{{ route('orders.show',$order->order_number) }}" class="btn-primary btn-sm justify-center">View Order</a>@if(in_array($order->status,$activeStatuses,true))<a href="{{ route('orders.show',$order->order_number) }}" class="btn-secondary btn-sm justify-center">Track Order</a>@endif @if(in_array($order->status,['completed','cancelled','refunded'],true)&&$firstItem)<form method="POST" action="{{ route('orders.buy-again',[$order->order_number,$firstItem]) }}">@csrf<button class="btn-secondary btn-sm">Buy Again</button></form>@endif @if($reviewItem)<a href="{{ route('review.create',[$order->order_number,$reviewItem->product_id]) }}" class="btn-accent btn-sm justify-center">Review Product</a>@endif</div>
+                            <div class="flex w-full flex-wrap gap-2 lg:justify-end"><a href="{{ route('orders.show',$order->order_number) }}" class="btn-primary btn-sm justify-center">View Order</a>@if(in_array($order->buyer_status,$activeStatuses,true))<a href="{{ route('orders.show',$order->order_number) }}" class="btn-secondary btn-sm justify-center">Track Order</a>@endif @if(in_array($order->status,['completed','cancelled','refunded'],true)&&$firstItem)<form method="POST" action="{{ route('orders.buy-again',[$order->order_number,$firstItem]) }}">@csrf<button class="btn-secondary btn-sm">Buy Again</button></form>@endif @if($reviewItem)<a href="{{ route('review.create',[$order->order_number,$reviewItem->product_id]) }}" class="btn-accent btn-sm justify-center">Review Product</a>@endif</div>
                         </div>
                     </div>
                 </article>

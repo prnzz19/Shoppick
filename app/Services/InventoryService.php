@@ -10,6 +10,16 @@ use Illuminate\Support\Facades\DB;
 
 class InventoryService
 {
+    /** Canonical immediately-available quantity used by cart and Buy Now validation. */
+    public function availableStock(Product $product, ?ProductVariant $variant = null): int
+    {
+        $productStock = max(0, (int) $product->stock);
+
+        return $variant
+            ? min($productStock, max(0, (int) $variant->stock))
+            : $productStock;
+    }
+
     /**
      * Decrement reserved stock for a set of items (transaction-safe).
      * Throws if any item would go negative.

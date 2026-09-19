@@ -5,10 +5,13 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ShopController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', HomeController::class)->name('home');
+// Preserve the existing marketplace route name for shopping links and auth redirects.
+Route::get('/shop', HomeController::class)->name('home');
+Route::get('/', \App\Http\Controllers\LandingController::class)->name('landing');
 
 Route::get('products', [ProductController::class, 'index'])->name('products.index');
 Route::get('category/{category}', function ($category) {
+    \App\Models\Category::active()->findOrFail($category);
     return redirect()->route('products.index', ['category' => $category]);
 })->name('products.category');
 

@@ -4,9 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Services\OrderService;
-use App\Services\ShipmentTrackingService;
 use App\Services\OrderProgressService;
-use App\Models\Shipment;
 use App\Models\OrderItem;
 use App\Services\CartService;
 use Exception;
@@ -26,7 +24,7 @@ class OrderController extends Controller
         if (! in_array($tab, OrderProgressService::BUYER_TABS, true)) $tab='all';
 
         $query = $request->user()->orders()->with([
-            'items.product.images', 'items.variant', 'sellerOrders.store.user',
+            'items.product.images', 'items.variant', 'sellerOrders.store.user', 'sellerOrders.shipment',
             'payments', 'reviews',
         ]);
 
@@ -64,6 +62,7 @@ class OrderController extends Controller
         };
 
         $orders = $query->paginate(12)->withQueryString();
+        $orders->getCollection()->each(fn (Order $order) => $order->setAttribute('buyer_status', $progress->orderStatus($order)));
         $tabCounts=collect(OrderProgressService::BUYER_TABS)->mapWithKeys(function($key)use($request,$progress){
             $query=$request->user()->orders()->getQuery();
             return [$key=>$progress->applyBuyerTab($query,$key)->count()];
@@ -138,7 +137,7 @@ class OrderController extends Controller
     {
         $order = auth()->user()->orders()->where('order_number', $orderNumber)->firstOrFail();
 
-        if (! in_array($order->status, ['delivered', 'shipped'])) {
+        if ($order->status !== 'delivered') {
             return back()->with('error', 'This order cannot be confirmed yet.');
         }
 
@@ -152,6 +151,12 @@ class OrderController extends Controller
             $sellerOrder->histories()->firstOrCreate(['status'=>'completed'],[
                 'order_id'=>$order->id,'changed_by'=>auth()->id(),'note'=>'Buyer confirmed the Order was received.',
             ]);
+            if($sellerOrder->shipment){
+                $sellerOrder->shipment->update(['status'=>'completed']);
+                $sellerOrder->shipment->events()->firstOrCreate(['status'=>'completed'],[
+                    'actor_id'=>auth()->id(),'note'=>'Buyer confirmed receipt of the Parcel.','metadata'=>['actor_roles'=>['buyer']],
+                ]);
+            }
         }
 
         app(\App\Services\InventoryService::class)->fulfillOrder($order);
@@ -160,9 +165,4 @@ class OrderController extends Controller
         return back()->with('success', 'Order completed. Thank you!');
     }
 
-    public function tracking(Request $request, $orderNumber, Shipment $shipment, ShipmentTrackingService $tracking)
-    {
-        $order=$request->user()->orders()->where('order_number',$orderNumber)->firstOrFail();
-        return response()->json($tracking->buyerFeed($order,$shipment,$request->user()));
-    }
 }

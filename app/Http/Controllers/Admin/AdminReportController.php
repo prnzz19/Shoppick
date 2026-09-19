@@ -68,7 +68,7 @@ class AdminReportController extends Controller
 
         // Users report
         $usersByRole = [];
-        foreach (['super_admin', 'admin', 'buyer'] as $slug) {
+        foreach (['admin', 'seller', 'buyer', 'logistics', 'rider'] as $slug) {
             $role = \App\Models\Role::withCount('users')->where('slug', $slug)->first();
             $usersByRole[$slug] = $role ? $role->users_count : 0;
         }

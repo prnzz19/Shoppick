@@ -18,8 +18,9 @@ class SellerRegistrationService
                 'phone'=>$data['phone'],'address'=>$address,'business_information'=>$data['business_information']??null,'status'=>'pending',
             ]);
             $application=$user->sellerApplications()->create([
-                'store_name'=>$data['store_name'],'store_description'=>$data['store_description'],'phone'=>$data['phone'],
+                'store_name'=>$data['store_name'],'category_id'=>$data['category_id']??null,'store_description'=>$data['store_description'],'phone'=>$data['phone'],
                 'address'=>$address,'business_information'=>$data['business_information']??null,
+                'valid_id_path'=>$data['valid_id_path']??$user->valid_id_path,'business_permit_path'=>$data['business_permit_path']??null,
                 'logo'=>$data['logo']??null,'banner'=>$data['banner']??null,'status'=>'pending',
             ]);
             $store=Store::firstOrCreate(['user_id'=>$user->id], [
@@ -27,9 +28,9 @@ class SellerRegistrationService
                 'description'=>$data['store_description'],'logo'=>$data['logo']??null,'banner'=>$data['banner']??null,
                 'location'=>$address,'status'=>'pending',
             ]);
-            foreach (Role::whereIn('slug',['admin','super_admin'])->with(['users','permissions'])->get() as $role) {
-                if($role->slug==='admin'&&!$role->hasPermission('manage_sellers'))continue;
-                foreach($role->users as $admin) NotificationService::send($admin->id,'New seller application received.',"{$user->name} submitted {$store->name} for review.",'seller_application',$role->slug==='super_admin'?route('superadmin.sellers.applications.index'):route('admin.sellers.applications.index'),['application_id'=>$application->id],'store');
+            foreach (Role::where('slug','admin')->with(['users','permissions'])->get() as $role) {
+                if(!$role->hasPermission('manage_sellers'))continue;
+                foreach($role->users as $admin) NotificationService::send($admin->id,'New seller application received.',"{$user->name} submitted {$store->name} for review.",'seller_application',route('admin.sellers.applications.index'),['application_id'=>$application->id],'store');
             }
         });
     }

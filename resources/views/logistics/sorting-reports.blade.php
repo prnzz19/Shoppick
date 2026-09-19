@@ -1,0 +1,8 @@
+@extends('layouts.logistics')
+@section('title','Reports')
+@section('content')
+<div class="log-page-head"><div><h1>Delivery Reports</h1><p>Actual Sorting Center outcomes for the selected period.</p></div></div>
+<form class="log-filters" method="GET"><label>From <input class="input" type="date" name="from" value="{{ $from->format('Y-m-d') }}"></label><label>To <input class="input" type="date" name="to" value="{{ $to->format('Y-m-d') }}"></label><button class="btn-primary">Apply</button></form>
+<div class="log-kpis">@foreach($metrics as $label=>$value)<div class="log-kpi"><b>{{ $value }}</b><p>{{ $label }} Parcels</p></div>@endforeach</div>
+<div class="mt-5 grid gap-5 lg:grid-cols-2"><section class="log-card overflow-x-auto"><h2 class="border-b p-4 font-bold">Deliveries by Area</h2><table class="log-table"><thead><tr><th>Area</th><th>Total</th><th>Delivered</th><th>Failed / Returned</th></tr></thead><tbody>@forelse($byArea as $row)<tr><td>{{ $row['name'] }}</td><td>{{ $row['total'] }}</td><td>{{ $row['delivered'] }}</td><td>{{ $row['failed'] }}</td></tr>@empty<tr><td colspan="4" class="log-empty">No area activity.</td></tr>@endforelse</tbody></table></section><section class="log-card overflow-x-auto"><h2 class="border-b p-4 font-bold">Rider Performance</h2><table class="log-table"><thead><tr><th>Rider</th><th>Assigned</th><th>Delivered</th><th>Failed / Returned</th></tr></thead><tbody>@forelse($byRider as $row)<tr><td>{{ $row['name'] }}</td><td>{{ $row['assigned'] }}</td><td>{{ $row['delivered'] }}</td><td>{{ $row['failed'] }}</td></tr>@empty<tr><td colspan="4" class="log-empty">No Rider activity.</td></tr>@endforelse</tbody></table></section></div>
+@endsection

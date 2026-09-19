@@ -12,23 +12,11 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        $superAdmin = User::firstOrCreate(
-            ['email' => 'superadmin@shoppick.test'],
-            [
-                'name' => 'SHOPPICK Super Admin',
-                'phone' => '09170000001',
-                'password' => Hash::make('password'),
-                'is_active' => true,
-                'email_verified_at' => now(),
-            ]
-        );
-        $superAdmin->syncRoles('super_admin');
-
         $admin = User::firstOrCreate(
             ['email' => 'admin@shoppick.test'],
             [
                 'name' => 'SHOPPICK Admin',
-                'phone' => '09170000002',
+                'phone' => '09170000001',
                 'password' => Hash::make('password'),
                 'is_active' => true,
                 'email_verified_at' => now(),

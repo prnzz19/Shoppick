@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\CompleteProfileController;
+use App\Http\Controllers\Auth\RiderApplicationController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
@@ -17,6 +18,8 @@ Route::middleware('guest')->group(function () {
     Route::post('register/buyer', [RegisterController::class, 'register'])->name('register.submit');
     Route::get('register/seller', [RegisterController::class, 'showSellerRegistrationForm'])->name('register.seller');
     Route::post('register/seller', [RegisterController::class, 'registerSeller'])->name('register.seller.submit');
+    Route::get('register/rider', [RiderApplicationController::class, 'create'])->name('register.rider');
+    Route::post('register/rider', [RiderApplicationController::class, 'store'])->name('register.rider.submit');
     Route::get('auth/google/redirect', [GoogleAuthController::class, 'redirect'])->name('auth.google.redirect');
     Route::get('auth/google/callback', [GoogleAuthController::class, 'callback'])->name('auth.google.callback');
 
@@ -29,6 +32,8 @@ Route::middleware('guest')->group(function () {
 
 Route::post('logout', [LoginController::class, 'logout'])->name('logout')->middleware('auth');
 Route::middleware('auth')->group(function () {
+    Route::get('rider-application/status', [RiderApplicationController::class, 'status'])->name('rider.application.status');
+    Route::post('rider-application/resubmit', [RiderApplicationController::class, 'resubmit'])->name('rider.application.resubmit');
     Route::get('complete-profile', [CompleteProfileController::class, 'show'])->name('profile.complete');
     Route::post('complete-profile', [CompleteProfileController::class, 'update'])->name('profile.complete.update');
     Route::get('complete-seller-registration', [CompleteProfileController::class, 'showSeller'])->name('profile.complete.seller');

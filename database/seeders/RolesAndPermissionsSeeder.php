@@ -61,14 +61,6 @@ class RolesAndPermissionsSeeder extends Seeder
             ]);
         }
 
-        // Super Admin — full access (managed by middleware bypass, but seed all for completeness)
-        $superAdmin = Role::firstOrCreate(['slug' => 'super_admin'], [
-            'name' => 'Super Admin',
-            'guard_name' => 'web',
-            'description' => 'Highest level of access.',
-        ]);
-        $superAdmin->permissions()->sync(Permission::pluck('id'));
-
         // Buyer — public storefront role, no admin permissions.
         Role::firstOrCreate(['slug' => 'buyer'], [
             'name' => 'Buyer',
@@ -83,20 +75,13 @@ class RolesAndPermissionsSeeder extends Seeder
         $logistics->permissions()->sync(Permission::where('group','Logistics')->pluck('id'));
         Role::firstOrCreate(['slug'=>'rider'],['name'=>'Rider','guard_name'=>'web','description'=>'Assigned final-mile delivery rider.']);
 
-        // Admin — default manageable-permission set (can be edited by Super Admin later).
+        // Admin is the single highest system authority.
         $admin = Role::firstOrCreate(['slug' => 'admin'], [
             'name' => 'Admin',
             'guard_name' => 'web',
-            'description' => 'Store operations manager.',
+            'description' => 'Highest SHOPPICK system authority.',
         ]);
-        $admin->permissions()->sync(
-            Permission::whereIn('slug', [
-                'manage_products', 'manage_categories', 'manage_inventory',
-                'manage_orders', 'manage_sellers', 'manage_promotions', 'view_reports', 'manage_reports', 'moderate_products',
-                'view_shops', 'review_shops', 'approve_shops', 'reject_shops',
-                'restrict_shops', 'suspend_shops', 'reactivate_shops',
-                'view_shop_reports', 'view_shop_violations', 'add_shop_notes',
-            ])->pluck('id')
-        );
+        $admin->update(['name' => 'Admin', 'description' => 'Highest SHOPPICK system authority.']);
+        $admin->permissions()->sync(Permission::pluck('id'));
     }
 }

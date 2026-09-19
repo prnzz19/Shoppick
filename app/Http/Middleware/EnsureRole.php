@@ -23,11 +23,6 @@ class EnsureRole
             ]);
         }
 
-        // Super admin always has access to every admin area
-        if ($user->hasRole('super_admin')) {
-            return $next($request);
-        }
-
         if (! $user->hasAnyRole($roles)) {
             abort(403, 'You do not have permission to access this area.');
         }

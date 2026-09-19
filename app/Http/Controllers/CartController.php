@@ -15,7 +15,7 @@ class CartController extends Controller
 
     public function index()
     {
-        $items = $this->cartService->items(auth()->id())->values();
+        $items = $this->cartService->items(request()->user()->id)->values();
         $subtotal = $items->filter->selected->sum(fn ($i) => $i->lineTotal());
         $shipping = $this->cartService->shippingFee($subtotal);
 
@@ -32,7 +32,7 @@ class CartController extends Controller
 
         try {
             $result = $this->cartService->add(
-                auth()->id(),
+                $request->user()->id,
                 $data['product_id'],
                 $data['product_variant_id'] ?? null,
                 $data['quantity']
@@ -41,6 +41,7 @@ class CartController extends Controller
             if ($request->expectsJson()) {
                 return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
             }
+
             return back()->with('error', $e->getMessage());
         }
 
@@ -63,7 +64,7 @@ class CartController extends Controller
 
         try {
             $this->cartService->purchaseItem(
-                auth()->id(),
+                $request->user()->id,
                 $data['product_id'],
                 $data['product_variant_id'] ?? null,
                 $data['quantity']
@@ -82,11 +83,12 @@ class CartController extends Controller
         $request->validate(['quantity' => ['required', 'integer', 'min:0', 'max:99']]);
 
         try {
-            $result = $this->cartService->updateQuantity(auth()->id(), $itemId, $request->input('quantity'));
+            $result = $this->cartService->updateQuantity($request->user()->id, $itemId, $request->input('quantity'));
         } catch (Exception $e) {
             if ($request->expectsJson()) {
                 return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
             }
+
             return back()->with('error', $e->getMessage());
         }
 
@@ -99,7 +101,7 @@ class CartController extends Controller
 
     public function remove(Request $request, $itemId)
     {
-        $this->cartService->remove(auth()->id(), $itemId);
+        $this->cartService->remove($request->user()->id, $itemId);
 
         if ($request->expectsJson()) {
             return $this->cartJson();
@@ -110,7 +112,7 @@ class CartController extends Controller
 
     public function toggleSelected(Request $request, $itemId)
     {
-        $this->cartService->toggleSelected(auth()->id(), $itemId);
+        $this->cartService->toggleSelected($request->user()->id, $itemId);
 
         if ($request->expectsJson()) {
             return $this->cartJson();
@@ -121,7 +123,8 @@ class CartController extends Controller
 
     protected function cartJson()
     {
-        $items = $this->cartService->items(auth()->id())->values();
+        $userId = request()->user()->id;
+        $items = $this->cartService->items($userId)->values();
         $subtotal = $items->filter->selected->sum(fn ($i) => $i->lineTotal());
         $shipping = $this->cartService->shippingFee($subtotal);
 
@@ -130,13 +133,18 @@ class CartController extends Controller
             'items' => $items->map(fn ($i) => [
                 'id' => $i->id,
                 'quantity' => $i->quantity,
+                'selected' => $i->selected,
+                'unit_price' => (float) $i->unitPrice(),
                 'max_stock' => $i->availableStock(),
+                'stock_remaining' => max(0, $i->availableStock() - $i->quantity),
                 'line_total' => (float) $i->lineTotal(),
             ]),
             'subtotal' => (float) $subtotal,
+            'selected_subtotal' => (float) $subtotal,
             'shipping' => (float) $shipping,
             'total' => (float) ($subtotal + $shipping),
-            'cart_count' => $this->cartService->count(auth()->id()),
+            'cart_count' => $this->cartService->count($userId),
+            'cart_badge_count' => $this->cartService->count($userId),
         ]);
     }
 }

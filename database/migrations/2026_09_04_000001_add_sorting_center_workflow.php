@@ -1,0 +1,12 @@
+<?php
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+return new class extends Migration {
+ public function up():void {
+  Schema::create('delivery_areas',function(Blueprint $t){$t->id();$t->string('code')->unique();$t->string('name');$t->string('province');$t->string('municipality')->nullable();$t->json('barangays')->nullable();$t->boolean('is_active')->default(true);$t->timestamps();$t->index(['province','municipality','is_active']);});
+  Schema::create('delivery_area_rider',function(Blueprint $t){$t->foreignId('delivery_area_id')->constrained()->cascadeOnDelete();$t->foreignId('rider_profile_id')->constrained()->cascadeOnDelete();$t->primary(['delivery_area_id','rider_profile_id']);});
+  Schema::table('shipments',function(Blueprint $t){$t->foreignId('pickup_rider_id')->nullable()->after('store_id')->constrained('users')->nullOnDelete();$t->foreignId('delivery_area_id')->nullable()->after('current_hub_id')->constrained()->nullOnDelete();$t->string('parcel_code')->nullable()->unique()->after('shipment_number');$t->foreignId('pickup_assigned_by')->nullable()->constrained('users')->nullOnDelete();$t->foreignId('received_by')->nullable()->constrained('users')->nullOnDelete();$t->foreignId('sorted_by')->nullable()->constrained('users')->nullOnDelete();$t->foreignId('delivery_assigned_by')->nullable()->constrained('users')->nullOnDelete();$t->timestamp('pickup_accepted_at')->nullable();$t->timestamp('received_at')->nullable();$t->timestamp('parcel_scanned_at')->nullable();$t->timestamp('sorted_at')->nullable();$t->timestamp('delivery_assigned_at')->nullable();$t->timestamp('returned_at')->nullable();$t->text('failure_reason')->nullable();$t->index(['delivery_area_id','status']);$t->index(['pickup_rider_id','status']);});
+ }
+ public function down():void {Schema::table('shipments',function(Blueprint $t){$t->dropConstrainedForeignId('pickup_rider_id');$t->dropConstrainedForeignId('delivery_area_id');$t->dropConstrainedForeignId('pickup_assigned_by');$t->dropConstrainedForeignId('received_by');$t->dropConstrainedForeignId('sorted_by');$t->dropConstrainedForeignId('delivery_assigned_by');$t->dropColumn(['parcel_code','pickup_accepted_at','received_at','parcel_scanned_at','sorted_at','delivery_assigned_at','returned_at','failure_reason']);});Schema::dropIfExists('delivery_area_rider');Schema::dropIfExists('delivery_areas');}
+};

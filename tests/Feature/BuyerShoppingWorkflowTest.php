@@ -4,13 +4,19 @@ namespace Tests\Feature;
 
 use App\Models\Address;
 use App\Models\Category;
+use App\Models\Order;
 use App\Models\Product;
+use App\Models\RiderProfile;
 use App\Models\Role;
-use App\Models\SellerProfile;
 use App\Models\SellerOrder;
+use App\Models\SellerProfile;
 use App\Models\Store;
 use App\Models\User;
+use App\Services\CodCollectionService;
+use App\Services\SellerOrderStatusService;
+use App\Services\ShipmentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class BuyerShoppingWorkflowTest extends TestCase
@@ -18,8 +24,11 @@ class BuyerShoppingWorkflowTest extends TestCase
     use RefreshDatabase;
 
     protected User $buyer;
+
     protected User $seller;
+
     protected Store $store;
+
     protected Category $category;
 
     protected function setUp(): void
@@ -95,6 +104,74 @@ class BuyerShoppingWorkflowTest extends TestCase
         $this->assertDatabaseMissing('cart_items', ['id' => $itemId]);
     }
 
+    public function test_cart_accepts_exact_stock_and_explains_combined_quantity_limits(): void
+    {
+        $exact = $this->product('Exact Stock Product', 3);
+        $this->actingAs($this->buyer)->post(route('cart.add'), [
+            'product_id' => $exact->id,
+            'quantity' => 3,
+        ])->assertRedirect(route('cart.index'));
+        $this->assertDatabaseHas('cart_items', ['product_id' => $exact->id, 'quantity' => 3]);
+
+        $combined = $this->product('Combined Stock Product', 3);
+        $this->post(route('cart.add'), ['product_id' => $combined->id, 'quantity' => 1])
+            ->assertRedirect(route('cart.index'));
+        $this->post(route('cart.add'), ['product_id' => $combined->id, 'quantity' => 2])
+            ->assertRedirect(route('cart.index'));
+        $this->assertDatabaseHas('cart_items', ['product_id' => $combined->id, 'quantity' => 3]);
+
+        $limited = $this->product('Limited Stock Product', 3);
+        $this->post(route('cart.add'), ['product_id' => $limited->id, 'quantity' => 1]);
+        $this->post(route('cart.add'), ['product_id' => $limited->id, 'quantity' => 3])
+            ->assertSessionHas('error', 'You already have 1 in your cart. Only 2 more can be added.');
+
+        $item = $this->buyer->cart->items()->where('product_id', $limited->id)->firstOrFail();
+        $this->post(route('cart.update', $item->id), ['quantity' => 3])->assertSessionHas('success');
+        $this->post(route('cart.update', $item->id), ['quantity' => 4])
+            ->assertSessionHas('error', 'Only 3 items are currently available.');
+
+        $buyNow = $this->product('Exact Buy Now Product', 3);
+        $this->post(route('buy-now'), ['product_id' => $buyNow->id, 'quantity' => 3])
+            ->assertRedirect(route('checkout', ['mode' => 'buy_now']));
+        $this->get(route('products.show', $buyNow->slug))->assertOk();
+        $this->get(route('cart.index'))->assertOk();
+
+        $futureSellerProduct = $this->product('Future Seller Exact Stock Product', 5);
+        $this->post(route('cart.add'), ['product_id' => $futureSellerProduct->id, 'quantity' => 5])
+            ->assertRedirect(route('cart.index'));
+        $futureSellerLimit = $this->product('Future Seller Stock Limit Product', 5);
+        $this->post(route('cart.add'), ['product_id' => $futureSellerLimit->id, 'quantity' => 6])
+            ->assertSessionHas('error', 'Only 5 items are currently available.');
+        $this->assertAuthenticatedAs($this->buyer);
+    }
+
+    public function test_cart_async_response_keeps_unselected_summary_and_unit_badge_consistent(): void
+    {
+        $product = $this->product('Async Cart Product', 5, 95);
+        $this->actingAs($this->buyer)->post(route('cart.add'), ['product_id' => $product->id, 'quantity' => 1]);
+        $item = $this->buyer->cart->items()->where('product_id', $product->id)->firstOrFail();
+
+        $this->get(route('cart.index'))->assertOk()
+            ->assertSee('data-cart-row', false)
+            ->assertSee('data-qty-change="1"', false)
+            ->assertDontSee('location.reload()', false);
+
+        $this->postJson(route('cart.update', $item->id), ['quantity' => 2])->assertOk()
+            ->assertJsonPath('items.0.quantity', 2)
+            ->assertJsonPath('items.0.line_total', 190)
+            ->assertJsonPath('selected_subtotal', 190)
+            ->assertJsonPath('cart_badge_count', 2);
+
+        $this->postJson(route('cart.toggle', $item->id))->assertOk()->assertJsonPath('selected_subtotal', 0);
+        $this->postJson(route('cart.update', $item->id), ['quantity' => 3])->assertOk()
+            ->assertJsonPath('items.0.line_total', 285)
+            ->assertJsonPath('selected_subtotal', 0)
+            ->assertJsonPath('shipping', 0)
+            ->assertJsonPath('total', 0)
+            ->assertJsonPath('cart_badge_count', 3);
+        $this->assertAuthenticatedAs($this->buyer);
+    }
+
     public function test_buy_now_orders_only_requested_item_and_preserves_existing_cart(): void
     {
         $cartProduct = $this->product('Mechanical Keyboard', 10, 500);
@@ -127,7 +204,7 @@ class BuyerShoppingWorkflowTest extends TestCase
             'checkout_mode' => 'buy_now',
         ])->assertSessionMissing('error')->assertRedirect();
 
-        $order = \App\Models\Order::where('user_id', $this->buyer->id)->latest('id')->firstOrFail();
+        $order = Order::where('user_id', $this->buyer->id)->latest('id')->firstOrFail();
         $this->get(route('orders.show', $order->order_number))
             ->assertOk()
             ->assertSee('Wireless Gaming Mouse')
@@ -172,29 +249,30 @@ class BuyerShoppingWorkflowTest extends TestCase
     {
         $product = $this->product('Wishlist Mouse', 5, 750);
 
-        $this->actingAs($this->buyer)->postJson(route('wishlist.toggle'), ['product_id'=>$product->id])
-            ->assertOk()->assertJson(['success'=>true,'added'=>true,'count'=>1]);
-        $this->assertDatabaseHas('wishlist_items',['wishlist_id'=>$this->buyer->wishlist->id,'product_id'=>$product->id]);
-        $this->get(route('home'))->assertOk()->assertSee('aria-pressed="true"',false)->assertSee('fill="currentColor"',false);
+        $this->actingAs($this->buyer)->postJson(route('wishlist.toggle'), ['product_id' => $product->id])
+            ->assertOk()->assertJson(['success' => true, 'added' => true, 'count' => 1]);
+        $this->assertDatabaseHas('wishlist_items', ['wishlist_id' => $this->buyer->wishlist->id, 'product_id' => $product->id]);
+        $this->get(route('home'))->assertOk()->assertSee('aria-pressed="true"', false)->assertSee('fill="currentColor"', false);
         $this->get(route('wishlist.index'))->assertOk()->assertSee('Wishlist Mouse')->assertSee('Tech Store')->assertSee('Add to Cart')->assertSee('Buy Now');
 
-        $otherBuyer = User::factory()->create(['is_active'=>true]); $otherBuyer->assignRole('buyer');
-        $this->actingAs($otherBuyer)->postJson(route('wishlist.toggle'),['product_id'=>$product->id])
-            ->assertOk()->assertJson(['added'=>true,'count'=>1]);
-        $this->assertDatabaseCount('wishlist_items',2);
-        $this->postJson(route('wishlist.toggle'),['product_id'=>$product->id])->assertJson(['added'=>false,'count'=>0]);
-        $this->assertDatabaseHas('wishlist_items',['wishlist_id'=>$this->buyer->wishlist->id,'product_id'=>$product->id]);
+        $otherBuyer = User::factory()->create(['is_active' => true]);
+        $otherBuyer->assignRole('buyer');
+        $this->actingAs($otherBuyer)->postJson(route('wishlist.toggle'), ['product_id' => $product->id])
+            ->assertOk()->assertJson(['added' => true, 'count' => 1]);
+        $this->assertDatabaseCount('wishlist_items', 2);
+        $this->postJson(route('wishlist.toggle'), ['product_id' => $product->id])->assertJson(['added' => false, 'count' => 0]);
+        $this->assertDatabaseHas('wishlist_items', ['wishlist_id' => $this->buyer->wishlist->id, 'product_id' => $product->id]);
 
-        $this->actingAs($this->buyer)->postJson(route('wishlist.toggle'),['product_id'=>$product->id])
-            ->assertOk()->assertJson(['added'=>false,'count'=>0]);
-        $this->assertDatabaseCount('wishlist_items',0);
+        $this->actingAs($this->buyer)->postJson(route('wishlist.toggle'), ['product_id' => $product->id])
+            ->assertOk()->assertJson(['added' => false, 'count' => 0]);
+        $this->assertDatabaseCount('wishlist_items', 0);
     }
 
     public function test_unavailable_product_remains_visible_in_wishlist_but_cannot_be_purchased(): void
     {
         $product = $this->product('Unavailable Favorite', 5, 300);
-        $this->actingAs($this->buyer)->postJson(route('wishlist.toggle'),['product_id'=>$product->id])->assertOk();
-        $product->update(['is_active'=>false]);
+        $this->actingAs($this->buyer)->postJson(route('wishlist.toggle'), ['product_id' => $product->id])->assertOk();
+        $product->update(['is_active' => false]);
 
         $this->get(route('wishlist.index'))->assertOk()
             ->assertSee('Unavailable Favorite')->assertSee('Unavailable')->assertDontSee('Buy Now')->assertDontSee('Add to Cart');
@@ -230,7 +308,7 @@ class BuyerShoppingWorkflowTest extends TestCase
         $this->post(route('checkout.store'), ['address_id' => $address->id, 'payment_method' => 'cod'])
             ->assertSessionHasNoErrors()->assertRedirect();
 
-        $order = \App\Models\Order::where('user_id', $this->buyer->id)->firstOrFail();
+        $order = Order::where('user_id', $this->buyer->id)->firstOrFail();
         $this->assertSame(2, $order->sellerOrders()->count());
         $this->assertSame(2, $order->items()->count());
         $this->assertSame([$this->store->id, $secondStore->id], $order->sellerOrders()->orderBy('store_id')->pluck('store_id')->all());
@@ -240,45 +318,74 @@ class BuyerShoppingWorkflowTest extends TestCase
         $this->actingAs($this->seller)->get(route('seller.orders.index'))->assertSee($firstProduct->name)->assertDontSee($secondProduct->name);
         $this->actingAs($secondSeller)->get(route('seller.orders.index'))->assertSee($secondProduct->name)->assertDontSee($firstProduct->name);
 
-        $statusService = app(\App\Services\SellerOrderStatusService::class);
+        $statusService = app(SellerOrderStatusService::class);
         $statusService->transition($firstSellerOrder, $this->seller, 'confirmed');
         $this->assertSame('pending', $order->fresh()->status);
         $statusService->transition($secondSellerOrder, $secondSeller, 'confirmed');
         $this->assertSame('confirmed', $order->fresh()->status);
         $statusService->transition($firstSellerOrder->fresh(), $this->seller, 'processing');
         $this->assertSame('confirmed', $order->fresh()->status);
+        $statusService->transition($firstSellerOrder->fresh(), $this->seller, 'packed');
+        $statusService->transition($firstSellerOrder->fresh(), $this->seller, 'ready_to_ship');
+        $this->assertSame('confirmed', $order->fresh()->status);
     }
 
     public function test_cod_stays_pending_until_rider_collection_while_online_payment_settles_at_checkout(): void
     {
-        $product=$this->product('Seller Created COD Product',10,700);
-        $address=Address::create(['user_id'=>$this->buyer->id,'full_name'=>'COD Buyer','phone'=>'09171234567','province'=>'Metro Manila','city'=>'Manila','barangay'=>'Test','postal_code'=>'1000','address_line'=>'123 COD Street','is_default'=>true]);
-        $this->actingAs($this->buyer)->post(route('cart.add'),['product_id'=>$product->id,'quantity'=>1]);
-        $this->post(route('checkout.store'),['address_id'=>$address->id,'payment_method'=>'cod'])->assertSessionHasNoErrors();
-        $order=\App\Models\Order::where('user_id',$this->buyer->id)->latest('id')->firstOrFail();
-        $payment=$order->payments()->latest('id')->firstOrFail();
-        $this->assertSame('cod',$order->payment_status);$this->assertNull($order->paid_at);$this->assertSame('pending',$payment->status);$this->assertNull($payment->paid_at);
+        $product = $this->product('Seller Created COD Product', 10, 700);
+        $address = Address::create(['user_id' => $this->buyer->id, 'full_name' => 'COD Buyer', 'phone' => '09171234567', 'province' => 'Metro Manila', 'city' => 'Manila', 'barangay' => 'Test', 'postal_code' => '1000', 'address_line' => '123 COD Street', 'is_default' => true]);
+        $this->actingAs($this->buyer)->post(route('cart.add'), ['product_id' => $product->id, 'quantity' => 1]);
+        $this->post(route('checkout.store'), ['address_id' => $address->id, 'payment_method' => 'cod'])->assertSessionHasNoErrors();
+        $order = Order::where('user_id', $this->buyer->id)->latest('id')->firstOrFail();
+        $payment = $order->payments()->latest('id')->firstOrFail();
+        $this->assertSame('cod', $order->payment_status);
+        $this->assertNull($order->paid_at);
+        $this->assertSame('pending', $payment->status);
+        $this->assertNull($payment->paid_at);
 
-        $sellerOrder=$order->sellerOrders()->firstOrFail();
-        foreach(['confirmed','processing','packed','ready_to_ship'] as $status)app(\App\Services\SellerOrderStatusService::class)->transition($sellerOrder->fresh(),$this->seller,$status);
-        $this->assertSame('pending',$payment->fresh()->status);
-        $shipment=$sellerOrder->fresh()->shipment;$shipment->update(['status'=>'assigned']);
-        Role::create(['name'=>'Logistics','slug'=>'logistics','guard_name'=>'web']);$logistics=User::factory()->create(['is_active'=>true]);$logistics->assignRole('logistics');
-        app(\App\Services\ShipmentService::class)->transition($shipment->fresh(),$logistics,'picked_up');
-        app(\App\Services\ShipmentService::class)->transition($shipment->fresh(),$logistics,'in_transit');
-        $this->assertSame('pending',$payment->fresh()->status);
-        Role::create(['name'=>'Rider','slug'=>'rider','guard_name'=>'web']);$rider=User::factory()->create(['is_active'=>true]);$rider->assignRole('rider');\App\Models\RiderProfile::create(['user_id'=>$rider->id]);
-        $shipment->update(['rider_id'=>$rider->id]);app(\App\Services\ShipmentService::class)->transition($shipment->fresh(),$rider,'out_for_delivery');
-        try{app(\App\Services\ShipmentService::class)->transition($shipment->fresh(),$rider,'delivered');$this->fail('Uncollected COD delivery was accepted.');}catch(\Illuminate\Validation\ValidationException $e){$this->assertArrayHasKey('payment',$e->errors());}
-        app(\App\Services\CodCollectionService::class)->collect($shipment->fresh(),$rider);app(\App\Services\CodCollectionService::class)->collect($shipment->fresh(),$rider);
-        $this->assertSame('cod_collected',$payment->fresh()->status);$this->assertSame($rider->id,$payment->fresh()->collected_by);$this->assertNotNull($payment->fresh()->collected_at);
-        app(\App\Services\ShipmentService::class)->transition($shipment->fresh(),$rider,'delivered');
-        $this->assertSame('paid',$payment->fresh()->status);$this->assertSame('paid',$order->fresh()->payment_status);$this->assertNotNull($order->fresh()->paid_at);
+        $sellerOrder = $order->sellerOrders()->firstOrFail();
+        foreach (['confirmed', 'processing', 'packed', 'ready_to_ship'] as $status) {
+            app(SellerOrderStatusService::class)->transition($sellerOrder->fresh(), $this->seller, $status);
+        }
+        $this->assertSame('pending', $payment->fresh()->status);
+        $shipment = $sellerOrder->fresh()->shipment;
+        $shipment->update(['status' => 'assigned']);
+        Role::create(['name' => 'Logistics', 'slug' => 'logistics', 'guard_name' => 'web']);
+        $logistics = User::factory()->create(['is_active' => true]);
+        $logistics->assignRole('logistics');
+        app(ShipmentService::class)->transition($shipment->fresh(), $logistics, 'picked_up');
+        app(ShipmentService::class)->transition($shipment->fresh(), $logistics, 'in_transit');
+        $this->assertSame('pending', $payment->fresh()->status);
+        Role::create(['name' => 'Rider', 'slug' => 'rider', 'guard_name' => 'web']);
+        $rider = User::factory()->create(['is_active' => true]);
+        $rider->assignRole('rider');
+        RiderProfile::create(['user_id' => $rider->id]);
+        $shipment->update(['rider_id' => $rider->id]);
+        app(ShipmentService::class)->transition($shipment->fresh(), $rider, 'out_for_delivery');
+        try {
+            app(ShipmentService::class)->transition($shipment->fresh(), $rider, 'delivered');
+            $this->fail('Uncollected COD delivery was accepted.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('payment', $e->errors());
+        }
+        app(CodCollectionService::class)->collect($shipment->fresh(), $rider);
+        app(CodCollectionService::class)->collect($shipment->fresh(), $rider);
+        $this->assertSame('cod_collected', $payment->fresh()->status);
+        $this->assertSame($rider->id, $payment->fresh()->collected_by);
+        $this->assertNotNull($payment->fresh()->collected_at);
+        \App\Models\ProofOfDelivery::create(['shipment_id'=>$shipment->id,'submitted_by'=>$rider->id,'recipient_name'=>'COD Buyer','photo_path'=>'pod/test.jpg','status'=>'pending','submitted_at'=>now()]);
+        app(ShipmentService::class)->transition($shipment->fresh(), $rider, 'delivered');
+        $this->assertSame('paid', $payment->fresh()->status);
+        $this->assertSame('paid', $order->fresh()->payment_status);
+        $this->assertNotNull($order->fresh()->paid_at);
 
-        $online=$this->product('Seller Created Card Product',5,400);$this->actingAs($this->buyer)->post(route('cart.add'),['product_id'=>$online->id,'quantity'=>1]);
-        $this->post(route('checkout.store'),['address_id'=>$address->id,'payment_method'=>'card'])->assertSessionHasNoErrors();
-        $cardOrder=\App\Models\Order::where('user_id',$this->buyer->id)->latest('id')->firstOrFail();
-        $this->assertSame('paid',$cardOrder->payment_status);$this->assertNotNull($cardOrder->paid_at);$this->assertSame('paid',$cardOrder->payments()->latest('id')->value('status'));
+        $online = $this->product('Seller Created Card Product', 5, 400);
+        $this->actingAs($this->buyer)->post(route('cart.add'), ['product_id' => $online->id, 'quantity' => 1]);
+        $this->post(route('checkout.store'), ['address_id' => $address->id, 'payment_method' => 'card'])->assertSessionHasNoErrors();
+        $cardOrder = Order::where('user_id', $this->buyer->id)->latest('id')->firstOrFail();
+        $this->assertSame('paid', $cardOrder->payment_status);
+        $this->assertNotNull($cardOrder->paid_at);
+        $this->assertSame('paid', $cardOrder->payments()->latest('id')->value('status'));
     }
 
     protected function product(string $name, int $stock, int $price = 1000): Product

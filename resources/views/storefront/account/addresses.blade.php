@@ -57,14 +57,13 @@
             <button type="button" onclick="closeAddressModal()" class="text-slate-400 hover:text-navy-800"><svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
         </div>
         <form id="address-form" method="POST" action="{{ route('account.addresses.store') }}">
+            @csrf
             <input type="hidden" name="_method" id="address-method" value="POST">
             <div class="grid gap-3 sm:grid-cols-2">
                 <div class="sm:col-span-2"><label class="label">Full Name</label><input type="text" name="full_name" required class="input"></div>
                 <div><label class="label">Phone</label><input type="text" name="phone" required class="input"></div>
                 <div><label class="label">Label (e.g. Home, Office)</label><input type="text" name="label" class="input"></div>
-                <div><label class="label">Province</label><input type="text" name="province" required class="input"></div>
-                <div><label class="label">City / Municipality</label><input type="text" name="city" required class="input"></div>
-                <div><label class="label">Barangay</label><input type="text" name="barangay" required class="input"></div>
+                <x-philippine-location-fields class="sm:col-span-2" :required="false" />
                 <div><label class="label">Postal Code</label><input type="text" name="postal_code" required class="input"></div>
                 <div class="sm:col-span-2"><label class="label">Complete Address</label><textarea name="address_line" rows="2" required class="input"></textarea></div>
                 <label class="flex items-center gap-2 text-sm text-navy-700 sm:col-span-2"><input type="checkbox" name="is_default" value="1" class="h-4 w-4 rounded border-slate-300 text-brand-500"> Set as default</label>
@@ -80,18 +79,18 @@
 
 @push('scripts')
 <script>
+    const addressStoreUrl = @json(route('account.addresses.store'));
+
     function openAddressModal(addr) {
         const modal = document.getElementById('address-modal');
         const form = document.getElementById('address-form');
         document.getElementById('modal-title').textContent = addr ? 'Edit Address' : 'Add Address';
         document.getElementById('address-method').value = addr ? 'PUT' : 'POST';
-        form.action = addr ? '/account/addresses/' + addr.id : '/account/addresses';
+        form.action = addr ? addressStoreUrl + '/' + encodeURIComponent(addr.id) : addressStoreUrl;
         form.full_name.value = addr ? addr.full_name : '';
         form.phone.value = addr ? addr.phone : '';
         form.label.value = addr ? (addr.label || '') : '';
-        form.province.value = addr ? addr.province : '';
-        form.city.value = addr ? addr.city : '';
-        form.barangay.value = addr ? addr.barangay : '';
+        form.querySelector('[data-ph-location]')?.dispatchEvent(new CustomEvent('ph-location:set', { detail: addr || {} }));
         form.postal_code.value = addr ? addr.postal_code : '';
         form.address_line.value = addr ? addr.address_line : '';
         if (form.is_default) form.is_default.checked = addr ? !!addr.is_default : false;

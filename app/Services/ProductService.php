@@ -3,12 +3,9 @@
 namespace App\Services;
 
 use App\Models\Product;
-use App\Models\ProductImage;
-use App\Models\ProductVariant;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use App\Jobs\ModerateProductImage;
 
 class ProductService
 {
@@ -62,26 +59,11 @@ class ProductService
         foreach ($images as $index => $file) {
             if ($file instanceof UploadedFile) {
                 $path = $file->store('products', 'public');
-                $createdImage = $product->images()->create([
+                $product->images()->create([
                     'path' => $path,
                     'is_primary' => $first,
                     'sort_order' => $product->images()->count(),
                 ]);
-                if ($product->store_id) {
-                    $scan = $createdImage->moderationScans()->create([
-                        'product_id' => $product->id,
-                        'seller_id' => $product->store?->user_id,
-                        'store_id' => $product->store_id,
-                        'provider' => config('services.image_moderation.provider', 'local'),
-                        'status' => 'pending_scan',
-                    ]);
-                    $product->update(['moderation_status' => 'pending_scan', 'is_active' => false]);
-                    if (config('services.image_moderation.queued')) {
-                        ModerateProductImage::dispatch($scan->id)->afterCommit();
-                    } else {
-                        DB::afterCommit(fn () => ModerateProductImage::dispatchSync($scan->id));
-                    }
-                }
                 $first = false;
             }
         }
@@ -115,16 +97,22 @@ class ProductService
     {
         $kept = [];
         foreach ($variants as $variant) {
-            if (empty($variant['type']) || empty($variant['value'])) continue;
+            if (empty($variant['type']) || empty($variant['value'])) {
+                continue;
+            }
             $values = [
-                'type'=>$variant['type'],'value'=>$variant['value'],'sku'=>$variant['sku'] ?? null,
-                'price'=>($variant['price'] ?? '') !== '' ? $variant['price'] : null,'stock'=>$variant['stock'] ?? 0,
+                'type' => $variant['type'], 'value' => $variant['value'], 'sku' => $variant['sku'] ?? null,
+                'price' => ($variant['price'] ?? '') !== '' ? $variant['price'] : null, 'stock' => $variant['stock'] ?? 0,
             ];
             $existing = ! empty($variant['id']) ? $product->variants()->find($variant['id']) : null;
-            if ($existing) { $existing->update($values); $kept[]=$existing->id; }
-            else { $kept[]=$product->variants()->create($values)->id; }
+            if ($existing) {
+                $existing->update($values);
+                $kept[] = $existing->id;
+            } else {
+                $kept[] = $product->variants()->create($values)->id;
+            }
         }
-        $product->variants()->when($kept, fn($q)=>$q->whereNotIn('id',$kept))->delete();
+        $product->variants()->when($kept, fn ($q) => $q->whereNotIn('id', $kept))->delete();
     }
 
     public function deleteImage(Product $product, $imageId): void
@@ -172,8 +160,9 @@ class ProductService
         $slug = $base;
         $i = 2;
         while (Product::withTrashed()->where('slug', $slug)->exists()) {
-            $slug = $base . '-' . $i++;
+            $slug = $base.'-'.$i++;
         }
+
         return $slug;
     }
 }

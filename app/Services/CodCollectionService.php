@@ -21,7 +21,7 @@ class CodCollectionService
             $payment=$order->payments()->where('method','cod')->lockForUpdate()->latest('id')->firstOrFail();
             if(in_array($payment->status,['cod_collected','paid'],true))return $payment;
             if(!in_array($payment->status,['pending','unpaid','cod'],true))throw ValidationException::withMessages(['payment'=>'This COD payment cannot be collected.']);
-            $payment->update(['status'=>'cod_collected','collected_by'=>$rider->id,'collected_at'=>now(),'paid_at'=>null]);
+            $payment->update(['status'=>'cod_collected','collected_by'=>$rider->id,'collected_at'=>now(),'paid_at'=>null,'remittance_status'=>'pending']);
             $order->update(['payment_status'=>'cod_collected','paid_at'=>null]);
             return $payment->fresh();
         });

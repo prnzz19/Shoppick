@@ -11,6 +11,47 @@ class ReadyToShipLogisticsTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function licensedProfile(User $user): RiderProfile
+    {
+        return RiderProfile::create(['user_id'=>$user->id,'driver_license_number'=>'READY-'.$user->id,'driver_license_classification'=>'Test classification','driver_license_expires_at'=>now()->addYear(),'driver_license_front_path'=>'rider-documents/test-front','driver_license_back_path'=>'rider-documents/test-back','driver_license_status'=>'verified']);
+    }
+
+    public function test_ready_to_ship_is_a_distinct_buyer_stage_until_physical_pickup(): void
+    {
+        [$seller,$logistics,$store,$category]=$this->actors();
+        $sellerOrder=$this->sellerOrder($seller,$store,$this->product($store,$category,'Ready Stage Product'),'SP-READY-STAGE');
+        $buyer=$sellerOrder->order->user;
+        $progress=app(\App\Services\OrderProgressService::class);
+
+        $this->assertSame('packed',$progress->tracker($sellerOrder->order->fresh())['status']);
+        app(SellerOrderStatusService::class)->transition($sellerOrder,$seller,'ready_to_ship');
+
+        $sellerOrder->refresh();$order=$sellerOrder->order->fresh();$shipment=$sellerOrder->shipment;
+        $this->assertSame('ready_to_ship',$sellerOrder->status);
+        $this->assertSame('ready_to_ship',$order->status);
+        $this->assertSame('ready_for_pickup',$shipment->status);
+        $this->assertSame('ready_to_ship',$progress->tracker($order)['status']);
+        $this->assertSame(4,$progress->tracker($order)['index']);
+        $this->assertSame('pending',$order->payments()->latest('id')->value('status'));
+
+        // A legacy row may still have the formerly aggregated Packed value; Buyer UI must derive canonically.
+        $order->update(['status'=>'packed']);
+        $this->actingAs($buyer)->get(route('orders.index'))->assertOk()->assertSee('Ready To Ship');
+        $this->get(route('orders.show',$order->order_number))->assertOk()->assertSee('Ready To Ship')->assertSee('aria-current="step"',false)->assertSee('To Pay on Delivery');
+        $progress->syncOrder($order);
+
+        Role::create(['name'=>'Rider','slug'=>'rider','guard_name'=>'web']);
+        $rider=User::factory()->create(['is_active'=>true]);$rider->assignRole('rider');$this->licensedProfile($rider);
+        $workflow=app(\App\Services\ParcelWorkflowService::class);
+        $workflow->assignPickup($shipment,$logistics,$rider);
+        $this->assertSame('ready_to_ship',$order->fresh()->status);
+        $workflow->acceptPickup($shipment->fresh(),$rider);
+        $this->assertSame('ready_to_ship',$order->fresh()->status);
+        $workflow->confirmPickup($shipment->fresh(),$rider,$shipment->parcel_code);
+        $this->assertSame('shipped',$order->fresh()->status);
+        $this->assertSame('pending',$order->payments()->latest('id')->value('status'));
+    }
+
     public function test_two_real_seller_products_create_visible_loads_and_deduplicated_notifications(): void
     {
         [$seller,$logistics,$store,$category]=$this->actors();
@@ -79,10 +120,11 @@ class ReadyToShipLogisticsTest extends TestCase
         $this->assertSame(1,NotificationModel::where('user_id',$buyer->id)->where('data->status','shipped')->count());
 
         Role::create(['name'=>'Rider','slug'=>'rider','guard_name'=>'web']);
-        $rider=User::factory()->create(['is_active'=>true]);$rider->assignRole('rider');RiderProfile::create(['user_id'=>$rider->id]);
+        $rider=User::factory()->create(['is_active'=>true]);$rider->assignRole('rider');$this->licensedProfile($rider);
         $shipment->update(['rider_id'=>$rider->id]);
         app(ShipmentService::class)->transition($shipment->fresh(),$rider,'out_for_delivery');
         app(\App\Services\CodCollectionService::class)->collect($shipment->fresh(),$rider);
+        \App\Models\ProofOfDelivery::create(['shipment_id'=>$shipment->id,'submitted_by'=>$rider->id,'recipient_name'=>'Buyer','photo_path'=>'pod/test.jpg','status'=>'pending','submitted_at'=>now()]);
         app(ShipmentService::class)->transition($shipment->fresh(),$rider,'delivered');
         $this->actingAs($buyer)->post(route('orders.confirm',$sellerOrder->order->order_number))->assertSessionHasNoErrors();
         $this->assertSame(1,NotificationModel::where('user_id',$buyer->id)->where('data->status','completed')->count());

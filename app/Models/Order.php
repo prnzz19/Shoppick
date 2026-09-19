@@ -11,7 +11,7 @@ class Order extends Model
 
     protected $fillable = [
         'user_id', 'order_number', 'status', 'payment_method', 'payment_status',
-        'subtotal', 'discount', 'shipping_fee', 'voucher_discount', 'total',
+        'subtotal', 'discount', 'shipping_fee', 'voucher_discount', 'shipping_discount', 'shop_discount', 'platform_discount', 'platform_shipping_discount', 'total',
         'voucher_id', 'shipping_address', 'buyer_name', 'buyer_phone', 'note',
         'paid_at', 'completed_at', 'cancelled_at', 'cancellation_reason',
     ];
@@ -24,7 +24,7 @@ class Order extends Model
     ];
 
     public const STATUSES = [
-        'pending', 'confirmed', 'processing', 'packed', 'shipped',
+        'pending', 'confirmed', 'processing', 'packed', 'ready_to_ship', 'shipped',
         'delivered', 'completed', 'cancelled', 'refunded',
     ];
 
@@ -51,6 +51,8 @@ class Order extends Model
     {
         return $this->belongsTo(Voucher::class);
     }
+
+    public function voucherUsages() { return $this->hasMany(VoucherUsage::class); }
 
     public function reviews()
     {

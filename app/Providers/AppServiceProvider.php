@@ -2,18 +2,21 @@
 
 namespace App\Providers;
 
+use App\Models\Category;
+use App\Services\AdminSidebarCounts;
 use App\Services\CartService;
-use App\Services\NotificationService;
+use App\Services\LogisticsSidebarCounts;
+use App\Services\Moderation\ConfigurableImageModerationService;
+use App\Services\Moderation\ImageModerationService;
+use App\Services\OrderService;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
-use App\Services\Moderation\ImageModerationService;
-use App\Services\Moderation\ConfigurableImageModerationService;
 
 class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->app->bind(\App\Services\OrderService::class);
+        $this->app->bind(OrderService::class);
         $this->app->bind(ImageModerationService::class, ConfigurableImageModerationService::class);
     }
 
@@ -23,7 +26,7 @@ class AppServiceProvider extends ServiceProvider
             $request = request();
             $cacheKey = 'shoppick_wishlist_product_ids';
 
-            if (!$request->attributes->has($cacheKey)) {
+            if (! $request->attributes->has($cacheKey)) {
                 $ids = auth()->user()?->wishlist?->items()->pluck('product_id')->all() ?? [];
                 $request->attributes->set($cacheKey, $ids);
             }
@@ -40,11 +43,28 @@ class AppServiceProvider extends ServiceProvider
             $view->with('sharedWishlistCount', count($ids));
             $view->with('sharedWishlistProductIds', $ids);
             $view->with('sharedUnreadNotifications', $user ? $user->notificationsData()->unread()->count() : 0);
-            $view->with('sharedCategories', \App\Models\Category::whereNull('parent_id')->active()->orderBy('sort_order')->orderBy('name')->with('children')->get());
+            $view->with('sharedCategories', Category::whereNull('parent_id')->active()->orderBy('sort_order')->orderBy('name')->with('children')->get());
         });
 
         View::composer(['components.product-card', 'storefront.products.show'], function ($view) use ($wishlistProductIds) {
             $view->with('sharedWishlistProductIds', $wishlistProductIds());
+        });
+
+        View::composer('layouts.logistics', function ($view) {
+            $user = auth()->user();
+            $view->with('logisticsSidebarCounts', $user
+                ? app(LogisticsSidebarCounts::class)->for($user)
+                : []);
+        });
+
+        View::composer('layouts.admin', function ($view) {
+            $view->with('adminSidebarCounts', auth()->check()
+                ? app(AdminSidebarCounts::class)->get()
+                : []);
+        });
+
+        View::composer('layouts.rider', function ($view) {
+            $view->with('riderUnread', auth()->check() ? auth()->user()->notificationsData()->unread()->count() : 0);
         });
     }
 }

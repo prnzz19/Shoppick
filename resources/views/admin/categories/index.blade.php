@@ -3,7 +3,7 @@
 @section('title', 'Categories')
 
 @section('content')
-@php($categoryRoutePrefix = request()->routeIs('superadmin.*') ? 'superadmin' : 'admin')
+@php($categoryRoutePrefix = 'admin')
 <div class="mb-6 flex items-center justify-between">
     <h1 class="text-2xl font-bold text-navy-800">Categories</h1>
     <button type="button" onclick="openCategoryModal()" class="btn-primary">+ Add Category</button>

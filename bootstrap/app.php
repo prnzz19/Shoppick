@@ -5,6 +5,8 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\EnsurePermission;
+use App\Http\Middleware\EnsureRegistrationApproved;
+use App\Http\Middleware\EnsureActiveRiderAccount;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -16,6 +18,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => EnsureRole::class,
             'permission' => EnsurePermission::class,
+            'registration.approved' => EnsureRegistrationApproved::class,
+            'rider.active' => EnsureActiveRiderAccount::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

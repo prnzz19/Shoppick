@@ -5,13 +5,14 @@ namespace App\Services;
 use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Product;
-use App\Models\ProductVariant;
 use App\Models\User;
 use Exception;
 use Illuminate\Support\Facades\DB;
 
 class CartService
 {
+    public function __construct(private InventoryService $inventory) {}
+
     public function getOrCreateCart($userId): Cart
     {
         return Cart::firstOrCreate(['user_id' => $userId]);
@@ -28,21 +29,26 @@ class CartService
 
     public function add($userId, $productId, $variantId = null, $quantity = 1): array
     {
-        [$product, $variant, $maxStock] = $this->validatePurchase($userId, $productId, $variantId, $quantity);
-
         $cart = $this->getOrCreateCart($userId);
 
-        return DB::transaction(function () use ($cart, $product, $variant, $variantId, $quantity, $maxStock) {
+        return DB::transaction(function () use ($cart, $userId, $productId, $variantId, $quantity) {
+            [$product, $variant, $maxStock] = $this->validatePurchase($userId, $productId, $variantId, $quantity);
             $item = CartItem::where('cart_id', $cart->id)
                 ->where('product_id', $product->id)
                 ->where('product_variant_id', $variantId)
+                ->lockForUpdate()
                 ->first();
 
             $currentQty = $item ? $item->quantity : 0;
             $newQty = $currentQty + (int) $quantity;
 
             if ($newQty > $maxStock) {
-                throw new Exception("Only {$maxStock} items are currently available.");
+                $remaining = max(0, $maxStock - $currentQty);
+                throw new Exception($currentQty > 0
+                    ? ($remaining > 0
+                        ? "You already have {$currentQty} in your cart. Only {$remaining} more can be added."
+                        : "You already have {$currentQty} in your cart. No more can be added.")
+                    : "Only {$maxStock} items are currently available.");
             }
 
             if ($item) {
@@ -114,7 +120,7 @@ class CartService
             throw new Exception('The selected product option is invalid.');
         }
 
-        $maxStock = (int) ($variant?->stock ?? $product->stock);
+        $maxStock = $this->inventory->availableStock($product, $variant);
         if ($maxStock < 1) {
             throw new Exception('This product is out of stock.');
         }
@@ -133,13 +139,11 @@ class CartService
         $quantity = (int) $quantity;
         if ($quantity <= 0) {
             $item->delete();
+
             return ['success' => true, 'removed' => true];
         }
 
-        $maxStock = $item->availableStock();
-        if ($quantity > $maxStock) {
-            throw new Exception("Only {$maxStock} items are currently available.");
-        }
+        [, , $maxStock] = $this->validatePurchase($userId, $item->product_id, $item->product_variant_id, $quantity);
 
         $item->update(['quantity' => $quantity]);
 
@@ -168,6 +172,10 @@ class CartService
     public function shippingFee($subtotal): float
     {
         // Simple shipping rule: free above $500, otherwise $50.
+        if ($subtotal <= 0) {
+            return 0;
+        }
+
         return $subtotal >= 500 ? 0 : 50;
     }
 
@@ -180,6 +188,7 @@ class CartService
     public function count($userId): int
     {
         $cart = $this->getOrCreateCart($userId);
+
         return $cart->items()->sum('quantity');
     }
 }

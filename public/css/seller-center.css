@@ -1,0 +1,55 @@
+/* Seller Center only: existing storefront/admin styles remain unchanged. */
+.seller-center{background:#f5f8fb;color:#111b40}
+.seller-center .seller-icon{width:20px;height:20px;flex:none;vertical-align:middle}
+.seller-center .seller-sidebar{height:100vh;height:100dvh;border-color:#e5ebf2}
+.seller-center .seller-sidebar>div:first-child{flex:none;height:64px}
+.seller-center .seller-sidebar>div:first-child>a>span{font-size:20px;letter-spacing:-.6px;white-space:nowrap}
+.seller-center .seller-shop{display:flex;align-items:center;gap:12px;background:#f5f9fa;padding:13px}
+.seller-center .seller-shop>.seller-icon{width:26px;height:26px;color:var(--color-brand-600)}
+.seller-center .seller-sidebar nav a,.seller-center .seller-mobile-nav a{position:relative;min-height:44px;font-size:14px;color:#526381;border-radius:9px}
+.seller-center .seller-sidebar nav a:hover,.seller-center .seller-mobile-nav a:hover{background:var(--color-brand-50);color:var(--color-brand-700)}
+.seller-center .seller-sidebar nav .seller-nav-active,.seller-center .seller-mobile-nav .seller-nav-active{background:var(--color-brand-50);color:var(--color-brand-700);font-weight:700}
+.seller-center .seller-nav-active:before{content:'';position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:4px;background:var(--color-brand-500)}
+.seller-center nav a>span:last-child.bg-brand-500{min-width:23px;min-height:23px;display:inline-flex;align-items:center;justify-content:center;background:var(--color-brand-600);font-size:11px}
+.seller-center .seller-sidebar>div:last-child{flex:none}
+.seller-center .seller-main{min-width:0}
+.seller-center .seller-dashboard-heading h1{font-size:clamp(23px,2.1vw,30px);line-height:1.25;letter-spacing:-.6px;margin-top:5px}
+.seller-center .seller-dashboard-heading p:last-child{margin-top:6px}
+.seller-center .btn-primary,.seller-center .btn-outline{min-height:44px;padding:11px 20px;border-radius:11px;font-size:14px;line-height:1.3;font-weight:700;gap:10px;transition:background-color .15s,border-color .15s,box-shadow .15s}
+.seller-center .btn-primary{background:var(--color-brand-600);color:white;border:1px solid var(--color-brand-600);box-shadow:0 5px 12px #0d94881c}
+.seller-center .btn-primary:hover{background:var(--color-brand-700);border-color:var(--color-brand-700)}
+.seller-center .btn-outline{background:white;color:#111b40;border:1px solid #dfe7f0;box-shadow:0 3px 9px #152e4d08}
+.seller-center .btn-outline .seller-icon{color:var(--color-brand-600)}
+.seller-center .btn-outline:hover{background:var(--color-brand-50);border-color:var(--color-brand-400)}
+.seller-center :is(a,button):focus-visible{outline:3px solid var(--color-brand-400);outline-offset:3px}
+.seller-center .card{border:1px solid #e7edf4;border-radius:15px;box-shadow:0 3px 12px #203f6006;background:#fff}
+.seller-center .seller-kpis .card{padding:18px;min-width:0}
+.seller-center .seller-kpis .card>div{flex-direction:row-reverse;justify-content:flex-end;gap:15px}
+.seller-center .seller-kpis .card>div>span{height:52px;width:52px;flex:none;border-radius:14px}
+.seller-center .seller-kpis .card>div>div{min-width:0}
+.seller-center .seller-kpis .card p:first-child{font-size:13px;color:#637393}
+.seller-center .seller-kpis .card p:last-child{font-size:25px;color:#111b40;overflow-wrap:anywhere;line-height:1.25}
+.seller-center .seller-section-title{display:flex;align-items:center;gap:12px;color:#111b40}
+.seller-center .seller-section-title .seller-icon{color:var(--color-brand-600)}
+.seller-center .card a.text-brand-600{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:36px;font-size:13px;font-weight:600;white-space:nowrap;color:var(--color-brand-700)}
+.seller-center .card a.text-brand-600:hover{text-decoration:underline;text-underline-offset:4px}
+.seller-center .card a .seller-icon{height:17px;width:17px}
+.seller-center .seller-orders-table th{color:#687895;font-size:11px;padding:12px 10px;border-bottom:1px solid #dfe7f0}
+.seller-center .seller-orders-table td{padding:14px 10px;color:#18274b;font-size:13px}
+.seller-center .seller-orders-table th:first-child,.seller-center .seller-orders-table td:first-child{padding-left:0}
+.seller-center .seller-orders-table tbody tr:hover{background:#f9fcfc}
+.seller-center .seller-orders-table .badge{padding:5px 13px;border-radius:999px;font-weight:600;white-space:nowrap}
+.seller-center .badge[data-status=pending],.seller-center .badge[data-status=ready_to_ship]{background:#fff5df;color:#a25b00}
+.seller-center .badge[data-status=shipped]{background:#eaf4ff;color:#1767a6}
+.seller-center .badge[data-status=delivered],.seller-center .badge[data-status=completed]{background:#e9f9ed;color:#267441}
+.seller-center .seller-empty{display:flex;align-items:center;flex-direction:column;padding:24px 10px 8px;text-align:center;font-size:14px;color:#637393}
+.seller-center .seller-empty>.seller-icon{width:38px;height:38px;color:#bac5d7;margin-bottom:12px}
+.seller-center .seller-empty p{font-weight:600}
+.seller-center .seller-empty span{font-size:13px;color:#74829e;margin-top:3px}
+@media(min-width:1280px) and (max-width:1499px){.seller-center .seller-kpis .card{padding:15px 12px}.seller-center .seller-kpis .card>div{gap:10px}.seller-center .seller-kpis .card>div>span{width:40px;height:44px}.seller-center .seller-kpis .card p:last-child{font-size:22px}}
+@media(max-width:639px){.seller-center .seller-quick-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.seller-center .seller-quick-actions a{padding:10px;font-size:12px;gap:6px}.seller-center .seller-dashboard-heading>a{margin-top:8px}.seller-center .card{padding:16px}.seller-center .seller-sales-chart{gap:6px}.seller-center .seller-section-title{font-size:14px;gap:7px}.seller-center .seller-section-title .seller-icon{width:18px;height:18px}.seller-center .card a.text-brand-600{font-size:12px;gap:4px}}
+@media(prefers-reduced-motion:reduce){.seller-center *{transition:none!important}}
+.seller-center .seller-kpis .card:nth-child(2)>div>span{background:#fff4e3;color:#e98200}
+.seller-center .seller-kpis .card:nth-child(5)>div>span{background:#e8f8f1;color:#0d9488}
+.seller-center .seller-main>.card.mt-6,.seller-center .seller-main>.grid.mt-6{margin-top:16px}
+.seller-center .seller-sales-chart{height:90px}

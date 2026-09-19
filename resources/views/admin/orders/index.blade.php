@@ -39,7 +39,7 @@
                         <div class="min-w-0"><h2 class="truncate font-bold text-navy-800">{{ $group->store?->name ?? 'Unassigned / Legacy Orders' }}</h2><p class="truncate text-xs text-slate-500">{{ $group->store ? 'Seller: '.($group->store->user?->name ?? 'Unknown Seller') : 'Seller Orders without a valid Shop relationship' }}</p></div>
                     </button>
                     @if($group->stats)<div class="flex flex-wrap gap-1.5 text-xs"><span class="badge bg-slate-100 text-slate-600">Orders: {{ $group->stats->total_count }}</span>@if($group->stats->pending_count)<span class="badge bg-sun-100 text-sun-500">Pending: {{ $group->stats->pending_count }}</span>@endif @if($group->stats->processing_count)<span class="badge bg-brand-100 text-brand-700">Processing: {{ $group->stats->processing_count }}</span>@endif @if($group->stats->delivered_count)<span class="badge bg-brand-100 text-brand-700">Delivered: {{ $group->stats->delivered_count }}</span>@endif @if($group->stats->completed_count)<span class="badge bg-leaf-100 text-leaf-500">Completed: {{ $group->stats->completed_count }}</span>@endif</div>@endif
-                    @if($group->store && (auth()->user()->isSuperAdmin() || auth()->user()->hasPermissionTo('view_shops')))<a href="{{ route('admin.shops.show',$group->store) }}" class="btn-outline btn-sm">View Shop</a>@endif
+                    @if($group->store && (auth()->user()->hasPermissionTo('view_shops')))<a href="{{ route('admin.shops.show',$group->store) }}" class="btn-outline btn-sm">View Shop</a>@endif
                 </div>
                 <div id="{{ $panelId }}" x-show="open" x-cloak>
                     <div class="overflow-x-auto border-t border-slate-100">

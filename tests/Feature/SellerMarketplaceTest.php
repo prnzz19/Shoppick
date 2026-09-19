@@ -6,11 +6,14 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\Permission;
 use App\Models\Role;
 use App\Models\SellerProfile;
 use App\Models\Store;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class SellerMarketplaceTest extends TestCase
@@ -19,10 +22,14 @@ class SellerMarketplaceTest extends TestCase
 
     public function test_buyer_can_apply_to_be_a_seller(): void
     {
+        Storage::fake('local');
         Role::create(['name'=>'Buyer','slug'=>'buyer','guard_name'=>'web']);
-        $buyer=User::factory()->create(); $buyer->assignRole('buyer');
+        $buyer=User::factory()->create(['is_active'=>true]); $buyer->assignRole('buyer');
+        $category=Category::create(['name'=>'Marketplace','slug'=>'marketplace']);
         $this->actingAs($buyer)->post(route('seller.apply.store'), [
-            'store_name'=>'Test Store','phone'=>'09171234567','address'=>'Manila',
+            'store_name'=>'Test Store','store_description'=>'A local marketplace shop.','phone'=>'09171234567','address'=>'Manila','category_id'=>$category->id,
+            'valid_id'=>UploadedFile::fake()->create('buyer-id.jpg',100,'image/jpeg'),
+            'business_permit'=>UploadedFile::fake()->create('permit.pdf',100,'application/pdf'),
         ])->assertSessionHasNoErrors();
         $this->assertDatabaseHas('seller_applications',['user_id'=>$buyer->id,'status'=>'pending']);
     }
@@ -115,8 +122,10 @@ class SellerMarketplaceTest extends TestCase
         $this->get(route('seller.products.archived.show',$product->id))->assertOk()->assertSee('Archived Camera')->assertSee('Restore as Draft');
         $this->get(route('seller.products.index'))->assertOk()->assertDontSee('Archived Camera');
 
-        $superAdmin = User::factory()->create(['is_active'=>true]); $superAdmin->assignRole('super_admin');
-        $this->actingAs($superAdmin)->get(route('admin.products.index',['status'=>'archived']))
+        $permission=Permission::firstOrCreate(['slug'=>'manage_products'],['name'=>'Manage Products','guard_name'=>'web']);
+        $adminRole=Role::firstOrCreate(['slug'=>'admin'],['name'=>'Admin','guard_name'=>'web']);$adminRole->permissions()->syncWithoutDetaching($permission);
+        $admin = User::factory()->create(['is_active'=>true]); $admin->assignRole('admin');
+        $this->actingAs($admin)->get(route('admin.products.index',['status'=>'archived']))
             ->assertOk()->assertSee('Archived Camera')->assertSee('Archived');
 
         $buyer = User::factory()->create(['is_active'=>true]); $buyer->assignRole('buyer');

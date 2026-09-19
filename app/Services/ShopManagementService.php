@@ -19,7 +19,7 @@ class ShopManagementService
     public function apply(Store $shop, User $actor, string $action, ?string $reason = null): void
     {
         $permission = self::ACTION_PERMISSIONS[$action] ?? null;
-        abort_unless($permission && ($actor->isSuperAdmin() || $actor->hasPermissionTo($permission)), 403);
+        abort_unless($actor->hasRole('admin') && $permission && $actor->hasPermissionTo($permission), 403);
 
         $allowed = [
             'approve'=>['pending'], 'reject'=>['pending'], 'restrict'=>['active'],
@@ -31,10 +31,6 @@ class ShopManagementService
         if (in_array($action,['reject','restrict','suspend'],true) && blank($reason)) {
             throw ValidationException::withMessages(['reason'=>'A reason is required for this action.']);
         }
-        if (! $actor->isSuperAdmin() && in_array($shop->status,['restricted','suspended'],true) && $shop->statusChangedBy?->isSuperAdmin()) {
-            abort(403, 'This shop is restricted by Super Admin and cannot be overridden by an Admin.');
-        }
-
         if(in_array($action,['approve','reject'],true)) {
             $this->sellerApprovals->reviewShop($shop,$actor,$action==='approve'?'approved':'rejected',$reason);
             return;
@@ -62,7 +58,7 @@ class ShopManagementService
 
     public function addNote(Store $shop, User $actor, string $note): void
     {
-        abort_unless($actor->isSuperAdmin() || $actor->hasPermissionTo('add_shop_notes'), 403);
+        abort_unless($actor->hasRole('admin') && $actor->hasPermissionTo('add_shop_notes'), 403);
         $this->appendNote($shop,$actor,$note);
         AdminActivityLog::record('shop.note_added', Store::class, $shop->id, ['seller_id'=>$shop->user_id,'note'=>$note]);
     }
@@ -73,9 +69,4 @@ class ShopManagementService
         $shop->update(['administrative_notes'=>trim(($shop->administrative_notes ? $shop->administrative_notes."\n" : '').$entry)]);
     }
 
-    public function escalate(Store $shop, User $actor, string $reason): void
-    {
-        abort_unless($actor->hasRole('admin') && ! $actor->isSuperAdmin() && $actor->hasPermissionTo('review_shops'), 403);
-        $this->sellerApprovals->escalateShop($shop, $actor, $reason);
-    }
 }
