@@ -1,6 +1,16 @@
 @extends('layouts.admin')
 
-@section('title', 'Users')
+@php
+    $userTabs = [
+        'all' => 'All Users',
+        'buyers' => 'Buyers',
+        'sellers' => 'Sellers',
+        'logistics' => 'Logistics',
+        'admins' => 'Admins',
+    ];
+@endphp
+
+@section('title', $userTabs[$tab] ?? 'Users')
 
 @section('content')
 <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -8,18 +18,10 @@
     <a href="{{ route('admin.users.create') }}" class="btn-primary">+ Add User</a>
 </div>
 
-@php
-    $userTabs = [
-        'all' => 'All Users',
-        'buyers' => 'Buyers',
-        'sellers' => 'Sellers',
-        'other' => 'Other Roles',
-    ];
-@endphp
 <nav class="mb-5 overflow-x-auto border-b border-slate-200" aria-label="User type filters">
     <div class="flex min-w-max gap-1">
         @foreach($userTabs as $key => $label)
-            <a href="{{ route('admin.users.index', array_merge(request()->except(['tab', 'page']), $key === 'all' ? [] : ['tab' => $key])) }}"
+            <a href="{{ route('admin.users.index', array_merge(request()->except(['tab', 'page', 'type']), $key === 'all' ? [] : ['tab' => $key])) }}"
                class="flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition {{ $tab === $key ? 'border-brand-500 text-brand-700' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-navy-800' }}"
                @if($tab === $key) aria-current="page" @endif>
                 <span>{{ $label }}</span>
@@ -29,13 +31,32 @@
     </div>
 </nav>
 
+@if($tab === 'logistics')
+    @php
+        $logisticsFilters = [
+            'riders' => 'Riders',
+            'admin' => 'Logistics Admin',
+        ];
+    @endphp
+    <nav class="mb-5 flex flex-wrap gap-2" aria-label="Logistics user filters">
+        @foreach($logisticsFilters as $key => $label)
+            <a href="{{ route('admin.users.index', array_merge(request()->except(['type', 'page']), ['tab' => 'logistics', 'type' => $key])) }}"
+               class="rounded-full border px-3 py-1.5 text-xs font-semibold transition {{ $logisticsType === $key ? 'border-brand-200 bg-brand-50 text-brand-800' : 'border-slate-200 bg-white text-slate-500 hover:border-brand-200 hover:text-brand-700' }}"
+               @if($logisticsType === $key) aria-current="page" @endif>
+                {{ $label }} {{ $logisticsCounts[$key] }}
+            </a>
+        @endforeach
+    </nav>
+@endif
+
 <form method="GET" action="{{ route('admin.users.index') }}" class="mb-5 flex flex-wrap gap-3">
     @if($tab !== 'all')<input type="hidden" name="tab" value="{{ $tab }}">@endif
+    @if($tab === 'logistics')<input type="hidden" name="type" value="{{ $logisticsType }}">@endif
     <input type="text" name="q" value="{{ request('q') }}" placeholder="Search name or email..." class="input !w-64">
     <select name="role" class="input !w-auto" onchange="this.form.submit()">
         <option value="">All roles</option>
-        @foreach($roles as $role)
-            <option value="{{ $role->slug }}" @selected(request('role') === $role->slug)>{{ $role->name }}</option>
+        @foreach($filterRoles as $role)
+            <option value="{{ $role->slug }}" @selected($roleFilter === $role->slug)>{{ $tab === 'buyers' && $role->slug === 'seller' ? 'Buyer + Seller' : $role->name }}</option>
         @endforeach
     </select>
     <select name="status" class="input !w-auto" onchange="this.form.submit()">
@@ -55,7 +76,7 @@
             <thead class="bg-slate-50">
                 <tr>
                     <th class="table-th">User</th>
-                    <th class="table-th">Roles</th>
+                    <th class="table-th w-44 min-w-[160px]">Roles</th>
                     <th class="table-th">Joined</th>
                     <th class="table-th">Status</th>
                     <th class="table-th text-right">Actions</th>
@@ -75,14 +96,24 @@
                                 </div>
                             </a>
                         </td>
-                        <td class="table-td">
-                            <div class="flex flex-wrap gap-1">
-                                @foreach($user->roles as $role)
-                                    <span class="badge {{ $role->slug === 'admin' ? 'bg-brand-100 text-brand-700' : 'bg-slate-100 text-slate-600' }}">{{ $role->name }}</span>
-                                @endforeach
-                            </div>
+                        <td class="table-td w-44 min-w-[160px] align-middle">
+                                            @php
+                                                $roleSlugs = $user->roles->pluck('slug');
+                                                $dualRole = $roleSlugs->contains('buyer') && $roleSlugs->contains('seller');
+                                                $roleLabel = $dualRole
+                                                    ? 'Buyer + Seller'
+                                                    : ($user->roles->sortBy(fn ($role) => match ($role->slug) {
+                                                        'admin' => 0,
+                                                        'seller' => 1,
+                                                        'buyer' => 2,
+                                                        'rider' => 3,
+                                                        'logistics' => 4,
+                                                        default => 5,
+                                                    })->first()?->name ?: 'No role assigned');
+                                            @endphp
+                            <span class="inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-[13px] font-semibold leading-5 {{ $dualRole ? 'bg-brand-100 text-brand-800' : ($roleSlugs->contains('buyer') ? 'bg-brand-50 text-brand-800' : 'bg-slate-100 text-slate-700') }}">{{ $roleLabel }}</span>
                         </td>
-                        <td class="table-td text-sm text-slate-500">{{ $user->created_at->format('M d, Y') }}</td>
+                        <td class="table-td text-sm text-slate-500">@if($user->registration_status==='pending')<a class="text-brand-700" href="{{ route('admin.users.show',$user) }}">Review Buyer registration</a><br>@endif{{ $user->created_at->format('M d, Y') }}</td>
                         <td class="table-td">
                             @if($user->id === auth()->id())
                                 <span class="badge bg-leaf-100 text-leaf-500">You</span>

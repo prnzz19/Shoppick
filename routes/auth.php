@@ -16,8 +16,6 @@ Route::middleware('guest')->group(function () {
     Route::get('register', [RegisterController::class, 'showRegistrationForm'])->name('register');
     Route::get('register/buyer', [RegisterController::class, 'showBuyerRegistrationForm'])->name('register.buyer');
     Route::post('register/buyer', [RegisterController::class, 'register'])->name('register.submit');
-    Route::get('register/seller', [RegisterController::class, 'showSellerRegistrationForm'])->name('register.seller');
-    Route::post('register/seller', [RegisterController::class, 'registerSeller'])->name('register.seller.submit');
     Route::get('register/rider', [RiderApplicationController::class, 'create'])->name('register.rider');
     Route::post('register/rider', [RiderApplicationController::class, 'store'])->name('register.rider.submit');
     Route::get('auth/google/redirect', [GoogleAuthController::class, 'redirect'])->name('auth.google.redirect');
@@ -36,6 +34,10 @@ Route::middleware('auth')->group(function () {
     Route::post('rider-application/resubmit', [RiderApplicationController::class, 'resubmit'])->name('rider.application.resubmit');
     Route::get('complete-profile', [CompleteProfileController::class, 'show'])->name('profile.complete');
     Route::post('complete-profile', [CompleteProfileController::class, 'update'])->name('profile.complete.update');
-    Route::get('complete-seller-registration', [CompleteProfileController::class, 'showSeller'])->name('profile.complete.seller');
-    Route::post('complete-seller-registration', [CompleteProfileController::class, 'updateSeller'])->name('profile.complete.seller.update');
 });
+
+// Compatibility bookmarks lead to the authenticated application, never a second account.
+Route::get('register/seller', fn () => redirect()->route('seller.apply'))->name('register.seller');
+Route::post('register/seller', fn () => abort(410, 'Register as a Buyer, then apply from your account.'))->name('register.seller.submit');
+Route::get('complete-seller-registration', fn () => redirect()->route('seller.apply'))->middleware('auth')->name('profile.complete.seller');
+Route::post('complete-seller-registration', fn () => abort(410, 'Use the seller application from your Buyer account.'))->middleware('auth')->name('profile.complete.seller.update');

@@ -108,6 +108,27 @@ class User extends Authenticatable
         return $this->hasRole('seller');
     }
 
+    public function hasApprovedSellerAccess(): bool
+    {
+        return $this->is_active && $this->hasRole('seller')
+            && $this->sellerProfile()->where('status', 'approved')->exists()
+            && $this->store()->where('status', 'active')->exists();
+    }
+
+    public function sellerAction(): array
+    {
+        if ($this->hasApprovedSellerAccess()) return ['label' => 'Seller Dashboard', 'url' => route('seller.dashboard'), 'description' => 'Manage your shop while keeping your Buyer account.'];
+        $application = $this->sellerApplications()->latest('id')->first();
+        $label = match ($application?->status) {
+            'pending', 'escalated', 'awaiting_final_review' => 'View Application Status',
+            'needs_resubmission' => 'Update Application',
+            'rejected' => 'View Application Result',
+            'approved' => 'View Seller Status',
+            default => 'Become a Seller',
+        };
+        return ['label' => $label, 'url' => route('seller.apply'), 'description' => $application?->review_notes ?: ($application ? 'Check your seller application and next steps.' : 'Start selling your products using your existing Buyer account.')];
+    }
+
     public function notificationsData()
     {
         return $this->hasMany(NotificationModel::class);

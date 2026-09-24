@@ -65,7 +65,7 @@ class AdminModerationDynamicSellerWorkflowTest extends TestCase
         $label = ucfirst($suffix);
         $email = "dynamic.{$suffix}@seller.test";
         $category = Category::where('slug', 'dynamic-products')->firstOrFail();
-        $this->post(route('register.seller.submit'), [
+        $this->post(route('register.submit'), [
             'first_name' => 'Dynamic', 'last_name' => "Seller {$label}", 'sex' => 'male', 'birthday' => '1995-01-01',
             'email' => $email, 'phone' => $suffix === 'one' ? '09171234561' : '09171234562',
             'password' => 'password', 'password_confirmation' => 'password', 'address_line' => '1 Seller Street',
@@ -73,10 +73,15 @@ class AdminModerationDynamicSellerWorkflowTest extends TestCase
             'country' => 'PH', 'store_name' => "Dynamic Shop {$label}", 'store_description' => 'A legitimate test marketplace shop.',
             'category_id' => $category->id, 'valid_id' => UploadedFile::fake()->create("seller-{$suffix}-id.jpg", 100, 'image/jpeg'),
             'business_permit' => UploadedFile::fake()->create("seller-{$suffix}-permit.pdf", 100, 'application/pdf'),
-            'same_address' => '1', 'seller_terms' => '1',
+            'same_address' => '1', 'seller_terms' => '1', 'terms'=>'1',
         ])->assertSessionHasNoErrors()->assertRedirect(route('login'));
 
         $seller = User::where('email', $email)->firstOrFail();
+        $this->actingAs($admin)->post(route('admin.registrations.buyers.review',$seller),['status'=>'approved'])->assertSessionHasNoErrors();
+        $this->actingAs($seller->fresh())->post(route('seller.apply.store'),[
+            'store_name'=>"Dynamic Shop {$label}",'store_description'=>'A legitimate test marketplace shop.','category_id'=>$category->id,'phone'=>$seller->phone,'address'=>'1 Seller Street, Manila',
+            'valid_id'=>UploadedFile::fake()->create('id.pdf',100,'application/pdf'),'business_permit'=>UploadedFile::fake()->create('permit.pdf',100,'application/pdf'),
+        ])->assertSessionHasNoErrors();
         $application = SellerApplication::where('user_id', $seller->id)->firstOrFail();
         $this->actingAs($admin)->post(route('admin.sellers.applications.review', $application), [
             'status' => 'approved', 'review_notes' => 'Application verified for dynamic moderation test.',

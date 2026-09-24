@@ -24,8 +24,7 @@ class GoogleAuthController extends Controller
             return redirect()->route('login')->with('google_unavailable', true);
         }
 
-        $type=$request->query('account_type','buyer');
-        session(['registration_type'=>in_array($type,['buyer','seller'],true)?$type:'buyer']);
+        session(['registration_type'=>'buyer']);
         return Socialite::driver('google')->scopes(['openid', 'email', 'profile'])->redirect();
     }
 
@@ -58,7 +57,8 @@ class GoogleAuthController extends Controller
         }
 
         $email = strtolower($google->getEmail());
-        $registrationType = session()->pull('registration_type', 'buyer');
+        session()->forget('registration_type');
+        $registrationType = 'buyer';
         $account = SocialAccount::with('user.roles')->where('provider', 'google')->where('provider_id', $google->getId())->first();
         $user = $account?->user;
 
@@ -96,7 +96,7 @@ class GoogleAuthController extends Controller
             Auth::login($user, true);
             request()->session()->regenerate();
 
-            return redirect()->route($user->registration_type === 'seller' ? 'profile.complete.seller' : 'profile.complete');
+            return redirect()->route('profile.complete');
         }
 
         if (! $user->is_active) {
@@ -116,9 +116,6 @@ class GoogleAuthController extends Controller
         Auth::login($user, true);
         request()->session()->regenerate();
 
-        if ($registrationType === 'seller' && ! $user->isSeller()) {
-            return redirect()->route('profile.complete.seller');
-        }
 
         return $user->hasCompleteBuyerProfile()
             ? redirect()->intended(route('home'))

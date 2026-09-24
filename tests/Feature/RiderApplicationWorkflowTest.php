@@ -25,9 +25,9 @@ class RiderApplicationWorkflowTest extends TestCase
         return ['first_name'=>'Juan','middle_initial'=>'D','last_name'=>'Cruz','sex'=>'male','birthday'=>'1995-06-15','email'=>$email,'phone'=>'09171234567','address_line'=>'12 Main Street','region'=>'Region IV-A (CALABARZON)','region_code'=>'0400000000','province'=>'Laguna','province_code'=>'0434000000','city'=>'Cavinti','city_code'=>'0434060000','barangay'=>'Mahipon','barangay_code'=>'0434060150','postal_code'=>'4013','valid_id'=>UploadedFile::fake()->create('valid-id.pdf',20,'application/pdf'),'driver_license_number'=>'N01-23-456789','driver_license_classification'=>'Test classification','driver_license_expires_at'=>now()->addYear()->format('Y-m-d'),'driver_license_front'=>UploadedFile::fake()->create('front.jpg',20,'image/jpeg'),'driver_license_back'=>UploadedFile::fake()->create('back.jpg',20,'image/jpeg'),'preferred_vehicle_type'=>'motorcycle','password'=>'SecurePass123!','password_confirmation'=>'SecurePass123!','terms'=>'1'];
     }
 
-    public function test_choice_page_has_three_responsive_role_options(): void
+    public function test_buyer_registration_preserves_rider_application_link(): void
     {
-        $this->get(route('register'))->assertOk()->assertSee('Register as Buyer')->assertSee('Register as Seller')->assertSee('Apply as Rider')->assertSee(route('register.rider'),false)->assertDontSee('ðŸ',false);
+        $this->get(route('register'))->assertOk()->assertSee('Register as Buyer')->assertDontSee('Register as Seller')->assertSee('Apply as Rider')->assertSee(route('register.rider'),false)->assertDontSee('ðŸ',false);
     }
 
     public function test_public_rider_application_requires_logistics_approval_and_supports_resubmission(): void

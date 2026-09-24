@@ -20,7 +20,7 @@ class EnsureRegistrationApproved
         }
 
         if ($user->registration_status === 'incomplete') {
-            return redirect()->route($user->registration_type === 'seller' ? 'profile.complete.seller' : 'profile.complete');
+            return redirect()->route('profile.complete');
         }
 
         Auth::logout();

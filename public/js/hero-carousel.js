@@ -3,12 +3,12 @@
  const root=document.querySelector('#hero-carousel'); if(!root)return;
  const title=root.querySelector('#hero-title'), description=root.querySelector('#hero-description'), img=root.querySelector('.sp-lifestyle-hero img');
  const slides = [
- ['Find What Fits Your Life.', 'From everyday essentials to your next favorite find, SHOPPICK helps you discover products made for the way you live.', 'A shopper holding a phone, parcel and teal shopping bag'],
+ ['Find What Fits Your Life.', 'From everyday essentials to your next favorite find, SHOPPICK helps you discover products made for the way you live.', 'Original campaign model in a beige trench coat, straw hat and sunglasses, looking over her shoulder'],
  ['Better Picks for Everyday Life.', 'Find useful products, fresh finds, and everyday favorites from shops across SHOPPICK.', 'A shopper using a phone beside a tumbler and headphones'],
  ['Little Finds. Better Days.', 'Sometimes the right find can make your everyday routine a little easier, better, and more enjoyable.', 'A shopper holding a delivery parcel in a welcoming home']
  ];
 
- const urls=slides.map((_,i)=>img.src.replace(/lifestyle-slide-\d\.jpg/, 'lifestyle-slide-'+(i+1)+'.jpg'));
+ const urls=slides.map((_,i)=>new URL(i===0?'campaign-model-original.jpg':'lifestyle-slide-'+(i+1)+'.jpg',img.src).href);
  const motion=matchMedia('(prefers-reduced-motion: reduce)'), events=new AbortController();
  let index=0, timer, disposed=false, pressed=false, changing=false;
  const animated=[title,description,img];
@@ -32,7 +32,7 @@
  document.addEventListener('visibilitychange',start,{signal:events.signal});
  window.addEventListener('pagehide',()=>clearInterval(timer),{signal:events.signal});
  window.addEventListener('pageshow',start,{signal:events.signal});
- update(Math.floor(Math.random()*slides.length));start();
+ update(0);start();
  const preload=()=>urls.forEach(url=>{if(url!==img.src){const photo=new Image();photo.src=url;}});
  if(document.readyState==='complete')preload();else window.addEventListener('load',preload,{once:true,signal:events.signal});
 })();

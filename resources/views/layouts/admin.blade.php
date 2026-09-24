@@ -23,11 +23,15 @@
                     ['admin.dashboard', 'Dashboard', 'M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6-8h4m-4 8h4V8h-4v12z', null],
                     ['admin.users.index', 'Users', 'M17 20h5v-2a3 3 0 00-5.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M15 7a3 3 0 11-6 0 3 3 0 016 0z', 'users'],
                     ['admin.shops.index', 'Shops', 'M3 10l2-6h14l2 6M5 10v10h14V10M9 20v-6h6v6', null],
-                    ['admin.sellers.applications.index', 'Applications', 'M5 13l4 4L19 7', 'applications'],
+                    ['admin.sellers.applications.index', 'Seller Applications', 'M5 13l4 4L19 7', 'applications'],
+                    ['admin.sellers.index', 'Sellers', 'M3 10l2-6h14l2 6M5 10v10h14V10M9 20v-6h6v6', null],
                     ['admin.products.index', 'Products', 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4', null],
                     ['admin.categories.index', 'Categories', 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z', null],
                     ['admin.inventory.index', 'Inventory', 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z', 'inventory'],
                     ['admin.orders.index', 'Orders', 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', 'orders'],
+                    ['admin.logistics.overview', 'Logistics Overview', 'M4 19h16M7 16V8m5 8V4m5 12v-6', null],
+                    ['admin.logistics.deliveries.index', 'Deliveries', 'M3 6h12v11H3zM15 10h4l3 4v3h-7M7 20a2 2 0 100-4 2 2 0 000 4zm11 0a2 2 0 100-4 2 2 0 000 4z', null],
+                    ['admin.logistics.riders.index', 'Riders', 'M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M13 7a4 4 0 11-8 0 4 4 0 018 0z', null],
                     ['admin.promotions.index', 'Promotions', 'M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z', null],
                     ['admin.reports.index', 'Reports', 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v14a2 2 0 01-2 2z', 'reports'],
                     ['admin.moderation.index', 'Moderation', 'M9 12l2 2 4-4m5-3a9 9 0 11-16 0', 'moderation'],
@@ -39,7 +43,8 @@
             <nav class="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-4">
                 <p class="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Admin Panel</p>
                 @foreach($common as [$route, $label, $icon, $countKey])
-                    <a href="{{ route($route) }}" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white {{ request()->routeIs($route) ? 'bg-brand-500/20 text-brand-300' : '' }}">
+                    @if(in_array($route,['admin.users.index','admin.shops.index','admin.products.index','admin.logistics.overview','admin.promotions.index']))<p class="col-span-2 px-3 pt-4 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">{{ ['admin.users.index'=>'Users','admin.shops.index'=>'Seller Management','admin.products.index'=>'Marketplace','admin.logistics.overview'=>'Logistics Management','admin.promotions.index'=>'Other Features'][$route] }}</p>@endif
+                    <a href="{{ route($route) }}" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white {{ request()->routeIs(str_replace('.index','.*',$route)) && ($route!=='admin.sellers.index' || !request()->routeIs('admin.sellers.applications.*')) ? 'bg-brand-500/20 text-brand-300' : '' }}">
                         <svg class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="{{ $icon }}"/></svg>
                         <span class="min-w-0 flex-1 truncate">{{ $label }}</span>
                         @if($countKey)<x-admin.sidebar-count :count="$adminSidebarCounts[$countKey] ?? 0" />@endif
@@ -84,10 +89,11 @@
         </div>
 
         {{-- Mobile nav --}}
-        <div id="mobile-nav" class="fixed inset-x-0 top-14 z-30 hidden bg-navy-900 p-4 lg:hidden">
+        <div id="mobile-nav" class="fixed inset-x-0 top-14 z-30 max-h-[calc(100dvh-3.5rem)] overflow-y-auto hidden bg-navy-900 p-4 lg:hidden">
             <nav class="grid grid-cols-2 gap-2">
                 @foreach($common as [$route, $label, $icon, $countKey])
-                    <a href="{{ route($route) }}" class="flex min-w-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/10 {{ request()->routeIs($route) ? 'bg-brand-500/20 text-brand-300' : '' }}">
+                    @if(in_array($route,['admin.users.index','admin.shops.index','admin.products.index','admin.logistics.overview','admin.promotions.index']))<p class="col-span-2 px-3 pt-4 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">{{ ['admin.users.index'=>'Users','admin.shops.index'=>'Seller Management','admin.products.index'=>'Marketplace','admin.logistics.overview'=>'Logistics Management','admin.promotions.index'=>'Other Features'][$route] }}</p>@endif
+                    <a href="{{ route($route) }}" class="flex min-w-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/10 {{ request()->routeIs(str_replace('.index','.*',$route)) && ($route!=='admin.sellers.index' || !request()->routeIs('admin.sellers.applications.*')) ? 'bg-brand-500/20 text-brand-300' : '' }}">
                         <span class="min-w-0 flex-1 truncate">{{ $label }}</span>
                         @if($countKey)<x-admin.sidebar-count :count="$adminSidebarCounts[$countKey] ?? 0" />@endif
                     </a>
@@ -105,7 +111,7 @@
         </div>
 
         {{-- Content --}}
-        <div class="flex-1 px-4 pb-8 pt-16 lg:pl-72 lg:pt-6">
+        <div class="min-w-0 flex-1 px-4 pb-8 pt-16 lg:pl-72 lg:pt-6">
             @if(session('success'))<div class="mb-4"><div class="alert-success">{{ session('success') }}</div></div>@endif
             @if(session('error'))<div class="mb-4"><div class="alert-error">{{ session('error') }}</div></div>@endif
             @if($errors->any())<div class="mb-4"><div class="alert-error"><p class="mb-1 font-semibold">Please fix the following:</p><ul class="list-disc pl-4">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul></div></div>@endif

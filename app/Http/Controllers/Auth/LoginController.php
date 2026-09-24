@@ -64,10 +64,10 @@ class LoginController extends Controller
         }
         if ($user->hasRole('logistics')) return redirect()->route('logistics.dashboard');
         if ($user->hasRole('rider')) return redirect()->route('rider.dashboard');
-        if ($user->hasRole('seller')) {
+        if ($user->hasApprovedSellerAccess()) {
             return redirect()->route('seller.dashboard');
         }
-        if ($user->sellerApplications()->whereIn('status', ['pending','escalated','awaiting_final_review','rejected'])->exists()) {
+        if ($user->sellerApplications()->whereIn('status', ['pending','escalated','awaiting_final_review','needs_resubmission','rejected'])->exists()) {
             return redirect()->route('seller.apply');
         }
         return redirect()->intended(route('home'));

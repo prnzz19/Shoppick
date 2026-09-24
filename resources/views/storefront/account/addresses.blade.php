@@ -3,8 +3,8 @@
 @section('title', 'My Addresses')
 
 @section('account-content')
-<div class="flex items-center justify-between mb-5">
-    <h1 class="text-xl font-bold text-navy-800">My Addresses</h1>
+<div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+    <div><p class="text-sm font-semibold text-brand-600">Delivery</p><h1 class="mt-1 text-2xl font-extrabold text-navy-900">My Addresses</h1><p class="mt-1 text-sm text-slate-500">Keep your delivery details ready for a smoother checkout.</p></div>
     <button type="button" onclick="openAddressModal()" class="btn-primary btn-sm">+ Add Address</button>
 </div>
 
@@ -15,10 +15,10 @@
 @else
 <div class="grid gap-4 sm:grid-cols-2">
     @foreach($addresses as $addr)
-        <div class="card p-4">
+        <div class="card border-slate-200 p-5 transition hover:border-brand-200 hover:shadow-sm">
             <div class="flex items-start justify-between">
                 <div>
-                    <p class="flex items-center gap-2 text-sm font-semibold text-navy-800">
+                    <p class="flex flex-wrap items-center gap-2 text-sm font-bold text-navy-900">
                         {{ $addr->full_name }}
                         @if($addr->label)<span class="badge bg-brand-100 text-brand-600">{{ $addr->label }}</span>@endif
                         @if($addr->is_default)<span class="badge bg-leaf-100 text-leaf-500">Default</span>@endif
@@ -31,7 +31,7 @@
                     </button>
                 </div>
             </div>
-            <p class="mt-2 text-sm text-slate-600">{{ $addr->address_line }}, {{ $addr->barangay }}, {{ $addr->city }}, {{ $addr->province }} {{ $addr->postal_code }}</p>
+            <p class="mt-3 text-sm leading-6 text-slate-600">{{ $addr->address_line }}, {{ $addr->barangay }}, {{ $addr->city }}, {{ $addr->province }} {{ $addr->postal_code }}</p>
             <div class="mt-3 flex gap-2">
                 @if(!$addr->is_default)
                     <form method="POST" action="{{ route('account.addresses.default', $addr->id) }}">

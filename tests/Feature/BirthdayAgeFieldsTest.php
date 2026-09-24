@@ -41,9 +41,7 @@ class BirthdayAgeFieldsTest extends TestCase
             ->assertSee('readonly', false)
             ->assertSee('max="2026-09-10"', false);
 
-        $this->get(route('register.seller'))->assertOk()
-            ->assertSee('data-birthday-age', false)
-            ->assertSee('Auto-calculated');
+        $this->get(route('register.seller'))->assertRedirect(route('seller.apply'));
     }
 
     public function test_future_birthday_is_rejected_and_forged_age_is_ignored(): void

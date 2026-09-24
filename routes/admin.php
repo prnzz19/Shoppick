@@ -19,6 +19,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::get('/', fn () => redirect()->route('admin.dashboard'))->name('root');
     Route::get('dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
     Route::get('sellers/applications', [SellerApplicationController::class, 'index'])->name('sellers.applications.index')->middleware('permission:manage_sellers');
+    Route::get('sellers/applications/{application}', [SellerApplicationController::class, 'show'])->name('sellers.applications.show')->middleware('permission:manage_sellers');
+    Route::get('sellers', [\App\Http\Controllers\Admin\SellerController::class, 'index'])->name('sellers.index')->middleware('permission:manage_sellers');
+    Route::get('sellers/{user}', [\App\Http\Controllers\Admin\SellerController::class, 'show'])->name('sellers.show')->middleware('permission:manage_sellers');
     Route::post('sellers/applications/{application}', [SellerApplicationController::class, 'review'])->name('sellers.applications.review')->middleware('permission:manage_sellers');
     Route::post('registrations/buyers/{user}', [SellerApplicationController::class, 'reviewBuyer'])->name('registrations.buyers.review')->middleware('permission:manage_sellers');
     Route::get('registrations/buyers/{user}/valid-id', [SellerApplicationController::class, 'buyerDocument'])->name('registrations.buyers.document')->middleware('permission:manage_sellers');
@@ -31,6 +34,17 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::post('shops/{shop}/status', [ShopController::class, 'status'])->name('shops.status');
     Route::post('shops/{shop}/notes', [ShopController::class, 'note'])->name('shops.notes')->middleware('permission:add_shop_notes');
 
+    Route::get('logistics', fn () => redirect()->route('admin.logistics.overview'))->name('logistics.root');
+
+    // Admin monitoring only: no operational mutations are exposed here.
+    Route::prefix('logistics')->name('logistics.')->group(function () {
+        Route::get('overview', [\App\Http\Controllers\Admin\LogisticsMonitoringController::class, 'overview'])->name('overview');
+        Route::get('deliveries', [\App\Http\Controllers\Admin\LogisticsMonitoringController::class, 'deliveries'])->name('deliveries.index');
+        Route::get('deliveries/{shipment}/proof', [\App\Http\Controllers\Admin\LogisticsMonitoringController::class, 'proof'])->name('deliveries.proof');
+        Route::get('deliveries/{shipment}', [\App\Http\Controllers\Admin\LogisticsMonitoringController::class, 'delivery'])->name('deliveries.show');
+        Route::get('riders', [\App\Http\Controllers\Admin\LogisticsMonitoringController::class, 'riders'])->name('riders.index');
+        Route::get('riders/{rider}', [\App\Http\Controllers\Admin\LogisticsMonitoringController::class, 'rider'])->name('riders.show');
+    });
     // Products
     Route::get('products', [AdminProductController::class, 'index'])->name('products.index')
         ->middleware('permission:manage_products');

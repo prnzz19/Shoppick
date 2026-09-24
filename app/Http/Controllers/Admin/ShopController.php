@@ -15,15 +15,29 @@ class ShopController extends Controller
 
     public function index(Request $request)
     {
-        $query=Store::with(['user.sellerApplications'])->withCount(['products','sellerOrders','reports','violations'=>fn($q)=>$q->where('status','confirmed')]);
-        if($request->q)$query->where(fn($q)=>$q->where('name','like','%'.$request->q.'%')->orWhereHas('user',fn($u)=>$u->where('name','like','%'.$request->q.'%')->orWhere('email','like','%'.$request->q.'%')));
+        $baseQuery=Store::query();
+        $query=(clone $baseQuery)->with(['user.sellerApplications'])->withCount(['products','sellerOrders','reports','violations'=>fn($q)=>$q->where('status','confirmed')]);
+        if($request->filled('q'))$query->where(fn($q)=>$q->where('name','like','%'.$request->q.'%')->orWhereHas('user',fn($u)=>$u->where('name','like','%'.$request->q.'%')->orWhere('email','like','%'.$request->q.'%')));
         if($request->status==='escalated')$query->where('status','pending')->whereHas('user.sellerApplications',fn($applications)=>$applications->where('status','escalated'));
         elseif($request->status==='pending')$query->where('status','pending')->whereHas('user.sellerApplications',fn($applications)=>$applications->where('status','pending'));
         elseif($request->status)$query->where('status',$request->status);
         if($request->reported)$query->has('reports');
         if($request->violations)$query->whereHas('violations',fn($q)=>$q->where('status','confirmed'));
-        $shops=$query->latest()->paginate(20)->withQueryString();
-        return view('admin.shops.index',compact('shops'));
+        $query=match($request->input('sort')){
+            'oldest'=>$query->oldest(),
+            'products'=>$query->orderByDesc('products_count'),
+            'orders'=>$query->orderByDesc('seller_orders_count'),
+            default=>$query->latest(),
+        };
+        $shops=$query->paginate(20)->withQueryString();
+        $summary=[
+            'total'=>(clone $baseQuery)->count(),
+            'active'=>(clone $baseQuery)->where('status','active')->count(),
+            'restricted'=>(clone $baseQuery)->where('status','restricted')->count(),
+            'suspended'=>(clone $baseQuery)->where('status','suspended')->count(),
+        ];
+        $counts=[''=>(clone $baseQuery)->count(),'active'=>$summary['active'],'pending'=>(clone $baseQuery)->where('status','pending')->count(),'restricted'=>$summary['restricted'],'suspended'=>$summary['suspended']];
+        return view('admin.shops.index',compact('shops','summary','counts'));
     }
 
     public function show(Store $shop)

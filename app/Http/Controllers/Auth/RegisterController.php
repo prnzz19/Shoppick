@@ -17,11 +17,10 @@ class RegisterController extends Controller
 {
     public function showRegistrationForm()
     {
-        return view('auth.register-choice');
+        return view('auth.register');
     }
 
     public function showBuyerRegistrationForm() { return view('auth.register'); }
-    public function showSellerRegistrationForm() { return view('auth.register-seller', ['categories' => \App\Models\Category::active()->where('name', '!=', 'Logistics Demo')->orderBy('name')->get()]); }
 
     public function register(BuyerRegistrationRequest $request)
     {
@@ -58,26 +57,8 @@ class RegisterController extends Controller
         return redirect()->route('login')->with('success', 'Registration submitted. Your Buyer account is waiting for administrator approval. You will be notified after review.');
     }
 
-    public function registerSeller(SellerRegistrationRequest $request, SellerRegistrationService $sellerRegistration)
-    {
-        $data=$request->validated();
-        foreach(['logo','banner'] as $file) if($request->hasFile($file))$data[$file]=$request->file($file)->store('stores','public');
-        $data['valid_id_path']=$request->file('valid_id')->store('registration-documents');
-        $data['business_permit_path']=$request->file('business_permit')->store('registration-documents');
-        $user=DB::transaction(function()use($data,$sellerRegistration){
-            $name=trim($data['first_name'].' '.(($data['middle_initial']??null)?$data['middle_initial'].'. ':'').$data['last_name']);
-            $user=User::create(['name'=>$name,'first_name'=>$data['first_name'],'middle_initial'=>$data['middle_initial']??null,'last_name'=>$data['last_name'],'sex'=>$data['sex'],'birthday'=>$data['birthday'],'email'=>strtolower($data['email']),'phone'=>$data['phone'],'valid_id_path'=>$data['valid_id_path'],'registration_type'=>'seller','registration_status'=>'pending','password'=>Hash::make($data['password']),'is_active'=>false]);
-            $user->assignRole('buyer');
-            $user->addresses()->create(['full_name'=>$name,'phone'=>$data['phone'],'address_line'=>$data['address_line'],'region'=>$data['region']??null,'region_code'=>$data['region_code']??null,'barangay'=>$data['barangay'],'barangay_code'=>$data['barangay_code']??null,'city'=>$data['city'],'city_code'=>$data['city_code']??null,'province'=>$data['province']??'','province_code'=>$data['province_code']??null,'postal_code'=>$data['postal_code'],'country'=>$data['country'],'label'=>'Home','is_default'=>true]);
-            $sellerRegistration->submit($user,$data);
-            return $user;
-        });
-        event(new Registered($user));
-        return redirect()->route('login')->with('success','Registration submitted. Your Seller account and Shop are waiting for administrator approval. You will be notified after review.');
-    }
-
     private function notifyAdmins(User $user, string $type): void
     {
-        User::whereHas('roles', fn($query)=>$query->where('slug','admin'))->get()->each(fn($admin)=>\App\Services\NotificationService::send($admin->id,"New {$type} registration received.","{$user->name} is waiting for administrator approval.",'registration',route('admin.sellers.applications.index'),['user_id'=>$user->id,'type'=>strtolower($type)],'user'));
+        User::whereHas('roles', fn($query)=>$query->where('slug','admin'))->get()->each(fn($admin)=>\App\Services\NotificationService::send($admin->id,"New {$type} registration received.","{$user->name} is waiting for administrator approval.",'registration',route('admin.users.index', ['tab'=>'buyers']),['user_id'=>$user->id,'type'=>strtolower($type)],'user'));
     }
 }

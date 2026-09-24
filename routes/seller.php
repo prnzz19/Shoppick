@@ -15,12 +15,12 @@ use App\Http\Controllers\Seller\CenterController;
 use App\Http\Controllers\SellerApplicationController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'registration.approved', 'role:buyer,seller'])->group(function () {
     Route::get('seller/apply', [SellerApplicationController::class, 'create'])->name('seller.apply');
     Route::post('seller/apply', [SellerApplicationController::class, 'store'])->name('seller.apply.store');
 });
 
-Route::prefix('seller')->name('seller.')->middleware(['auth', 'role:seller'])->group(function () {
+Route::prefix('seller')->name('seller.')->middleware(['auth', 'registration.approved', 'role:seller', \App\Http\Middleware\EnsureApprovedSeller::class])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::get('products', [CenterController::class, 'products'])->name('products.index');
     Route::get('products/{product}/archived', [ProductController::class, 'showArchived'])->withTrashed()->name('products.archived.show');

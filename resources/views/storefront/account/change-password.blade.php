@@ -3,8 +3,10 @@
 @section('title', 'Change Password')
 
 @section('account-content')
-<div class="card p-6 max-w-lg">
-    <h1 class="text-xl font-bold text-navy-800">Change Password</h1>
+<div class="card max-w-xl p-6 sm:p-7">
+    <p class="text-sm font-semibold text-brand-600">Account Security</p>
+    <h1 class="mt-1 text-2xl font-extrabold text-navy-900">Change Password</h1>
+    <p class="mt-2 text-sm text-slate-500">Use a strong password to keep your SHOPPICK account protected.</p>
     <form method="POST" action="{{ route('account.password.update') }}" class="mt-6 space-y-4">
         @csrf
         <div>
