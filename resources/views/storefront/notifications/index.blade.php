@@ -3,8 +3,8 @@
 @section('title', 'Notifications')
 
 @section('account-content')
-<div class="mb-5 flex items-center justify-between">
-    <h1 class="text-xl font-bold text-navy-800">Notifications</h1>
+<div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+    <div><p class="text-sm font-semibold text-brand-600">Your Updates</p><h1 class="mt-1 text-2xl font-extrabold text-navy-900">Notifications</h1><p class="mt-1 text-sm text-slate-500">Stay up to date with your orders and account activity.</p></div>
     <form method="POST" action="{{ route('notifications.read-all') }}">
         @csrf
         <button type="submit" class="btn-outline btn-sm">Mark all as read</button>
@@ -19,7 +19,7 @@
 @else
 <div class="space-y-3">
     @foreach($notifications as $notification)
-        <div class="card p-4 {{ $notification->read_at ? '' : 'border-brand-200 bg-brand-50/40' }}">
+        <div class="card border-slate-200 p-4 transition {{ $notification->read_at ? 'bg-white' : 'border-brand-200 bg-brand-50/50' }}">
             <div class="flex items-start justify-between gap-3">
                 <a href="{{ route('notifications.open',$notification->id) }}" class="flex min-w-0 flex-1 items-start gap-3">
                     <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-600">

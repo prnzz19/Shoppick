@@ -3,6 +3,10 @@
 @section('title', $user->name)
 
 @section('content')
+@if($user->registration_type==='buyer')
+<section class="card mb-5 p-5"><h2 class="font-bold">Buyer Registration</h2><p class="mt-2">{{ str($user->registration_status)->headline() }}</p>@if($user->valid_id_path && auth()->user()->hasPermissionTo('manage_sellers'))<a class="btn-outline btn-sm mt-3" href="{{ route('admin.registrations.buyers.document',$user) }}">Download Valid ID</a>@endif
+@if($user->registration_status==='pending' && auth()->user()->hasPermissionTo('manage_sellers'))<form class="mt-4" method="POST" action="{{ route('admin.registrations.buyers.review',$user) }}" onsubmit="return confirm('Save this Buyer registration decision?')">@csrf<label class="label">Review notes (required for rejection)</label><textarea class="input" name="review_notes"></textarea><div class="mt-3 flex gap-3"><button class="btn-primary" name="status" value="approved">Approve Buyer</button><button class="btn-outline text-rose-700" name="status" value="rejected">Reject</button></div></form>@else<p class="mt-3">{{ $user->registration_review_notes }}</p>@endif</section>
+@endif
 <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
     <div class="flex items-center gap-4">
         <div class="h-16 w-16 overflow-hidden rounded-full bg-brand-50">

@@ -24,7 +24,7 @@ class AdminSidebarCounts
                 ->where('registration_status', 'pending')
                 ->count(),
             'applications' => SellerApplication::query()
-                ->where('status', 'pending')
+                ->whereIn('status', SellerApplication::REVIEWABLE)
                 ->count(),
             'inventory' => Product::query()
                 ->where('stock', '>', 0)

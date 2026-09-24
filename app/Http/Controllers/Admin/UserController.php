@@ -15,20 +15,33 @@ class UserController extends Controller
 {
     public function index(Request $request)
     {
-        $tab = in_array($request->input('tab'), ['buyers', 'sellers', 'other'], true)
+        $tab = in_array($request->input('tab'), ['buyers', 'sellers', 'logistics', 'admins'], true)
             ? $request->input('tab')
             : 'all';
+        $logisticsType = in_array($request->input('type'), ['riders', 'admin'], true)
+            ? $request->input('type')
+            : 'riders';
+        $roleFilter = $tab === 'logistics'
+            ? ($logisticsType === 'riders' ? 'rider' : 'logistics')
+            : $request->input('role');
 
-        $baseQuery = $this->filteredUsersQuery($request);
-        $query = $this->forTab(clone $baseQuery, $tab)->with('roles');
+        $baseQuery = $this->filteredUsersQuery($request, $roleFilter);
+        $countBaseQuery = $this->filteredUsersQuery($request, $request->input('role'));
+        $query = $this->forTab(clone $baseQuery, $tab, $logisticsType)->with('roles');
 
         $users = $query->distinct()->latest()->paginate(12)->withQueryString();
-        $roles = Role::whereNotIn('slug', ['admin', 'super_admin'])->orderBy('name')->get();
-        $tabCounts = collect(['all', 'buyers', 'sellers', 'other'])->mapWithKeys(fn ($key) => [
-            $key => $this->forTab(clone $baseQuery, $key)->distinct()->count('users.id'),
+        $roles = Role::orderBy('name')->get();
+        $tabCounts = collect(['all', 'buyers', 'sellers', 'logistics', 'admins'])->mapWithKeys(fn ($key) => [
+            $key => $this->forTab(clone $countBaseQuery, $key, $key === 'logistics' ? 'all' : 'riders')->distinct()->count('users.id'),
         ])->all();
+        $logisticsCounts = collect(['riders', 'admin'])->mapWithKeys(fn ($key) => [
+            $key => $this->forTab(clone $countBaseQuery, 'logistics', $key)->distinct()->count('users.id'),
+        ])->all();
+        $filterRoles = $tab === 'logistics'
+            ? $roles->where('slug', $logisticsType === 'riders' ? 'rider' : 'logistics')
+            : $roles;
 
-        return view('admin.users.index', compact('users', 'roles', 'tab', 'tabCounts'));
+        return view('admin.users.index', compact('users', 'roles', 'filterRoles', 'roleFilter', 'tab', 'tabCounts', 'logisticsType', 'logisticsCounts'));
     }
 
     public function create()
@@ -192,24 +205,41 @@ class UserController extends Controller
             'Admin authority cannot be assigned through user management.');
     }
 
-    protected function filteredUsersQuery(Request $request): Builder
+    protected function filteredUsersQuery(Request $request, ?string $roleFilter = null): Builder
     {
         return User::query()
             ->when($request->filled('q'), function (Builder $query) use ($request) {
                 $search = trim((string) $request->input('q'));
                 $query->where(fn ($match) => $match->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%"));
             })
-            ->when($request->filled('role'), fn (Builder $query) => $query->whereHas('roles', fn ($role) => $role->where('slug', $request->input('role'))))
+            ->when(filled($roleFilter), fn (Builder $query) => $query->whereHas('roles', fn ($role) => $role->where('slug', $roleFilter)))
             ->when($request->filled('status'), fn (Builder $query) => $query->where('is_active', $request->input('status') === 'active'));
     }
 
-    protected function forTab(Builder $query, string $tab): Builder
+    protected function forTab(Builder $query, string $tab, string $logisticsType = 'all'): Builder
     {
         return match ($tab) {
             'buyers' => $query->whereHas('roles', fn ($role) => $role->where('slug', 'buyer')),
-            'sellers' => $query->whereHas('roles', fn ($role) => $role->where('slug', 'seller')),
-            'other' => $query->whereDoesntHave('roles', fn ($role) => $role->whereIn('slug', ['buyer', 'seller'])),
+            'sellers' => $query->whereHas('roles', fn ($role) => $role->where('slug', 'seller'))
+                ->whereHas('sellerProfile', fn ($profile) => $profile->where('status', 'approved'))
+                ->whereHas('store'),
+            'logistics' => $this->forLogisticsType($query, $logisticsType),
+            'admins' => $query->whereHas('roles', fn ($role) => $role->where('slug', 'admin')),
             default => $query,
+        };
+    }
+
+    protected function forLogisticsType(Builder $query, string $type): Builder
+    {
+        $staff = fn (Builder $builder) => $builder->whereHas('roles', fn ($role) => $role->where('slug', 'logistics'));
+        $riders = fn (Builder $builder) => $builder->whereHas('roles', fn ($role) => $role->where('slug', 'rider'))
+            ->whereHas('riderProfile')
+            ->where(fn ($user) => $user->where('registration_status', 'approved')->orWhereNull('registration_status'));
+
+        return match ($type) {
+            'admin' => $staff($query),
+            'riders' => $riders($query),
+            default => $query->where(fn (Builder $users) => $staff($users)->orWhere(fn (Builder $users) => $riders($users))),
         };
     }
 }

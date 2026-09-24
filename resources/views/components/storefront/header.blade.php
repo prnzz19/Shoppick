@@ -63,7 +63,11 @@
                                 </div>
                             </div>
                             <div class="py-1">
-                                <a href="{{ route('account.profile') }}" @click="open = false" role="menuitem" class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-navy-700 hover:bg-slate-50"><svg class="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 21a8 8 0 10-16 0m8-10a4 4 0 100-8 4 4 0 000 8z"/></svg>My Account</a>
+                                <a href="{{ route('account.profile') }}" @click="open = false" role="menuitem" class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-navy-700 hover:bg-slate-50"><svg class="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 21a8 8 0 10-16 0m8-10a4 4 0 100-8 4 4 0 000 8z"/></svg>Buyer Dashboard</a>
+                                @php
+                                    $sellerAction = auth()->user()->sellerAction();
+                                @endphp
+                                <a href="{{ $sellerAction['url'] }}" role="menuitem" class="block rounded-lg px-3 py-2.5 text-sm text-brand-700 hover:bg-brand-50">{{ $sellerAction['label'] }}</a>
                                 <a href="{{ route('orders.index') }}" @click="open = false" role="menuitem" class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-navy-700 hover:bg-slate-50"><svg class="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M6 4h12v16H6V4zm3 4h6m-6 4h6m-6 4h4"/></svg>My Orders</a>
                                 <a href="{{ route('wishlist.index') }}" @click="open = false" role="menuitem" class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-navy-700 hover:bg-slate-50"><svg class="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4.3 6.3a4.5 4.5 0 000 6.4L12 20.4l7.7-7.7a4.5 4.5 0 00-6.4-6.4L12 7.6l-1.3-1.3a4.5 4.5 0 00-6.4 0z"/></svg>Wishlist</a>
                             </div>

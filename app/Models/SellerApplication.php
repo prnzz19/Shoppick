@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class SellerApplication extends Model
 {
+    public const REVIEWABLE = ['pending', 'escalated', 'awaiting_final_review'];
+    public const STATUSES = ['pending', 'needs_resubmission', 'approved', 'rejected', 'escalated', 'awaiting_final_review'];
+
     protected $fillable = ['user_id', 'store_name', 'category_id', 'store_description', 'phone', 'address',
         'business_information', 'valid_id_path', 'business_permit_path', 'logo', 'banner', 'status', 'admin_recommendation', 'admin_review_notes',
         'admin_reviewed_by', 'admin_reviewed_at', 'escalated_by', 'escalation_reason', 'escalated_at',

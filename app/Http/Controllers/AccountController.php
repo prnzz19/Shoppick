@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Password;
 
 class AccountController extends Controller
@@ -11,7 +12,7 @@ class AccountController extends Controller
     public function profile()
     {
         $user = auth()->user();
-        $orders = $user->orders()->with('items')->latest()->take(5)->get();
+        $orders = $user->orders()->with(['items.product.images', 'sellerOrders.store'])->latest()->take(5)->get();
         return view('storefront.account.profile', compact('user', 'orders'));
     }
 
@@ -26,13 +27,18 @@ class AccountController extends Controller
 
         if ($request->hasFile('avatar')) {
             $request->validate(['avatar' => ['image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048']]);
+            $previousAvatar = $user->avatar;
             $path = $request->file('avatar')->store('avatars', 'public');
             $data['avatar'] = $path;
+
+            if ($previousAvatar && str_starts_with($previousAvatar, 'avatars/')) {
+                Storage::disk('public')->delete($previousAvatar);
+            }
         }
 
         $user->update($data);
 
-        return back()->with('success', 'Profile updated.');
+        return back()->with('success', $request->hasFile('avatar') ? 'Profile photo updated successfully.' : 'Profile updated.');
     }
 
     public function changePasswordForm()

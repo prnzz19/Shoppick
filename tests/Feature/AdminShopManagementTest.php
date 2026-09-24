@@ -43,8 +43,8 @@ class AdminShopManagementTest extends TestCase
         $this->post(route('admin.shops.status',$this->shop),['action'=>'approve'])->assertForbidden();
         $this->post(route('admin.shops.status',$this->shop),['action'=>'reject','reason'=>'Not authorized'])->assertForbidden();
         $this->adminRole->permissions()->attach($this->permission('view_shops'));
-        $this->get(route('admin.shops.index'))->assertOk()->assertSee('Panda Picks')->assertSee('Shops');
-        $this->get(route('admin.shops.show',$this->shop))->assertOk()->assertSee('Panda Picks')->assertDontSee('Suspend Shop');
+        $this->get(route('admin.shops.index'))->assertOk()->assertSee('Panda Picks')->assertSee('Manage Shops')->assertSee('Total Shops');
+        $this->get(route('admin.shops.show',$this->shop))->assertOk()->assertSee('Panda Picks')->assertSee('Default SHOPPICK avatar', false)->assertDontSee('Suspend Shop');
     }
 
     public function test_authorized_admin_can_suspend_shop_and_seller_is_notified(): void
@@ -82,7 +82,7 @@ class AdminShopManagementTest extends TestCase
         $applicant=User::factory()->create(['is_active'=>true]);$applicant->assignRole('buyer');
         $profile=SellerProfile::create(['user_id'=>$applicant->id,'phone'=>'09171234567','address'=>'Manila','status'=>'pending']);
         $shop=Store::create(['user_id'=>$applicant->id,'seller_profile_id'=>$profile->id,'name'=>'HATDOGGGG','slug'=>'hatdogggg','status'=>'pending']);
-        $application=SellerApplication::create(['user_id'=>$applicant->id,'store_name'=>'HATDOGGGG','store_description'=>'Pending store','phone'=>'09171234567','address'=>'Manila','status'=>'pending']);
+        $application=SellerApplication::create(['user_id'=>$applicant->id,'store_name'=>'HATDOGGGG','store_description'=>'Pending store','phone'=>'09171234567','address'=>'Manila','logo'=>'stores/application-logo.png','status'=>'pending']);
         $admin=User::factory()->create(['is_active'=>true]);$admin->assignRole('admin');
         $this->adminRole->permissions()->attach([$this->permission('view_shops')->id,$this->permission('approve_shops')->id,$this->permission('reject_shops')->id]);
 
@@ -92,7 +92,7 @@ class AdminShopManagementTest extends TestCase
             ->assertSee('id="shoppick-confirm"',false)->assertSee('data-confirm-title="Approve this seller shop?"',false)
             ->assertDontSee('return confirm(',false);
         $this->post(route('admin.shops.status',$shop),['action'=>'approve'])->assertSessionHasNoErrors();
-        $this->assertSame('approved',$application->fresh()->status);$this->assertSame('approved',$profile->fresh()->status);$this->assertSame('active',$shop->fresh()->status);$this->assertTrue($applicant->fresh()->isSeller());
+        $this->assertSame('approved',$application->fresh()->status);$this->assertSame('approved',$profile->fresh()->status);$this->assertSame('active',$shop->fresh()->status);$this->assertSame('stores/application-logo.png',$shop->fresh()->logo);$this->assertTrue($applicant->fresh()->isSeller());
         $this->assertDatabaseHas('notifications_custom',['user_id'=>$applicant->id,'title'=>'Your seller application has been approved.']);
         $this->assertDatabaseHas('admin_activity_logs',['action'=>'seller_shop.admin_approved','target_id'=>$shop->id]);
 

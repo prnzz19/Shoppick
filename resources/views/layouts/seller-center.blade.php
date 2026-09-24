@@ -13,6 +13,7 @@
     $sellerUnreadNotifications = auth()->user()->notificationsData()->unread()->count();
     $sellerOpenOrders = $store->sellerOrders()->whereIn('status', ['pending','confirmed','processing','packed','ready_to_ship'])->count();
     $nav = [
+        ['home','Shop as Buyer','home',0],
         ['seller.dashboard','Dashboard','home',0], ['seller.orders.index','Orders','orders',$sellerOpenOrders],
         ['seller.products.index','Products','box',0], ['seller.inventory.index','Inventory','box',0],
         ['seller.marketing.index','Marketing','ticket',0], ['seller.reviews.index','Reviews','star',0],

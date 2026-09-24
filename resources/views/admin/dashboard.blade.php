@@ -5,6 +5,9 @@
 @section('content')
 <h1 class="mb-6 text-2xl font-bold text-navy-800">Dashboard</h1>
 
+<div class="mb-6 grid gap-4 sm:grid-cols-3">
+@foreach(['buyers'=>['Total Buyers','admin.users.index'],'seller_applications'=>['Pending Seller Applications','admin.sellers.applications.index'],'active_sellers'=>['Active Sellers','admin.sellers.index']] as $key=>[$label,$target])<a href="{{ route($target, $key==='buyers'?['tab'=>'buyers']:[]) }}" class="card p-5"><p class="text-sm text-slate-500">{{ $label }}</p><strong class="mt-2 block text-3xl text-brand-700">{{ $stats[$key] }}</strong></a>@endforeach
+</div><p class="mb-5 text-sm text-slate-500">Total Buyers includes accounts with both Buyer and Seller access.</p>
 <div class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
     <x-admin.stat-card label="Products" :value="$stats['products']" color="bg-brand-50 text-brand-600" icon="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
     <x-admin.stat-card label="Categories" :value="$stats['categories']" color="bg-accent-50 text-accent-600" icon="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" />
@@ -102,4 +105,5 @@
         @endif
     </div>
 </div>
+<section class="card mt-6 overflow-x-auto p-5"><div class="mb-4 flex justify-between gap-3"><h2 class="font-bold text-navy-900">Recent Seller Applications</h2><a class="text-brand-700" href="{{ route('admin.sellers.applications.index') }}">View all</a></div><table class="w-full"><thead><tr>@foreach(['Applicant','Proposed Shop','Submitted','Status','Action'] as $label)<th class="table-th">{{ $label }}</th>@endforeach</tr></thead><tbody>@forelse($recentApplications as $application)<tr><td class="table-td">{{ $application->user?->name }}</td><td class="table-td">{{ $application->store_name }}</td><td class="table-td">{{ $application->created_at->format('M d, Y') }}</td><td class="table-td"><x-admin.status-badge :status="$application->status"/></td><td class="table-td"><a class="text-brand-700" href="{{ route('admin.sellers.applications.show',$application) }}">Review &rarr;</a></td></tr>@empty<tr><td colspan="5" class="p-5 text-slate-500">No seller applications yet.</td></tr>@endforelse</tbody></table></section>
 @endsection

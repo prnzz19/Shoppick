@@ -36,7 +36,9 @@ trait HasRoles
     public function removeRole(...$roles)
     {
         $roles = collect($roles)->flatten()->map(fn ($r) => is_string($r) ? $r : $r->slug);
-        $this->roles()->whereIn('slug', $roles->toArray())->detach();
+        $ids = \App\Models\Role::whereIn('slug', $roles->toArray())->pluck('id');
+        $this->roles()->detach($ids);
+        $this->unsetRelation('roles');
 
         return $this;
     }

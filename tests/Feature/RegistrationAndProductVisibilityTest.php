@@ -72,33 +72,12 @@ class RegistrationAndProductVisibilityTest extends TestCase
         $this->assertSame('Submitted identification could not be verified.',$rejected->fresh()->registration_review_notes);
     }
 
-    public function test_public_registration_choice_and_pending_seller_approval_flow(): void
+    public function test_public_seller_signup_is_disabled_and_registration_is_buyer_only(): void
     {
-        $this->get(route('register'))->assertOk()->assertSee('Register as Buyer')->assertSee('Register as Seller')->assertDontSee('Register as Admin');
-        $category=Category::create(['name'=>'Electronics','slug'=>'electronics','is_active'=>true]);
-        $data=['first_name'=>'New','last_name'=>'Seller','sex'=>'male','birthday'=>'2000-01-10','email'=>'new@seller.test','phone'=>'09171234567','password'=>'password','password_confirmation'=>'password','address_line'=>'1 Seller Street','barangay'=>'Central','city'=>'Manila','province'=>'Metro Manila','postal_code'=>'1000','country'=>'PH','store_name'=>'New Seller Shop','category_id'=>$category->id,'store_description'=>'Useful products from a new local store.','same_address'=>'1','seller_terms'=>'1','valid_id'=>UploadedFile::fake()->create('seller-id.jpg',100,'image/jpeg'),'business_permit'=>UploadedFile::fake()->create('permit.pdf',100,'application/pdf')];
-        $this->post(route('register.seller.submit'),$data)->assertRedirect(route('login'))->assertSessionHasNoErrors();
-        $seller=User::where('email','new@seller.test')->firstOrFail();
-        $this->assertTrue($seller->isBuyer());$this->assertFalse($seller->isSeller());
-        $this->assertDatabaseHas('seller_profiles',['user_id'=>$seller->id,'status'=>'pending']);
-        $this->assertDatabaseHas('seller_applications',['user_id'=>$seller->id,'store_name'=>'New Seller Shop','status'=>'pending']);
-        $this->assertDatabaseHas('stores',['user_id'=>$seller->id,'name'=>'New Seller Shop','status'=>'pending']);
-        $this->post(route('login.submit'),['email'=>$seller->email,'password'=>'password'])->assertSessionHasErrors('email');
-        $this->post(route('register.seller.submit'),$data)->assertSessionHasErrors('email');
-        $this->assertSame(1,User::where('email','new@seller.test')->count());
-
-        $approve=\App\Models\Permission::firstOrCreate(['slug'=>'approve_shops'],['name'=>'Approve Shops','group'=>'Shops','guard_name'=>'web']);
-        $manageSellers=\App\Models\Permission::firstOrCreate(['slug'=>'manage_sellers'],['name'=>'Manage Sellers','group'=>'Sellers','guard_name'=>'web']);
-        $adminRole=Role::where('slug','admin')->firstOrFail();$adminRole->permissions()->attach([$approve->id,$manageSellers->id]);
-        $admin=User::factory()->create(['is_active'=>true]);$admin->assignRole('admin');
-        $application=SellerApplication::where('user_id',$seller->id)->firstOrFail();
-        $this->actingAs($admin)->post(route('admin.sellers.applications.review',$application),['status'=>'approved','review_notes'=>'Initial documents verified.'])->assertSessionHasNoErrors();
-        $this->assertSame('approved',$application->fresh()->status);
-        $this->assertTrue($seller->fresh()->isSeller());
-        $this->assertSame('approved',$seller->sellerProfile->fresh()->status);
-        $this->assertSame('active',$seller->store->fresh()->status);
-        $this->assertTrue($seller->fresh()->is_active);$this->assertSame('approved',$seller->fresh()->registration_status);
-        $this->assertDatabaseHas('notifications_custom',['user_id'=>$seller->id,'title'=>'Your seller application has been approved.']);
+        $this->get(route('register'))->assertOk()->assertSee('Register as Buyer')->assertDontSee('Register as Seller');
+        $this->get(route('register.seller'))->assertRedirect(route('seller.apply'));
+        $this->post(route('register.seller.submit'),['email'=>'blocked@example.test'])->assertStatus(410);
+        $this->assertDatabaseCount('users',0);
     }
 
     public function test_new_public_seller_product_is_latest_searchable_and_visible_in_shop(): void
@@ -263,19 +242,17 @@ class RegistrationAndProductVisibilityTest extends TestCase
         $this->assertDatabaseHas('social_accounts',['user_id'=>$buyer->id,'provider_id'=>'google-existing']);
     }
 
-    public function test_google_seller_must_complete_store_information_and_remains_pending(): void
+    public function test_google_seller_intent_still_creates_only_a_buyer(): void
     {
-        $google=(new GoogleUser)->setRaw(['verified_email'=>true])->map(['id'=>'google-seller','name'=>'Google Seller','email'=>'google@seller.test','avatar'=>null]);
+        $google=(new GoogleUser)->setRaw(['verified_email'=>true])->map(['id'=>'google-seller','name'=>'Google Buyer','email'=>'google@seller.test','avatar'=>null]);
         $provider=Mockery::mock(Provider::class);$provider->shouldReceive('user')->once()->andReturn($google);
         Socialite::shouldReceive('driver')->with('google')->once()->andReturn($provider);
-        $this->withSession(['registration_type'=>'seller'])->get(route('auth.google.callback'))->assertRedirect(route('profile.complete.seller'));
-        $this->post(route('profile.complete.seller.update'),['phone'=>'09171234567'])->assertSessionHasErrors(['first_name','last_name','sex','birthday','valid_id','address_line']);
-        $category=Category::create(['name'=>'Google Electronics','slug'=>'google-electronics','is_active'=>true]);
-        $this->post(route('profile.complete.seller.update'),['first_name'=>'Google','last_name'=>'Seller','sex'=>'male','birthday'=>'2000-01-10','valid_id'=>UploadedFile::fake()->create('google-seller-id.jpg',100,'image/jpeg'),'business_permit'=>UploadedFile::fake()->create('google-permit.pdf',100,'application/pdf'),'category_id'=>$category->id,'phone'=>'09171234567','address_line'=>'2 Google Street','barangay'=>'Web','city'=>'Manila','province'=>'Metro Manila','postal_code'=>'1000','country'=>'PH','store_name'=>'Google Seller Shop','store_description'=>'A complete Google seller application.','same_address'=>'1','seller_terms'=>'1'])->assertRedirect(route('login'));
+        $this->withSession(['registration_type'=>'seller'])->get(route('auth.google.callback'))->assertRedirect(route('profile.complete'));
         $user=User::where('email','google@seller.test')->firstOrFail();
         $this->assertTrue($user->isBuyer());$this->assertFalse($user->isSeller());
-        $this->assertDatabaseHas('seller_applications',['user_id'=>$user->id,'status'=>'pending']);
-        $this->assertDatabaseHas('stores',['user_id'=>$user->id,'status'=>'pending']);
+        $this->assertSame('buyer',$user->registration_type);
+        $this->assertDatabaseCount('seller_applications',0);
+        $this->post(route('profile.complete.seller.update'),[])->assertStatus(410);
     }
 
     public function test_google_will_not_link_an_unverified_email(): void
@@ -305,14 +282,14 @@ class RegistrationAndProductVisibilityTest extends TestCase
         config(['services.google.client_id'=>'test-client','services.google.client_secret'=>'test-secret','services.google.redirect'=>'http://127.0.0.1:8000/auth/google/callback']);
         $this->get(route('login'))->assertOk()->assertSee(route('auth.google.redirect'),false)->assertDontSee('Google sign-in is currently unavailable.');
         $this->get(route('register.buyer'))->assertOk()->assertSee(route('auth.google.redirect',['account_type'=>'buyer']),false)->assertDontSee('Google registration is currently unavailable.');
-        $this->get(route('register.seller'))->assertOk()->assertSee(route('auth.google.redirect',['account_type'=>'seller']),false)->assertDontSee('Google registration is currently unavailable.');
+        $this->get(route('register.seller'))->assertRedirect(route('seller.apply'));
         $provider=Mockery::mock(Provider::class);
         $provider->shouldReceive('scopes')->once()->with(['openid','email','profile'])->andReturnSelf();
         $provider->shouldReceive('redirect')->once()->andReturn(redirect()->away('https://accounts.google.test/select'));
         Socialite::shouldReceive('driver')->with('google')->once()->andReturn($provider);
 
         $this->get(route('auth.google.redirect',['account_type'=>'seller']))
-            ->assertRedirect('https://accounts.google.test/select')->assertSessionHas('registration_type','seller');
+            ->assertRedirect('https://accounts.google.test/select')->assertSessionHas('registration_type','buyer');
     }
 
     public function test_registration_decision_survives_mail_transport_failure(): void
@@ -330,6 +307,10 @@ class RegistrationAndProductVisibilityTest extends TestCase
         foreach (['admin'=>'admin.dashboard','seller'=>'seller.dashboard','buyer'=>'home'] as $role=>$route) {
             $user = User::factory()->create(['email'=>$role.'@login.test','password'=>Hash::make('password'),'is_active'=>true]);
             $user->assignRole($role);
+            if($role==='seller'){
+                $profile=SellerProfile::create(['user_id'=>$user->id,'status'=>'approved']);
+                Store::create(['user_id'=>$user->id,'seller_profile_id'=>$profile->id,'name'=>'Approved Login Shop','slug'=>'approved-login-shop','status'=>'active']);
+            }
             $response = $this->post(route('login.submit'), ['email'=>$user->email,'password'=>'password']);
             $response->assertRedirect(route($route));
             $this->assertAuthenticatedAs($user);

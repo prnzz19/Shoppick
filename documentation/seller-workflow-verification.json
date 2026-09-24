@@ -1,0 +1,51 @@
+{
+    "tables": {
+        "users": {
+            "count": 27,
+            "sha256": "5d7f78e0cc8793dd4afcdbb059e09ef57b7a5d612e1ad5f36b4c8196d0665eb6",
+            "unchanged": true
+        },
+        "seller_applications": {
+            "count": 2,
+            "sha256": "c4a74ae653a28a2c16ba4921796214ade49aef77bb6fc49989b0c9b9b7f8fe13",
+            "unchanged": true
+        },
+        "seller_profiles": {
+            "count": 9,
+            "sha256": "b0ddfa29d88c34bc7d0e15867d10e117aa4cf193d17862e5b02ea6c6f5995621",
+            "unchanged": true
+        },
+        "stores": {
+            "count": 9,
+            "sha256": "deada0297204c627d93744d7ef57e6059fba48b952d43d183f581ff070a1bc2c",
+            "unchanged": true
+        },
+        "products": {
+            "count": 27,
+            "sha256": "7b22fcd955bed175b35865adab3617bdaa50363f37eb06390e8706092084cfba",
+            "unchanged": true
+        },
+        "orders": {
+            "count": 23,
+            "sha256": "f1a203fa53818af69f1322dc6426078e177665083ff4a72ebdb7098c8f991b2a",
+            "unchanged": true
+        },
+        "order_items": {
+            "count": 32,
+            "sha256": "850e13e2c5c8ef0641aa607e6317f4d1515e02a6bfca754ccd41781f91109c05",
+            "unchanged": true
+        },
+        "payments": {
+            "count": 23,
+            "sha256": "7fe62f94bfb125e3e6cfb1d93ce4df9bbc82e6585dd6295633ddb917c60a63a6",
+            "unchanged": true
+        },
+        "categories": {
+            "count": 38,
+            "sha256": "581693bd68ddd38c3ebf398c3a91d2e22d03a516890ce2c1adf8fe17bfba4a2e",
+            "unchanged": true
+        }
+    },
+    "role_assignments_before": 29,
+    "role_assignments_after": 36
+}

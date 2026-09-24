@@ -55,8 +55,8 @@
             <label class="flex items-start gap-2 text-sm text-slate-600"><input type="checkbox" name="terms" value="1" required class="mt-1 h-4 w-4 rounded border-slate-300 text-brand-500">I agree to the Terms and Privacy Policy.</label>
             @error('terms')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
             <button type="submit" class="btn-primary w-full">Register as Buyer</button>
-        </form>
+        </form><p class="mt-4 text-sm text-slate-600">All new accounts start as Buyers. Apply to become a Seller from your account after registration approval.</p><a href="{{ route('register.rider') }}" class="mt-3 block text-sm text-brand-700">Apply as Rider</a>
     </div>
-    <p class="mt-4 text-center text-sm text-slate-600"><a href="{{ route('register') }}" class="font-semibold text-slate-500">← Choose account type</a> · Already have an account? <a href="{{ route('login') }}" class="font-semibold text-brand-600 hover:text-brand-700">Login</a></p>
+    <p class="mt-4 text-center text-sm text-slate-600">Already have an account? <a href="{{ route('login') }}" class="font-semibold text-brand-600 hover:text-brand-700">Login</a></p>
 </div>
 @endsection

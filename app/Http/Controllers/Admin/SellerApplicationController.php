@@ -15,11 +15,18 @@ class SellerApplicationController extends Controller
     public function __construct(protected SellerShopApprovalService $approvals) {}
     public function index(Request $request)
     {
-        $tab=in_array($request->tab,['all','buyers','sellers'],true)?$request->tab:'all';
-        $status=$request->input('status');$search=$request->input('q');
-        $buyers=User::with(['roles','addresses','socialAccounts','registrationReviewer'])->where('registration_type','buyer')->when($status,fn($q,$s)=>$q->where('registration_status',$s))->when($search,fn($q,$s)=>$q->where(fn($x)=>$x->where('name','like',"%$s%")->orWhere('email','like',"%$s%")))->latest()->get();
-        $sellers=SellerApplication::with(['user.addresses','user.socialAccounts','category','reviewer'])->when($status,fn($q,$s)=>$q->where('status',$s))->when($search,fn($q,$s)=>$q->where(fn($x)=>$x->where('store_name','like',"%$s%")->orWhereHas('user',fn($u)=>$u->where('name','like',"%$s%")->orWhere('email','like',"%$s%"))))->latest()->get();
-        return view('admin.sellers.index', compact('buyers','sellers','tab'));
+        $applications = SellerApplication::with(['user','category','reviewer'])
+            ->when($request->filled('status'), fn($q) => $q->where('status', $request->status))
+            ->when($request->filled('q'), fn($q) => $q->where(fn($q) => $q->where('store_name','like','%'.$request->q.'%')->orWhereHas('user',fn($u) => $u->where('name','like','%'.$request->q.'%')->orWhere('email','like','%'.$request->q.'%'))))
+            ->latest()->paginate(15)->withQueryString();
+        return view('admin.sellers.index', compact('applications'));
+    }
+
+    public function show(SellerApplication $application)
+    {
+        $application->load(['user','category','reviewer']);
+        $history = \App\Models\AdminActivityLog::where('target_type', SellerApplication::class)->where('target_id',$application->id)->with('user')->latest()->get();
+        return view('admin.sellers.application', compact('application','history'));
     }
 
     public function reviewBuyer(Request $request, User $user)
@@ -48,9 +55,9 @@ class SellerApplicationController extends Controller
 
     public function review(Request $request, SellerApplication $application)
     {
-        $data = $request->validate(['status' => ['required', 'in:approved,rejected'], 'review_notes' => ['nullable', 'string', 'max:2000']]);
+        $data = $request->validate(['status' => ['required', 'in:approved,rejected,needs_resubmission'], 'review_notes' => ['nullable', 'string', 'max:2000']]);
         $this->approvals->review($application,$request->user(),$data['status'],$data['review_notes']??null);
-        return back()->with('success', 'Seller application decision saved.');
+        return redirect()->route('admin.sellers.applications.show', $application)->with('success', 'Seller application decision saved.');
     }
 
 }
