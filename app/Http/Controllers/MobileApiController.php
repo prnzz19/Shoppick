@@ -13,7 +13,7 @@ class MobileApiController extends Controller
     private function productData(Product $p): array
     {
         $p->loadMissing(['images', 'category', 'store', 'variants']);
-        return ['id'=>$p->id,'name'=>$p->name,'slug'=>$p->slug,'description'=>$p->description,'price'=>(float)$p->salePrice(),'original_price'=>(float)$p->originalPrice(),'discount'=>(float)$p->discount,'stock'=>$p->stock,'image'=>$p->images->firstWhere('is_primary',true)?->url ?? $p->images->first()?->url,'images'=>$p->images->map->url,'category'=>$p->category?->name,'shop'=>$p->store?->name,'variants'=>$p->variants->map(fn($v)=>['id'=>$v->id,'type'=>$v->type,'value'=>$v->value,'price'=>$v->price,'stock'=>$v->stock])];
+        return ['id'=>$p->id,'name'=>$p->name,'slug'=>$p->slug,'description'=>$p->description,'price'=>(float)$p->salePrice(),'original_price'=>(float)$p->originalPrice(),'discount'=>(float)$p->discount,'stock'=>$p->stock,'image'=>$p->images->firstWhere('is_primary',true)?->url ?? $p->images->first()?->url,'images'=>$p->images->map->url,'category'=>$p->category?->name,'shop'=>$p->store?->name,'store'=>$this->storeData($p->store),'rating_avg'=>$p->rating_avg,'rating_count'=>$p->rating_count,'variants'=>$p->variants->map(fn($v)=>['id'=>$v->id,'type'=>$v->type,'value'=>$v->value,'price'=>$v->price,'stock'=>$v->stock])];
     }
 
     public function login(Request $r)
@@ -31,21 +31,90 @@ class MobileApiController extends Controller
         $user=DB::transaction(function()use($d,$r){$name=trim($d['first_name'].' '.(!empty($d['middle_initial'])?$d['middle_initial'].'. ':'').$d['last_name']);$user=User::create(['name'=>$name,'first_name'=>$d['first_name'],'middle_initial'=>$d['middle_initial']??null,'last_name'=>$d['last_name'],'sex'=>$d['sex'],'birthday'=>$d['birthday'],'email'=>strtolower($d['email']),'phone'=>$d['phone'],'valid_id_path'=>$r->file('valid_id')->store('registration-documents'),'registration_type'=>'buyer','registration_status'=>'pending','password'=>Hash::make($d['password']),'is_active'=>false]);$user->assignRole('buyer');$user->addresses()->create(['full_name'=>$name,'phone'=>$d['phone'],'address_line'=>$d['address_line'],'region'=>$d['region']??null,'region_code'=>$d['region_code']??null,'barangay'=>$d['barangay'],'barangay_code'=>$d['barangay_code']??null,'city'=>$d['city'],'city_code'=>$d['city_code']??null,'province'=>$d['province']??'','province_code'=>$d['province_code']??null,'postal_code'=>$d['postal_code'],'country'=>strtoupper($d['country']),'label'=>'Home','is_default'=>true]);return $user;});
         return response()->json(['message'=>'Registration submitted. Your Buyer account is waiting for administrator approval.','user'=>['name'=>$user->name,'email'=>$user->email]],201);
     }
-    private function userData(User $u): array { $a=$u->sellerApplications()->latest()->first(); return ['id'=>$u->id,'name'=>$u->name,'email'=>$u->email,'phone'=>$u->phone,'roles'=>$u->roles()->pluck('slug'),'seller_application'=>$a?['status'=>$a->status,'notes'=>$a->review_notes]:null,'is_seller'=>$u->isSeller()]; }
+    private function userData(User $u): array { $a=$u->sellerApplications()->latest()->first(); return ['id'=>$u->id,'name'=>$u->name,'email'=>$u->email,'phone'=>$u->phone,'avatar'=>$u->avatar_url,'created_at'=>$u->created_at,'roles'=>$u->roles()->pluck('slug'),'seller_application'=>$a?['status'=>$a->status,'notes'=>$a->review_notes]:null,'is_seller'=>$u->isSeller()]; }
     public function logout(Request $r) { DB::table('mobile_api_tokens')->where('token_hash',hash('sha256',$r->bearerToken()))->delete(); return response()->json(['message'=>'Logged out']); }
     public function profile(Request $r) { return response()->json(['user'=>$this->userData($r->user()),'addresses'=>$r->user()->addresses]); }
-    public function categories() { return Category::active()->whereNull('parent_id')->orderBy('sort_order')->orderBy('name')->get(['id','name','slug','image'])->values(); }
-    public function products(Request $r) { $q=Product::active()->with(['images','category','store'])->when($r->filled('category'),fn($q)=>$q->where('category_id',$r->integer('category')))->when($r->filled('q'),fn($q)=>$q->where('name','like','%'.$r->string('q').'%'))->latest(); return response()->json(['data'=>$q->paginate(20)->through(fn($p)=>$this->productData($p))]); }
+    public function categories() { return Category::active()->with(['children'=>fn($q)=>$q->active()->orderBy('sort_order')])->whereNull('parent_id')->orderBy('sort_order')->orderBy('name')->get(['id','name','slug','image'])->values(); }
+    public function products(Request $r)
+    {
+        $q = Product::active()->with(['images','category','store','variants']);
+        if ($r->filled('category')) {
+            $category = Category::active()->findOrFail($r->integer('category'));
+            $q->whereIn('category_id', $category->children()->active()->pluck('id')->push($category->id));
+        }
+        if ($r->filled('shop')) $q->where('store_id', $r->integer('shop'));
+        $search = trim((string) $r->input('q', ''));
+        if ($search !== '') {
+            $q->where(fn($q)=>$q->where('name','like','%'.$search.'%')
+                ->orWhere('description','like','%'.$search.'%')
+                ->orWhereHas('store',fn($s)=>$s->where('name','like','%'.$search.'%')));
+        }
+        return response()->json(['data'=>$q->latest()->orderByDesc('id')->paginate(20)->through(fn($p)=>$this->productData($p))]);
+    }
     public function product(Product $product) { abort_unless(Product::active()->whereKey($product->id)->exists(),404); return response()->json($this->productData($product)); }
-    public function home() { return response()->json(['categories'=>$this->categories(),'featured'=>Product::active()->where('is_featured',true)->with(['images','category','store'])->take(8)->get()->map(fn($p)=>$this->productData($p)),'latest'=>Product::active()->with(['images','category','store'])->latest()->take(12)->get()->map(fn($p)=>$this->productData($p)),'deals'=>Product::active()->where('discount','>',0)->with(['images','category','store'])->take(8)->get()->map(fn($p)=>$this->productData($p))]); }
+    public function home() { return response()->json(['categories'=>$this->categories(),'featured'=>Product::active()->where('is_featured',true)->with(['images','category','store','variants'])->take(8)->get()->map(fn($p)=>$this->productData($p)),'latest'=>Product::active()->with(['images','category','store','variants'])->latest()->take(12)->get()->map(fn($p)=>$this->productData($p)),'deals'=>Product::active()->where('discount','>',0)->with(['images','category','store','variants'])->take(8)->get()->map(fn($p)=>$this->productData($p))]); }
     public function cart(Request $r, CartService $cart) { return $this->cartResponse($r->user(),$cart); }
-    private function cartResponse(User $u, CartService $cart) { $items=$cart->items($u->id); return response()->json(['items'=>$items->map(fn($i)=>['id'=>$i->id,'quantity'=>$i->quantity,'selected'=>$i->selected,'unit_price'=>(float)$i->unitPrice(),'line_total'=>(float)$i->lineTotal(),'product'=>$this->productData($i->product),'variant'=>$i->variant?->label]),'subtotal'=>(float)$items->filter->selected->sum(fn($i)=>$i->lineTotal()),'cart_count'=>$cart->count($u->id)]); }
+    private function cartResponse(User $u, CartService $cart) { $items=$cart->items($u->id); return response()->json(['items'=>$items->values()->map(fn($i)=>['id'=>$i->id,'quantity'=>$i->quantity,'selected'=>$i->selected,'unit_price'=>(float)$i->unitPrice(),'line_total'=>(float)$i->lineTotal(),'product'=>$this->productData($i->product),'variant'=>$i->variant?->label]),'subtotal'=>(float)$items->filter->selected->sum(fn($i)=>$i->lineTotal()),'cart_count'=>$cart->count($u->id)]); }
     public function addCart(Request $r, CartService $cart) { $d=$r->validate(['product_id'=>'required|integer','product_variant_id'=>'nullable|integer','quantity'=>'required|integer|min:1|max:50']); $cart->add($r->user()->id,$d['product_id'],$d['product_variant_id']??null,$d['quantity']); return $this->cartResponse($r->user(),$cart); }
-    public function updateCart(Request $r, int $item, CartService $cart) { $d=$r->validate(['quantity'=>'required|integer|min:1|max:50']); $cart->updateQuantity($r->user()->id,$item,$d['quantity']); return $this->cartResponse($r->user(),$cart); }
+    public function updateCart(Request $r, int $item, CartService $cart)
+    {
+        $d=$r->validate(['quantity'=>'required_without:selected|integer|min:1|max:50','selected'=>'sometimes|boolean']);
+        if (isset($d['quantity'])) $cart->updateQuantity($r->user()->id,$item,$d['quantity']);
+        if (array_key_exists('selected', $d)) {
+            $cart->getOrCreateCart($r->user()->id)->items()->findOrFail($item)->update(['selected'=>$d['selected']]);
+        }
+        return $this->cartResponse($r->user(),$cart);
+    }
     public function removeCart(Request $r, int $item, CartService $cart) { $cart->remove($r->user()->id,$item); return $this->cartResponse($r->user(),$cart); }
     public function checkout(Request $r, OrderService $orders) { $d=$r->validate(['address_id'=>'required|integer','payment_method'=>'required|in:cod,gcash,maya,card','note'=>'nullable|string|max:500','voucher_codes'=>'nullable|array']); if(!$r->user()->isBuyer()) abort(403,'Buyer access required.'); $order=$orders->placeOrder($r->user()->id,$d)['order']; return response()->json(['order'=>$order->load('items')],201); }
-    public function orders(Request $r) { return $r->user()->orders()->with('items')->latest()->paginate(20); }
-    public function order(Request $r, string $order) { return $r->user()->orders()->with('items')->where('order_number',$order)->firstOrFail(); }
-    public function sellerApplication(Request $r) { return response()->json(['application'=>$r->user()->sellerApplications()->latest()->first(),'is_seller'=>$r->user()->isSeller(),'categories'=>Category::active()->orderBy('name')->get(['id','name'])]); }
+    public function orders(Request $r) { return $r->user()->orders()->with(['items','sellerOrders.store','statusHistory','payments'])->latest()->paginate(20)->through(fn($o)=>$this->orderData($o)); }
+    public function order(Request $r, string $order) { return $this->orderData($r->user()->orders()->with(['items','sellerOrders.store','statusHistory','payments'])->where('order_number',$order)->firstOrFail()); }
+    public function sellerApplication(Request $r) { return response()->json(['application'=>$r->user()->sellerApplications()->latest()->first(),'is_seller'=>$r->user()->isSeller(),'seller_access'=>$r->user()->hasApprovedSellerAccess(),'categories'=>Category::active()->orderBy('name')->get(['id','name'])]); }
     public function submitSellerApplication(Request $r) { abort_if($r->user()->isSeller(),422,'You already have seller access.'); $d=$r->validate(['store_name'=>'required|string|max:120','store_description'=>'nullable|string|max:2000','phone'=>'required|string|max:30','address'=>'required|string|max:1000','category_id'=>'required|exists:categories,id','business_information'=>'nullable|string|max:2000','valid_id'=>'required|file|mimes:jpg,jpeg,png,pdf|max:5120','business_permit'=>'required|file|mimes:jpg,jpeg,png,pdf|max:5120','logo'=>'nullable|image|max:2048','banner'=>'nullable|image|max:4096']); foreach(['logo','banner'] as $f) if($r->hasFile($f)) $d[$f]=$r->file($f)->store('stores','public'); $d['valid_id_path']=$r->file('valid_id')->store('registration-documents'); $d['business_permit_path']=$r->file('business_permit')->store('registration-documents'); $d['address_line']=$d['address']; $d['same_address']=true; app(\App\Services\SellerRegistrationService::class)->submit($r->user(),$d); return response()->json(['message'=>'Seller application submitted.','application'=>$r->user()->sellerApplications()->latest()->first()],201); }
+    private function storeData(?\App\Models\Store $store): ?array
+    {
+        return $store ? ['id'=>$store->id, 'name'=>$store->name, 'slug'=>$store->slug,
+            'logo'=>$store->logo ? asset('storage/'.$store->logo) : null,
+            'description'=>$store->description, 'location'=>$store->location,
+            'status'=>$store->status, 'rating_avg'=>$store->rating_avg, 'rating_count'=>$store->rating_count] : null;
+    }
+
+    public function shop(string $shop)
+    {
+        $store = \App\Models\Store::marketplaceActive()->where('slug', $shop)->firstOrFail();
+        return response()->json(['shop'=>$this->storeData($store),
+            'products'=>$store->products()->active()->with(['images','category','store','variants'])
+                ->latest()->paginate(20)->through(fn($p)=>$this->productData($p))]);
+    }
+
+    private function orderData(Order $order): array
+    {
+        $data = $order->toArray();
+        $data['payment_label'] = $order->paymentMethodLabel();
+        $data['payment_status_label'] = $order->paymentStatusLabel();
+        unset($data['payments']);
+        $data['shops'] = $order->sellerOrders->map(fn($sellerOrder)=>[
+            'id'=>$sellerOrder->id, 'status'=>$sellerOrder->status,
+            'shop'=>$this->storeData($sellerOrder->store)])->values();
+        $data['progress'] = $order->statusHistory->sortBy('created_at')->map(fn($h)=>[
+            'status'=>$h->status, 'created_at'=>$h->created_at, 'seller_order_id'=>$h->seller_order_id])->values();
+        unset($data['seller_orders'], $data['status_history']);
+        return $data;
+    }
+
+    public function checkoutPreview(Request $r, OrderService $orders, CartService $cart)
+    {
+        abort_unless($r->user()->isBuyer(), 403);
+        $items = $cart->items($r->user()->id)->filter->selected->values();
+        if ($items->isEmpty()) {
+            throw ValidationException::withMessages(['cart'=>'Select an item in your cart before checkout.']);
+        }
+        $totals = $orders->computeTotals($r->user()->id, null, $items);
+        return response()->json(['items'=>$items->map(fn($i)=>[
+            'id'=>$i->id,'quantity'=>$i->quantity,'unit_price'=>(float)$i->unitPrice(),
+            'line_total'=>(float)$i->lineTotal(),'product'=>$this->productData($i->product),'variant'=>$i->variant?->label]),
+            'totals'=>\Illuminate\Support\Arr::only($totals,
+            ['subtotal','shipping_fee','voucher_discount','shipping_discount','total','seller_breakdown']),
+            'payment_methods'=>\App\Services\Payment\PaymentService::availableMethods()]);
+    }
 }
