@@ -3,6 +3,8 @@
 use App\Http\Controllers\MobileApiController;
 use Illuminate\Support\Facades\Route;
 
+require __DIR__.'/logistics_mobile_api.php';
+
 Route::prefix('v1')->middleware('throttle:120,1')->group(function () {
     Route::post('login', [MobileApiController::class, 'login'])->middleware('throttle:10,1');
     Route::post('register', [MobileApiController::class, 'register'])->middleware('throttle:5,1');

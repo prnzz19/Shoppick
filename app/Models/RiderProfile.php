@@ -3,6 +3,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 class RiderProfile extends Model
 {
+    public function provider(){return $this->belongsTo(LogisticsProvider::class,'logistics_provider_id');}
     protected $fillable=['user_id','hub_id','vehicle_id','account_status','availability','rating','notes','vehicle_type','plate_number','or_cr_path','driver_license_path','emergency_contact_name','emergency_contact_phone','notification_preferences','driver_license_number','driver_license_classification','driver_license_expires_at','driver_license_front_path','driver_license_back_path','driver_license_status','driver_license_rejection_reason','driver_license_reviewed_by','driver_license_reviewed_at'];
     protected $casts=['rating'=>'decimal:2','notification_preferences'=>'array','driver_license_expires_at'=>'date','driver_license_reviewed_at'=>'datetime'];
 
