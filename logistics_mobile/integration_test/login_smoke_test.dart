@@ -16,7 +16,7 @@ void main() {
     await api.storage.delete(key: 'logistics_smoke');
     await tester.pumpWidget(LogisticsApp(api: api));
     await tester.pumpAndSettle();
-    expect(find.text('LOGISTICS'), findsOneWidget);
+    expect(find.text('Logistics'), findsOneWidget);
     await tester.enterText(find.widgetWithText(TextFormField, 'Email'),
         'logistics-smoke-test@example.invalid');
     await tester.enterText(find.widgetWithText(TextFormField, 'Password'),

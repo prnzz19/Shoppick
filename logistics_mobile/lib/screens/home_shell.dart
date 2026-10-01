@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_client.dart';
-import '../widgets/common.dart';
+import '../widgets/shoppick_brand.dart';
 import 'dashboard_screen.dart';
 import 'deliveries_screen.dart';
 import 'logistics/directory_screen.dart';
@@ -49,17 +49,20 @@ class _HomeShellState extends State<HomeShell> {
       AccountScreen(api: api)
     ];
     return Scaffold(
-      appBar: AppBar(title: const Wordmark(), actions: [
-        IconButton(
-            tooltip: 'Notifications',
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => Scaffold(
-                        appBar: AppBar(title: const Text('Notifications')),
-                        body: NotificationsScreen(api: api)))))
-      ]),
+      appBar: AppBar(
+          title: ShopPickBrand(
+              subtitle: api.manager ? 'Logistics' : 'Rider', compact: true),
+          actions: [
+            IconButton(
+                tooltip: 'Notifications',
+                icon: const Icon(Icons.notifications_outlined),
+                onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => Scaffold(
+                            appBar: AppBar(title: const Text('Notifications')),
+                            body: NotificationsScreen(api: api)))))
+          ]),
       body:
           SafeArea(child: KeyedSubtree(key: ValueKey(tab), child: pages[tab])),
       bottomNavigationBar: NavigationBar(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/api_client.dart';
 import '../../widgets/common.dart';
+import '../../widgets/shoppick_brand.dart';
 import '../../config/app_config.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -53,18 +54,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   crossAxisAlignment:
                                       CrossAxisAlignment.stretch,
                                   children: [
-                                    const Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: Wordmark()),
-                                    const SizedBox(height: 10),
-                                    const Text('LOGISTICS',
-                                        style: TextStyle(
-                                            letterSpacing: 3,
-                                            color: teal,
-                                            fontWeight: FontWeight.w700)),
-                                    const SizedBox(height: 40),
-                                    const Icon(Icons.local_shipping_outlined,
-                                        size: 68, color: teal),
+                                    const ShopPickBrand(subtitle: 'Logistics'),
                                     const SizedBox(height: 24),
                                     const Text(
                                         'Every delivery,\none step closer.',
