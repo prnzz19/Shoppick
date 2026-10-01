@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'services/api_service.dart';
 import 'config/api_config.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 part 'widgets/marketplace_widgets.dart';
+part 'widgets/shoppick_brand.dart';
 part 'screens/shopping_screens.dart';
 part 'screens/account_screens.dart';
 
@@ -60,7 +62,7 @@ class SplashScreen extends StatelessWidget {
   Widget build(BuildContext context) => const Scaffold(
           body: Center(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Brand(),
+        ShopPickBrand(),
         SizedBox(height: 24),
         CircularProgressIndicator(),
       ])));
@@ -74,7 +76,7 @@ class SessionRetryScreen extends StatelessWidget {
           child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                const Brand(),
+                const ShopPickBrand(),
                 const SizedBox(height: 24),
                 const Text('Unable to connect to SHOPPICK',
                     textAlign: TextAlign.center),
@@ -88,21 +90,6 @@ class SessionRetryScreen extends StatelessWidget {
                     onPressed: () => ApiService().clearToken(),
                     child: const Text('Sign Out')),
               ]))));
-}
-
-class Brand extends StatelessWidget {
-  const Brand({super.key});
-  @override
-  Widget build(BuildContext context) => RichText(
-          text: const TextSpan(
-              style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.2),
-              children: [
-            TextSpan(text: 'SHOP', style: TextStyle(color: teal)),
-            TextSpan(text: 'PICK', style: TextStyle(color: orange))
-          ]));
 }
 
 class LoginScreen extends StatefulWidget {
@@ -151,8 +138,8 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Center(child: Brand()),
-                  const SizedBox(height: 36),
+                  const ShopPickBrand(),
+                  const SizedBox(height: 24),
                   const Text('Welcome back',
                       style: TextStyle(
                           color: navy,
@@ -295,11 +282,7 @@ class _HomeTabState extends State<HomeTab> {
             },
             child: ListView(padding: const EdgeInsets.all(18), children: [
               Row(children: [
-                const Expanded(
-                    child: Align(
-                        alignment: Alignment.centerLeft,
-                        child:
-                            FittedBox(fit: BoxFit.scaleDown, child: Brand()))),
+                const Expanded(child: ShopPickBrand(compact: true)),
                 IconButton(
                     onPressed: () => Navigator.push(context,
                         MaterialPageRoute(builder: (_) => const CartTab())),

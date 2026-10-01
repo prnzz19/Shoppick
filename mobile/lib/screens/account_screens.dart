@@ -207,7 +207,9 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
   final dataKey = GlobalKey<DataListState>();
   @override
   Widget build(BuildContext context) => Scaffold(
-      appBar: AppBar(title: const Text('Seller Application')),
+      appBar: AppBar(
+          title: const ShopPickBrand(
+              compact: true, subtitle: 'Seller Application')),
       body: DataList(
           key: dataKey,
           path: 'seller/application',
