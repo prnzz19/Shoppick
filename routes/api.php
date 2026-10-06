@@ -22,6 +22,9 @@ Route::prefix('v1')->middleware('throttle:120,1')->group(function () {
         Route::post('checkout', [MobileApiController::class, 'checkout']);
         Route::get('orders', [MobileApiController::class, 'orders']);
         Route::get('orders/{order}', [MobileApiController::class, 'order']);
+        Route::get('orders/{order}/tracking', [\App\Http\Controllers\MobileTrackingController::class, 'buyer']);
+        Route::get('seller/orders', [\App\Http\Controllers\MobileTrackingController::class, 'sellerOrders']);
+        Route::get('seller/orders/{sellerOrder}/tracking', [\App\Http\Controllers\MobileTrackingController::class, 'seller'])->whereNumber('sellerOrder');
         Route::get('seller/application', [MobileApiController::class, 'sellerApplication']);
         Route::post('seller/application', [MobileApiController::class, 'submitSellerApplication']);
     });

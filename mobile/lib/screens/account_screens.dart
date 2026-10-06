@@ -269,7 +269,11 @@ class _SellerApplicationScreenState extends State<SellerApplicationScreen> {
                     'Manage your shop in the SHOPPICK website Seller Center.'),
                 FilledButton(
                     onPressed: () => openWebsite(context, '/seller/dashboard'),
-                    child: const Text('Open Seller Center on Website'))
+                    child: const Text('Open Seller Center on Website')),
+                OutlinedButton.icon(
+                    onPressed: () => open(context, const SellerOrdersScreen()),
+                    icon: const Icon(Icons.local_shipping_outlined),
+                    label: const Text('Outgoing Orders / Track Shipments'))
               ],
               if ((d['is_seller'] == true || status == 'approved') &&
                   d['seller_access'] != true)

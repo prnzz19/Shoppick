@@ -89,7 +89,9 @@ class MobileApiController extends Controller
 
     private function orderData(Order $order): array
     {
+        $order->loadMissing(['shipments.store', 'shipments.events']);
         $data = $order->toArray();
+        $data['shipments'] = $order->shipments->map(fn ($s) => app(\App\Services\MarketplaceShipmentTracking::class)->summary($s))->values();
         $data['payment_label'] = $order->paymentMethodLabel();
         $data['payment_status_label'] = $order->paymentStatusLabel();
         unset($data['payments']);

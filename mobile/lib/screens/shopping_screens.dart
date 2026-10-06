@@ -730,6 +730,9 @@ class OrderCard extends StatelessWidget {
                                 : 'Qty ${items.first['quantity']}')),
                       SummaryRow(
                           date(data['created_at']), money(data['total'])),
+                      TrackingEntry(
+                          orderNumber: data['order_number'],
+                          shipments: data['shipments'] as List? ?? []),
                       const Text('View Order →',
                           style: TextStyle(
                               color: Color(0xff0f756d),
@@ -764,6 +767,10 @@ class OrderDetailScreen extends StatelessWidget {
                       alignment: Alignment.centerLeft,
                       child: StatusBadge(s['status']))
                 ],
+                TrackingEntry(
+                    orderNumber: number,
+                    shipments: o['shipments'] as List? ?? [],
+                    details: true),
                 const SectionTitle('Products'),
                 for (final item in o['items'] as List? ?? []) ...[
                   ListTile(
