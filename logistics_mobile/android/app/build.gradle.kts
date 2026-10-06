@@ -1,7 +1,14 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+val localSettings = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
 }
 
 android {
@@ -15,6 +22,7 @@ android {
     }
 
     defaultConfig {
+        manifestPlaceholders["MAPS_API_KEY"] = localSettings.getProperty("MAPS_API_KEY", "").trim()
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.shoppick.shoppick_logistics"
         // You can update the following values to match your application needs.

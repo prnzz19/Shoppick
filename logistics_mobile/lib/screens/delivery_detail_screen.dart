@@ -5,11 +5,17 @@ import '../services/api_client.dart';
 import '../widgets/common.dart';
 import 'logistics/directory_screen.dart';
 import 'rider/proof_screen.dart';
+import 'tracking_screen.dart';
 
 class DeliveryDetailScreen extends StatefulWidget {
   final ApiClient api;
   final int id;
-  const DeliveryDetailScreen({required this.api, required this.id, super.key});
+  final bool showTracking;
+  const DeliveryDetailScreen(
+      {required this.api,
+      required this.id,
+      this.showTracking = true,
+      super.key});
   @override
   State<DeliveryDetailScreen> createState() => _DeliveryDetailScreenState();
 }
@@ -206,6 +212,18 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
                                 child: Text(
                                     'Needs attention: ${d.text('failure_reason')}'))),
                       Wrap(spacing: 10, runSpacing: 8, children: [
+                        if (widget.showTracking)
+                          FilledButton.icon(
+                              onPressed: () async {
+                                await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) => TrackingScreen(
+                                            api: widget.api, id: widget.id)));
+                                if (mounted) await load();
+                              },
+                              icon: const Icon(Icons.route),
+                              label: const Text('Track shipment')),
                         OutlinedButton.icon(
                             onPressed: () {
                               final pickup = [

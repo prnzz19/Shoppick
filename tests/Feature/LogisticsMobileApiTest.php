@@ -68,6 +68,60 @@ class LogisticsMobileApiTest extends TestCase
         return Shipment::create(['shipment_number' => Shipment::number(), 'parcel_code' => 'PCL-'.$so->id, 'seller_order_id' => $so->id, 'order_id' => $order->id, 'store_id' => $store->id, 'status' => $status, 'rider_id' => $rider?->id, 'delivery_address' => $order->shipping_address, 'ready_at' => now()]);
     }
 
+    public function test_tracking_is_scoped_and_only_own_active_delivery_accepts_valid_gps(): void
+    {
+        $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
+        $rider = $this->actor('rider');
+        $other = $this->actor('rider');
+        $manager = $this->actor('logistics');
+        $s = $this->shipment('out_for_delivery', $rider);
+        $url = '/api/v1/rider/deliveries/'.$s->id;
+        $gps = ['latitude' => 14.5995, 'longitude' => 120.9842, 'accuracy' => 12, 'recorded_at' => now()->toIso8601String()];
+        $this->getJson($url.'/tracking')->assertUnauthorized();
+        $this->withToken($this->token($this->actor('buyer')))->getJson('/api/v1/logistics/deliveries/'.$s->id.'/tracking')->assertForbidden();
+        $this->withToken($this->token($other))->getJson($url.'/tracking')->assertNotFound();
+        $this->postJson($url.'/location', $gps)->assertNotFound();
+        $this->withToken($this->token($rider))->getJson($url.'/tracking')->assertOk()->assertJsonPath('can_share_location', true)->assertJsonPath('destination', null);
+        $this->postJson($url.'/location', array_replace($gps, ['latitude' => 91]))->assertUnprocessable();
+        $this->postJson($url.'/location', array_replace($gps, ['longitude' => -181]))->assertUnprocessable();
+        $this->postJson($url.'/location', $gps)->assertCreated();
+        $this->assertDatabaseHas('shipment_tracking_points', ['shipment_id' => $s->id, 'rider_id' => $rider->id, 'source' => 'device']);
+        $this->withToken($this->token($manager))->getJson('/api/v1/logistics/deliveries/'.$s->id.'/tracking')->assertOk()->assertJsonCount(1, 'points')->assertJsonPath('current_rider_location.rider_id', $rider->id);
+        Role::where('slug', 'logistics')->first()->permissions()->detach(Permission::where('slug', 'view_shipments')->value('id'));
+        $this->getJson('/api/v1/logistics/deliveries/'.$s->id.'/tracking')->assertForbidden();
+        $s->update(['status' => 'delivered']);
+        $this->withToken($this->token($rider))->getJson($url.'/tracking')->assertOk()->assertJsonPath('can_share_location', false)->assertJsonPath('current_rider_location', null);
+        $this->postJson($url.'/location', $gps)->assertUnprocessable();
+    }
+
+    public function test_tracking_uses_only_actual_coordinates_and_pickup_assignment(): void
+    {
+        $rider = $this->actor('rider');
+        $s = $this->shipment('pickup_accepted');
+        $s->update(['pickup_rider_id' => $rider->id, 'pickup_address' => ['latitude' => 14.5, 'longitude' => 121]]);
+        $s->events()->create(['status' => 'pickup_accepted', 'metadata' => ['latitude' => 14.5, 'longitude' => 121]]);
+        $s->events()->create(['status' => 'picked_up']);
+        $this->withToken($this->token($rider));
+        $url = '/api/v1/rider/deliveries/'.$s->id;
+        $this->getJson($url.'/tracking')->assertOk()->assertJsonPath('origin.latitude', 14.5)->assertJsonPath('events.1.coordinates', null)->assertJsonPath('can_share_location', true);
+        $this->postJson($url.'/location', ['latitude' => 14.5, 'longitude' => 121, 'recorded_at' => now()->subHour()->toIso8601String()])->assertUnprocessable();
+        $s->update(['status' => 'picked_up', 'pickup_arrived_at' => now()]);
+        $this->postJson($url.'/location', ['latitude' => 14.5, 'longitude' => 121, 'recorded_at' => now()->toIso8601String()])->assertUnprocessable();
+    }
+
+    public function test_terminal_and_inactive_shipments_never_accept_location(): void
+    {
+        $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
+        $rider = $this->actor('rider');
+        $s = $this->shipment('out_for_delivery', $rider);
+        $this->withToken($this->token($rider));
+        foreach (['delivered', 'completed', 'returned', 'delivery_failed', 'exception', 'assigned_to_rider', 'at_sorting_center'] as $status) {
+            $s->update(['status' => $status]);
+            $this->postJson('/api/v1/rider/deliveries/'.$s->id.'/location', ['latitude' => 14.5, 'longitude' => 121, 'recorded_at' => now()->toIso8601String()])->assertUnprocessable();
+        }
+        $this->assertDatabaseCount('shipment_tracking_points', 0);
+    }
+
     public function test_login_rejects_marketplace_and_admin_accounts_and_uses_scoped_expiring_tokens(): void
     {
         foreach (['buyer', 'seller', 'admin'] as $role) {

@@ -16,10 +16,12 @@ Route::prefix('v1')->middleware('throttle:120,1')->group(function () {
             Route::get('dashboard', [LogisticsMobileController::class, 'dashboard']);
             Route::get('deliveries', [LogisticsMobileController::class, 'deliveries']);
             Route::get('deliveries/{delivery}', [LogisticsMobileController::class, 'show'])->whereNumber('delivery');
+            Route::get('deliveries/{delivery}/tracking', [LogisticsMobileController::class, 'tracking'])->whereNumber('delivery');
             Route::patch('deliveries/{delivery}/status', [LogisticsMobileController::class, 'status'])->whereNumber('delivery');
             Route::get('notifications', [LogisticsMobileController::class, 'notifications']);
             Route::post('notifications/read-all', [LogisticsMobileController::class, 'readNotifications']);
             if ($role === 'rider') {
+                Route::post('deliveries/{delivery}/location', [LogisticsMobileController::class, 'location'])->whereNumber('delivery')->middleware('throttle:6,1');
                 Route::post('deliveries/{delivery}/proof', [LogisticsMobileController::class, 'proof'])->whereNumber('delivery');
             } else {
                 Route::patch('deliveries/{delivery}/assign-rider', [LogisticsMobileController::class, 'assign'])->whereNumber('delivery');

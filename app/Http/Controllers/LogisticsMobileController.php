@@ -98,6 +98,66 @@ class LogisticsMobileController extends Controller
         return response()->json(['delivery' => $this->data($this->shipment($r, $delivery), $r, true)]);
     }
 
+    private function trackingRider(Shipment $s): ?int
+    {
+        if (in_array($s->status, ['pickup_accepted', 'picked_up'], true) && ! $s->pickup_arrived_at) {
+            return $s->pickup_rider_id;
+        }
+        if ($s->status === 'out_for_delivery') {
+            return $s->rider_id;
+        }
+
+        return null;
+    }
+
+    private function coordinates(?array $value): ?array
+    {
+        $lat = $value['latitude'] ?? null;
+        $lng = $value['longitude'] ?? null;
+        if (! is_numeric($lat) || ! is_numeric($lng) || abs((float) $lat) > 90 || abs((float) $lng) > 180) {
+            return null;
+        }
+
+        return ['latitude' => (float) $lat, 'longitude' => (float) $lng];
+    }
+
+    public function tracking(Request $r, int $delivery)
+    {
+        $s = $this->shipment($r, $delivery);
+        $activeRider = $this->trackingRider($s);
+        $points = DB::table('shipment_tracking_points')->where('shipment_id', $s->id)
+            ->orderByDesc('recorded_at')->orderByDesc('id')->limit(500)->get()->reverse()->values()
+            ->map(fn ($p) => ['id' => $p->id, 'rider_id' => $p->rider_id, 'latitude' => (float) $p->latitude,
+                'longitude' => (float) $p->longitude, 'accuracy' => $p->accuracy === null ? null : (float) $p->accuracy,
+                'source' => $p->source, 'recorded_at' => $p->recorded_at]);
+        $current = $activeRider ? $points->last(fn ($p) => $p['rider_id'] === $activeRider && $p['source'] === 'device' && \Illuminate\Support\Carbon::parse($p['recorded_at'])->greaterThan(now()->subMinutes(2))) : null;
+
+        return response()->json(['delivery' => $this->data($s, $r, true),
+            'origin' => $this->coordinates($s->pickup_address), 'destination' => $this->coordinates($s->delivery_address),
+            'events' => $s->events()->oldest('id')->get()->map(fn ($e) => ['id' => $e->id, 'status' => $e->status,
+                'note' => $e->note, 'location' => $e->location, 'created_at' => $e->created_at?->toIso8601String(),
+                'coordinates' => $this->coordinates($e->metadata)]),
+            'points' => $points, 'current_rider_location' => $current,
+            'can_share_location' => ! $this->manager($r) && $activeRider === $r->user()->id,
+            'active' => $activeRider !== null]);
+    }
+
+    public function location(Request $r, int $delivery)
+    {
+        abort_if($this->manager($r), 403);
+        $d = $r->validate(['latitude' => 'required|numeric|between:-90,90', 'longitude' => 'required|numeric|between:-180,180',
+            'accuracy' => 'nullable|numeric|between:0,999999', 'recorded_at' => 'required|date|after_or_equal:'.now()->subMinutes(2)->toIso8601String().'|before_or_equal:'.now()->addSeconds(30)->toIso8601String()]);
+        DB::transaction(function () use ($r, $delivery, $d) {
+            $s = $this->shipment($r, $delivery, true);
+            abort_unless($this->trackingRider($s) === $r->user()->id, 422, 'Location sharing is only available during your active pickup or delivery.');
+            $last = DB::table('shipment_tracking_points')->where('shipment_id', $s->id)->where('rider_id', $r->user()->id)->where('source', 'device')->latest('recorded_at')->first();
+            abort_if($last && \Illuminate\Support\Carbon::parse($d['recorded_at'])->lessThanOrEqualTo(\Illuminate\Support\Carbon::parse($last->recorded_at)), 422, 'This location is older than the last recorded update.');
+            DB::table('shipment_tracking_points')->insert($d + ['shipment_id' => $s->id, 'rider_id' => $r->user()->id, 'source' => 'device', 'created_at' => now(), 'updated_at' => now()]);
+        });
+
+        return response()->json(['message' => 'Location recorded.'], 201);
+    }
+
     private function actions(Shipment $s, Request $r): array
     {
         if ($this->manager($r)) {
