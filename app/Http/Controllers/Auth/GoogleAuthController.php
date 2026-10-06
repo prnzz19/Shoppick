@@ -74,6 +74,10 @@ class GoogleAuthController extends Controller
                 return $this->authenticationError('This account cannot be linked through public Google login.');
             }
 
+            if (!$user && (!app(\App\Services\SystemSettings::class)->get('marketplace.allow_registration') || app(\App\Services\SystemSettings::class)->get('marketplace.status') === 'maintenance')) {
+                return $this->authenticationError('New Buyer registration is temporarily unavailable.');
+            }
+
             $user = DB::transaction(function () use ($user, $google, $email, $registrationType) {
                 if (! $user) {
                     $user = User::create([

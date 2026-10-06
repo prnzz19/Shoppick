@@ -134,7 +134,7 @@ class CheckoutController extends Controller
             "Your order {$order->order_number} has been placed.",
             'order',
             route('orders.show', $order->order_number),
-            ['order_number' => $order->order_number],
+            ['event' => 'new_order', 'order_number' => $order->order_number],
             'check'
         );
 

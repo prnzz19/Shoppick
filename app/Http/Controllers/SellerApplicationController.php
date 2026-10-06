@@ -25,7 +25,7 @@ class SellerApplicationController extends Controller
             'store_name' => ['required', 'string', 'max:120'], 'store_description' => ['nullable', 'string', 'max:2000'],
             'phone' => ['required', 'string', 'max:30'], 'address' => ['required', 'string', 'max:1000'],
             'category_id'=>['required','exists:categories,id'], 'business_information' => ['nullable', 'string', 'max:2000'],
-            'valid_id'=>['required','file','mimes:jpg,jpeg,png,pdf','max:5120'], 'business_permit'=>['required','file','mimes:jpg,jpeg,png,pdf','max:5120'], 'logo' => ['nullable', 'image', 'max:2048'],
+            'valid_id'=>['required','file','mimes:jpg,jpeg,png,pdf','max:5120'], 'business_permit'=>['required','file','mimes:jpg,jpeg,png,pdf','max:5120'], 'logo' => [app(\App\Services\SystemSettings::class)->get('seller.logo_required') ? 'required' : 'nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:'.app(\App\Services\SystemSettings::class)->get('seller.logo_max_size')],
             'banner' => ['nullable', 'image', 'max:4096'],
         ]);
         foreach (['logo', 'banner'] as $file) if ($request->hasFile($file)) $data[$file] = $request->file($file)->store('stores', 'public');

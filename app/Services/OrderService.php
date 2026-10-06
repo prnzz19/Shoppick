@@ -186,7 +186,7 @@ class OrderService
                         "Order #{$order->order_number} contains {$itemCount} item".($itemCount === 1 ? '' : 's')." from your store. Seller total: ₱".number_format($sellerOrder->seller_total, 2).'.',
                         'order',
                         route('seller.orders.show', $sellerOrder),
-                        ['order_number' => $order->order_number, 'seller_order_id' => $sellerOrder->id, 'item_count' => $itemCount],
+                        ['event' => 'new_order', 'order_number' => $order->order_number, 'seller_order_id' => $sellerOrder->id, 'item_count' => $itemCount],
                         'package'
                     );
                 }
@@ -245,6 +245,12 @@ class OrderService
 
     public function cancelOrder($order, string $reason = null): void
     {
+        $settings = app(SystemSettings::class);
+        if (!$settings->get('orders.allow_cancellation')) throw new Exception('Order cancellation is currently disabled.');
+        $limit = $settings->get('orders.cancellation_limit');
+        if ($limit > 0 && $order->created_at->copy()->addHours($limit)->lt(now())) {
+            throw new Exception('The order cancellation time limit has passed.');
+        }
         if (! $order->canBeCancelled()) {
             throw new Exception('This order can no longer be cancelled.');
         }
