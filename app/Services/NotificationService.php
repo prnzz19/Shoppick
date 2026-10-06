@@ -8,8 +8,17 @@ use Illuminate\Support\Facades\Mail;
 
 class NotificationService
 {
-    public static function send($userId, string $title, string $body = null, string $type = 'general', string $link = null, $data = null, string $icon = null): NotificationModel
+    public static function send($userId, string $title, string $body = null, string $type = 'general', string $link = null, $data = null, string $icon = null): ?NotificationModel
     {
+        $preference = match ($type) {
+            'seller_application' => 'seller_application',
+            'rider_application' => 'rider_application',
+            'buyer_order_progress' => 'order_status',
+            'order' => data_get($data, 'event') === 'new_order' ? 'new_order' : 'order_status',
+            'moderation', 'report' => 'reports',
+            default => null,
+        };
+        if ($preference && !app(SystemSettings::class)->get('notifications.'.$preference)) return null;
         return NotificationModel::create([
             'user_id' => $userId,
             'type' => $type,

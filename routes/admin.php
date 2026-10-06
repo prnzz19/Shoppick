@@ -45,6 +45,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
         Route::get('riders', [\App\Http\Controllers\Admin\LogisticsMonitoringController::class, 'riders'])->name('riders.index');
         Route::get('riders/{rider}', [\App\Http\Controllers\Admin\LogisticsMonitoringController::class, 'rider'])->name('riders.show');
     });
+    Route::get('settings', [\App\Http\Controllers\Admin\SystemSettingsController::class, 'index'])->name('settings.index');
+    Route::put('settings/{group}', [\App\Http\Controllers\Admin\SystemSettingsController::class, 'update'])->name('settings.update');
+    Route::post('settings/clear-cache', [\App\Http\Controllers\Admin\SystemSettingsController::class, 'clearCache'])->name('settings.cache');
+
     // Products
     Route::get('products', [AdminProductController::class, 'index'])->name('products.index')
         ->middleware('permission:manage_products');
