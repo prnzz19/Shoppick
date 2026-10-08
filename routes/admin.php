@@ -16,11 +16,21 @@ use App\Http\Controllers\Admin\RoleController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->group(function () {
+    Route::middleware('permission:manage_sellers')->group(function () {
+        foreach (['shops' => ['shops', 'shops'], 'applications' => ['sellers/applications', 'sellers.applications'], 'sellers' => ['sellers', 'sellers']] as $entity => [$path, $name]) {
+            foreach (['archive', 'restore', 'delete'] as $action) {
+                Route::match([$action === 'delete' ? 'DELETE' : 'PATCH'], "$path/{record}/$action", [\App\Http\Controllers\Admin\SellerArchiveController::class, 'update'])
+                    ->whereNumber('record')->defaults('entity', $entity)->defaults('action', $action)
+                    ->name($name.'.'.($action === 'delete' ? 'force-delete' : $action));
+            }
+        }
+    });
     Route::get('/', fn () => redirect()->route('admin.dashboard'))->name('root');
     Route::get('dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
     Route::get('sellers/applications', [SellerApplicationController::class, 'index'])->name('sellers.applications.index')->middleware('permission:manage_sellers');
     Route::get('sellers/applications/{application}', [SellerApplicationController::class, 'show'])->name('sellers.applications.show')->middleware('permission:manage_sellers');
     Route::get('sellers', [\App\Http\Controllers\Admin\SellerController::class, 'index'])->name('sellers.index')->middleware('permission:manage_sellers');
+    Route::get('sellers/filter', [\App\Http\Controllers\Admin\SellerController::class, 'filter'])->name('sellers.filter')->middleware('permission:manage_sellers');
     Route::get('sellers/{user}', [\App\Http\Controllers\Admin\SellerController::class, 'show'])->name('sellers.show')->middleware('permission:manage_sellers');
     Route::post('sellers/applications/{application}', [SellerApplicationController::class, 'review'])->name('sellers.applications.review')->middleware('permission:manage_sellers');
     Route::post('registrations/buyers/{user}', [SellerApplicationController::class, 'reviewBuyer'])->name('registrations.buyers.review')->middleware('permission:manage_sellers');
@@ -28,6 +38,13 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::get('registrations/sellers/{application}/{document}', [SellerApplicationController::class, 'sellerDocument'])->name('registrations.sellers.document')->middleware('permission:manage_sellers');
 
     Route::middleware('permission:view_shops')->group(function () {
+        foreach (['index'=>'','filter'=>'/filter','pdf'=>'/pdf','print'=>'/print','csv'=>'/csv'] as $action=>$suffix) {
+            Route::get('sales-reports'.$suffix, [\App\Http\Controllers\Admin\SalesReportsController::class,$action])->name('sales-reports.'.$action);
+        }
+        Route::get('shops/{shop}/sales-report', [\App\Http\Controllers\Admin\ShopSalesReportController::class, 'show'])->name('shops.sales-report');
+        Route::get('shops/{shop}/sales-report/pdf', [\App\Http\Controllers\Admin\ShopSalesReportController::class, 'pdf'])->name('shops.sales-report.pdf');
+        Route::get('shops/{shop}/sales-report/print', [\App\Http\Controllers\Admin\ShopSalesReportController::class, 'print'])->name('shops.sales-report.print');
+        Route::get('shops/{shop}/sales-report/csv', [\App\Http\Controllers\Admin\ShopSalesReportController::class, 'csv'])->name('shops.sales-report.csv');
         Route::get('shops', [ShopController::class, 'index'])->name('shops.index');
         Route::get('shops/{shop}', [ShopController::class, 'show'])->name('shops.show');
     });
@@ -71,10 +88,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
         Route::post('categories/{category}/toggle', [AdminCategoryController::class, 'toggleActive'])->name('categories.toggle');
     });
 
-    // Inventory
+    // Inventory monitoring only; sellers manage product and variant quantities.
     Route::get('inventory', [AdminInventoryController::class, 'index'])->name('inventory.index')
         ->middleware('permission:manage_inventory');
-    Route::post('inventory/{product}/stock', [AdminInventoryController::class, 'updateStock'])->name('inventory.stock');
 
     // Orders
     Route::get('orders', [AdminOrderController::class, 'index'])->name('orders.index')
@@ -97,6 +113,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     // Reports
     Route::get('analytics', [AdminReportController::class, 'index'])->name('analytics.index')
         ->middleware('permission:view_reports');
+    foreach (['pdf','print','csv'] as $format) {
+        Route::get('analytics/'.$format, [AdminReportController::class, $format])->name('analytics.'.$format)->middleware('permission:view_reports');
+    }
     Route::get('reports', [ReportManagementController::class, 'index'])->name('reports.index')->middleware('permission:manage_reports');
     Route::get('reports/{report}', [ReportManagementController::class, 'show'])->name('reports.show')->middleware('permission:manage_reports');
     Route::put('reports/{report}', [ReportManagementController::class, 'update'])->name('reports.update')->middleware('permission:manage_reports');

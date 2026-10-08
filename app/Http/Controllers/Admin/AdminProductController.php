@@ -12,9 +12,7 @@ use Illuminate\Http\Request;
 
 class AdminProductController extends Controller
 {
-    public function __construct(protected ProductService $productService)
-    {
-    }
+    public function __construct(protected ProductService $productService) {}
 
     public function index(Request $request)
     {
@@ -75,6 +73,7 @@ class AdminProductController extends Controller
             ->groupBy(fn ($product) => $product->store_id === null ? 'unassigned' : (string) $product->store_id)
             ->map(function ($groupProducts, $key) use ($stats) {
                 $store = $groupProducts->first()->store;
+
                 return (object) [
                     'key' => $key,
                     'store' => $store,
@@ -90,11 +89,13 @@ class AdminProductController extends Controller
     public function create()
     {
         $categories = Category::with('children')->whereNull('parent_id')->get();
+
         return view('admin.products.create', compact('categories'));
     }
 
     public function store(Request $request)
     {
+        $this->rejectInventoryChanges($request);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'category_id' => ['required', 'exists:categories,id'],
@@ -103,15 +104,12 @@ class AdminProductController extends Controller
             'price' => ['required', 'numeric', 'min:0'],
             'original_price' => ['nullable', 'numeric', 'min:0'],
             'discount' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'stock' => ['required', 'integer', 'min:0'],
-            'low_stock_threshold' => ['nullable', 'integer', 'min:0'],
             'description' => ['nullable', 'string'],
             'specifications' => ['nullable'],
             'is_featured' => ['nullable', 'boolean'],
             'is_active' => ['nullable', 'boolean'],
             'images' => ['nullable', 'array'],
             'images.*' => ['image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
-            'variants' => ['nullable', 'array'],
         ]);
 
         $product = $this->productService->create($data);
@@ -125,26 +123,25 @@ class AdminProductController extends Controller
     {
         $product->load(['images', 'variants', 'category']);
         $categories = Category::with('children')->whereNull('parent_id')->get();
+
         return view('admin.products.edit', compact('product', 'categories'));
     }
 
     public function update(Request $request, Product $product)
     {
+        $this->rejectInventoryChanges($request);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'category_id' => ['required', 'exists:categories,id'],
             'brand' => ['nullable', 'string', 'max:100'],
-            'sku' => ['nullable', 'string', 'max:100', 'unique:products,sku,' . $product->id],
+            'sku' => ['nullable', 'string', 'max:100', 'unique:products,sku,'.$product->id],
             'price' => ['required', 'numeric', 'min:0'],
             'original_price' => ['nullable', 'numeric', 'min:0'],
             'discount' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'stock' => ['required', 'integer', 'min:0'],
-            'low_stock_threshold' => ['nullable', 'integer', 'min:0'],
             'description' => ['nullable', 'string'],
             'specifications' => ['nullable'],
             'is_featured' => ['nullable', 'boolean'],
             'is_active' => ['nullable', 'boolean'],
-            'variants' => ['nullable', 'array'],
         ]);
 
         $this->productService->update($product, $data);
@@ -152,6 +149,13 @@ class AdminProductController extends Controller
         AdminActivityLog::record('product.updated', 'product', $product->id, ['name' => $product->name]);
 
         return redirect()->route('admin.products.index')->with('success', 'Product updated.');
+    }
+
+    private function rejectInventoryChanges(Request $request): void
+    {
+        // Variant synchronization can create/delete quantities, so it is seller-only too.
+        abort_if($request->hasAny(['stock', 'low_stock_threshold', 'variants']), 403,
+            'Inventory is managed by sellers. Admin access is view-only.');
     }
 
     public function destroy(Request $request, Product $product)
@@ -185,12 +189,14 @@ class AdminProductController extends Controller
     public function deleteImage(Product $product, $imageId)
     {
         $this->productService->deleteImage($product, $imageId);
+
         return back()->with('success', 'Image deleted.');
     }
 
     public function setPrimaryImage(Product $product, $imageId)
     {
         $this->productService->setPrimaryImage($product, $imageId);
+
         return back()->with('success', 'Primary image updated.');
     }
 }

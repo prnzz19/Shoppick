@@ -15,7 +15,19 @@ class EnsureRegistrationApproved
 
         // Accounts created before registration approval existed have no registration metadata.
         // Keep those legitimate legacy users usable while enforcing the flow for new applicants.
-        if (! $user || ! $user->registration_type || ! $user->registration_status || $user->registration_status === 'approved') {
+        if (! $user) {
+            return $next($request);
+        }
+
+        if ($user->trashed() || (! $user->is_active && $user->registration_status !== 'incomplete')) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            return redirect()->route('login')->withErrors(['email' => 'Your account has been deactivated. Please contact support.']);
+        }
+
+        if (! $user->registration_type || ! $user->registration_status || $user->registration_status === 'approved'
+            || ($user->isNormalBuyerRegistration() && $user->is_active && $user->registration_status === 'pending')) {
             return $next($request);
         }
 

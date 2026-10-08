@@ -16,6 +16,7 @@ use Tests\TestCase;
 class AdminUserTabsTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Support\MocksPhilippineLocations;
 
     public function test_user_tabs_scope_multi_role_users_and_compose_with_existing_filters(): void
     {
@@ -107,7 +108,7 @@ class AdminUserTabsTest extends TestCase
             'valid_id' => UploadedFile::fake()->create('new-buyer-id.jpg', 100, 'image/jpeg'),
             'email' => 'new-buyer@shoppick.test', 'phone' => '09171234567',
             'password' => 'password', 'password_confirmation' => 'password', 'address_line' => '12 Market Street',
-            'barangay' => 'Central', 'city' => 'Manila', 'province' => 'Metro Manila', 'postal_code' => '1000',
+            'region' => 'Region IV-A (CALABARZON)', 'barangay' => 'Bubukal', 'city' => 'Santa Cruz', 'province' => 'Laguna', 'postal_code' => '1000',
             'country' => 'PH', 'terms' => '1',
         ])->assertRedirect(route('login'))->assertSessionHasNoErrors();
 

@@ -15,7 +15,9 @@ class ShopController extends Controller
 
     public function index(Request $request)
     {
-        $baseQuery=Store::query();
+        $archived = $request->input('tab') === 'archived';
+        $archiveCounts = ['normal' => Store::whereNull('archived_at')->count(), 'archived' => Store::whereNotNull('archived_at')->count()];
+        $baseQuery=Store::query()->when($archived, fn ($q) => $q->whereNotNull('archived_at'), fn ($q) => $q->whereNull('archived_at'));
         $query=(clone $baseQuery)->with(['user.sellerApplications'])->withCount(['products','sellerOrders','reports','violations'=>fn($q)=>$q->where('status','confirmed')]);
         if($request->filled('q'))$query->where(fn($q)=>$q->where('name','like','%'.$request->q.'%')->orWhereHas('user',fn($u)=>$u->where('name','like','%'.$request->q.'%')->orWhere('email','like','%'.$request->q.'%')));
         if($request->status==='escalated')$query->where('status','pending')->whereHas('user.sellerApplications',fn($applications)=>$applications->where('status','escalated'));
@@ -37,7 +39,7 @@ class ShopController extends Controller
             'suspended'=>(clone $baseQuery)->where('status','suspended')->count(),
         ];
         $counts=[''=>(clone $baseQuery)->count(),'active'=>$summary['active'],'pending'=>(clone $baseQuery)->where('status','pending')->count(),'restricted'=>$summary['restricted'],'suspended'=>$summary['suspended']];
-        return view('admin.shops.index',compact('shops','summary','counts'));
+        return view('admin.shops.index',compact('shops','summary','counts','archiveCounts','archived'));
     }
 
     public function show(Store $shop)

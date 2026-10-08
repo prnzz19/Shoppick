@@ -16,7 +16,7 @@ class SellerApplication extends Model
 
     protected $hidden = ['valid_id_path', 'business_permit_path'];
 
-    protected $casts = ['admin_reviewed_at' => 'datetime', 'escalated_at' => 'datetime', 'reviewed_at' => 'datetime'];
+    protected $casts = ['admin_reviewed_at' => 'datetime', 'escalated_at' => 'datetime', 'reviewed_at' => 'datetime', 'archived_at' => 'datetime'];
 
     public function user() { return $this->belongsTo(User::class); }
     public function reviewer() { return $this->belongsTo(User::class, 'reviewed_by'); }

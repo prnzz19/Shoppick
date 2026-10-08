@@ -59,13 +59,14 @@
         <form id="address-form" method="POST" action="{{ route('account.addresses.store') }}">
             @csrf
             <input type="hidden" name="_method" id="address-method" value="POST">
+            <input type="hidden" name="address_id" id="address-id" value="">
             <div class="grid gap-3 sm:grid-cols-2">
                 <div class="sm:col-span-2"><label class="label">Full Name</label><input type="text" name="full_name" required class="input"></div>
                 <div><label class="label">Phone</label><input type="text" name="phone" required class="input"></div>
                 <div><label class="label">Label (e.g. Home, Office)</label><input type="text" name="label" class="input"></div>
-                <x-philippine-location-fields class="sm:col-span-2" :required="false" />
+                <x-philippine-location-fields class="sm:col-span-2" />
                 <div><label class="label">Postal Code</label><input type="text" name="postal_code" required class="input"></div>
-                <div class="sm:col-span-2"><label class="label">Complete Address</label><textarea name="address_line" rows="2" required class="input"></textarea></div>
+                <div class="sm:col-span-2"><label class="label">House No. / Street</label><textarea name="address_line" rows="2" required class="input"></textarea></div>
                 <label class="flex items-center gap-2 text-sm text-navy-700 sm:col-span-2"><input type="checkbox" name="is_default" value="1" class="h-4 w-4 rounded border-slate-300 text-brand-500"> Set as default</label>
             </div>
             <div class="mt-4 flex gap-3">
@@ -84,9 +85,10 @@
     function openAddressModal(addr) {
         const modal = document.getElementById('address-modal');
         const form = document.getElementById('address-form');
-        document.getElementById('modal-title').textContent = addr ? 'Edit Address' : 'Add Address';
-        document.getElementById('address-method').value = addr ? 'PUT' : 'POST';
-        form.action = addr ? addressStoreUrl + '/' + encodeURIComponent(addr.id) : addressStoreUrl;
+        document.getElementById('modal-title').textContent = addr?.id ? 'Edit Address' : 'Add Address';
+        document.getElementById('address-method').value = addr?.id ? 'PUT' : 'POST';
+        document.getElementById('address-id').value = addr?.id || '';
+        form.action = addr?.id ? addressStoreUrl + '/' + encodeURIComponent(addr.id) : addressStoreUrl;
         form.full_name.value = addr ? addr.full_name : '';
         form.phone.value = addr ? addr.phone : '';
         form.label.value = addr ? (addr.label || '') : '';
@@ -100,5 +102,13 @@
         const modal = document.getElementById('address-modal');
         modal.classList.add('hidden'); modal.classList.remove('flex');
     }
+    @if($errors->any())
+    @php($previousAddressInput = \Illuminate\Support\Arr::only(session()->getOldInput(), ['address_id', 'full_name', 'phone', 'label', 'region', 'region_code', 'province', 'province_code', 'city', 'city_code', 'barangay', 'barangay_code', 'postal_code', 'address_line', 'is_default']))
+    document.addEventListener('DOMContentLoaded', () => {
+        const previous = @json($previousAddressInput);
+        previous.id = previous.address_id || null;
+        openAddressModal(previous);
+    });
+    @endif
 </script>
 @endpush

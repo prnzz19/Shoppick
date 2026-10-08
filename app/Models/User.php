@@ -111,8 +111,8 @@ class User extends Authenticatable
     public function hasApprovedSellerAccess(): bool
     {
         return $this->is_active && $this->hasRole('seller')
-            && $this->sellerProfile()->where('status', 'approved')->exists()
-            && $this->store()->where('status', 'active')->exists();
+            && $this->sellerProfile()->whereNull('archived_at')->where('status', 'approved')->exists()
+            && $this->store()->whereNull('archived_at')->where('status', 'active')->exists();
     }
 
     public function sellerAction(): array
@@ -147,6 +147,12 @@ class User extends Authenticatable
     public function isBuyer(): bool
     {
         return $this->hasRole('buyer');
+    }
+
+    public function isNormalBuyerRegistration(): bool
+    {
+        return $this->registration_type === 'buyer' && $this->isBuyer()
+            && ! $this->hasRole(['admin', 'super_admin', 'logistics', 'rider']);
     }
 
     public function getAgeAttribute(): ?int

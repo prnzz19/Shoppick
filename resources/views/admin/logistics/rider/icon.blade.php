@@ -1,0 +1,2 @@
+@php($path = match($icon ?? 'truck') {'status'=>'M12 3l8 4v5c0 5-8 9-8 9s-8-4-8-9V7l8-4zm-4 9l3 3 5-6','check'=>'M5 12l4 4L19 6','box'=>'M3 7l9-4 9 4-9 4-9-4zm0 0v10l9 4 9-4V7m-9 4v10',default=>'M3 5h12v12H3zM15 9h4l3 4v4h-7M7 20a2 2 0 100-4 2 2 0 000 4zm11 0a2 2 0 100-4 2 2 0 000 4z'})
+<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ $path }}" stroke-linecap="round" stroke-linejoin="round"/></svg>

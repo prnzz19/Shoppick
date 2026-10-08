@@ -31,12 +31,18 @@ class LoginController extends Controller
 
         $user = Auth::user();
 
+        if ($user->trashed()) {
+            Auth::logout();
+            throw ValidationException::withMessages(['email' => 'Your account has been deactivated. Please contact support.']);
+        }
+
         if ($user->registration_type === 'rider' && in_array($user->registration_status, ['pending','rejected','needs_resubmission'], true)) {
             $request->session()->regenerate();
             return redirect()->route('rider.application.status');
         }
 
-        if (in_array($user->registration_status, ['pending', 'rejected'], true)) {
+        if (in_array($user->registration_status, ['pending', 'rejected'], true)
+            && ! ($user->isNormalBuyerRegistration() && $user->registration_status === 'pending')) {
             Auth::logout();
             throw ValidationException::withMessages([
                 'email' => $user->registration_status === 'pending'

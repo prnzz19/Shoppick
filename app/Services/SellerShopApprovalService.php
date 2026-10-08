@@ -24,6 +24,9 @@ class SellerShopApprovalService
         return DB::transaction(function () use ($application, $reviewer, $decision, $reason) {
             User::whereKey($application->user_id)->lockForUpdate()->firstOrFail();
             $application = SellerApplication::whereKey($application->id)->lockForUpdate()->firstOrFail();
+            if ($application->archived_at) {
+                throw ValidationException::withMessages(['status' => 'Restore this application before reviewing it.']);
+            }
             if ($application->status === $decision && $application->user->store) return $application->user->store;
             if (! in_array($application->status, ['pending', 'escalated', 'awaiting_final_review'], true)) {
                 throw ValidationException::withMessages(['status' => 'This application is no longer available for this decision.']);

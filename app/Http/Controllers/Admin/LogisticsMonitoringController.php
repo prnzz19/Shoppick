@@ -75,19 +75,44 @@ class LogisticsMonitoringController extends Controller
         return view('admin.logistics.riders', compact('riders'));
     }
 
-    public function rider(User $rider)
+    public function rider(Request $request, User $rider)
     {
         abort_unless($rider->hasRole('rider'), 404);
+        $filters = $request->validate([
+            'q'=>'nullable|string|max:100',
+            'status'=>['nullable', \Illuminate\Validation\Rule::in(Shipment::STATUSES)],
+            'page'=>'nullable|integer|min:1', 'activity_page'=>'nullable|integer|min:1',
+        ]);
+        $filters = array_filter($filters, fn ($value) => trim((string)$value) !== '');
+        if (isset($filters['q'])) $filters['q'] = trim($filters['q']);
         $rider = $this->withActivity($this->riderQuery())->with('riderProfile')->findOrFail($rider->id);
-        $shipments = Shipment::with(['order', 'store', 'rider', 'pickupRider'])
-            ->where(fn ($q) => $q->where('rider_id', $rider->id)->orWhere('pickup_rider_id', $rider->id))
-            ->latest('updated_at')->latest('id')->paginate(15);
+        $assigned = Shipment::where(fn ($q) => $q->where('rider_id', $rider->id)->orWhere('pickup_rider_id', $rider->id));
+        $totalAssigned = (clone $assigned)->count();
+        $shipments = $assigned->with(['order', 'store', 'rider', 'pickupRider'])
+            ->when($filters['status'] ?? null, fn ($q,$status) => $q->where('status',$status))
+            ->when(isset($filters['q']), function ($q) use ($filters) {
+                $term = '%'.$filters['q'].'%';
+                return $q->where(fn ($search) => $search
+                    ->where('shipment_number','like',$term)->orWhere('parcel_code','like',$term)
+                    ->orWhereHas('order',fn ($order) => $order->where('order_number','like',$term))
+                    ->orWhereHas('store',fn ($shop) => $shop->where('name','like',$term)));
+            })
+            ->latest('updated_at')->latest('id')->paginate(10)->appends($filters);
 
-        $currentDelivery = Shipment::where('rider_id', $rider->id)->whereNotIn('status', self::FINISHED)->oldest('assigned_at')->first();
+        $currentDelivery = Shipment::with(['order','store'])->where('rider_id', $rider->id)->whereNotIn('status', self::FINISHED)->oldest('assigned_at')->first();
         $events = ShipmentEvent::with('shipment')->where('actor_id', $rider->id)
-            ->latest('created_at')->latest('id')->paginate(10, ['*'], 'activity_page');
+            ->latest('created_at')->latest('id')->paginate(10, ['*'], 'activity_page')->appends($filters);
 
-        return view('admin.logistics.rider', compact('rider', 'shipments', 'currentDelivery', 'events'));
+        $data = compact('rider','shipments','currentDelivery','events','filters','totalAssigned');
+        if ($request->expectsJson()) {
+            $query = array_filter($filters,fn ($value,$key) => !in_array($key,['page','activity_page']) || (int)$value > 1,ARRAY_FILTER_USE_BOTH);
+            return response()->json([
+                'shipments_html'=>view('admin.logistics.rider.shipments',$data)->render(),
+                'activity_html'=>view('admin.logistics.rider.activity',$data)->render(),
+                'url'=>route('admin.logistics.riders.show',['rider'=>$rider->id]+$query),
+            ])->header('Cache-Control','private, no-store');
+        }
+        return view('admin.logistics.rider',$data);
     }
 
     private function riderQuery(): Builder

@@ -34,6 +34,13 @@ return [
 
     'stores' => [
 
+        // Keep last successful location lists when the application cache is cleared.
+        'psgc' => [
+            'driver' => 'file',
+            'path' => storage_path('app/psgc-cache'),
+            'lock_path' => storage_path('app/psgc-cache'),
+        ],
+
         'array' => [
             'driver' => 'array',
             'serialize' => false,

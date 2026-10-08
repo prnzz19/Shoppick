@@ -24,6 +24,7 @@ use Tests\TestCase;
 class RegistrationAndProductVisibilityTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Support\MocksPhilippineLocations;
 
     protected function setUp(): void
     {
@@ -41,37 +42,30 @@ class RegistrationAndProductVisibilityTest extends TestCase
             ->assertSessionHasErrors(['phone','address_line','barangay','city','province','postal_code']);
 
         $this->post(route('register.submit'), $base + [
-            'phone'=>'0917 123 4567','address_line'=>'12 Market Street','barangay'=>'Central',
-            'city'=>'Manila','province'=>'Metro Manila','postal_code'=>'1000','country'=>'PH',
+            'phone'=>'0917 123 4567','address_line'=>'12 Market Street',
+            'region'=>'Region IV-A (CALABARZON)','city'=>'Santa Cruz','province'=>'Laguna','barangay'=>'Bubukal','postal_code'=>'1000','country'=>'PH',
             'valid_id'=>UploadedFile::fake()->create('buyer-id.jpg',100,'image/jpeg'),
         ])->assertRedirect(route('login'));
 
         $user = User::where('email', 'new@buyer.test')->firstOrFail();
         $this->assertSame('+639171234567', $user->phone);
         $this->assertTrue($user->isBuyer());
-        $this->assertSame('pending',$user->registration_status);$this->assertFalse($user->is_active);
+        $this->assertSame('approved',$user->registration_status);$this->assertTrue($user->is_active);
         $this->assertDatabaseHas('addresses', ['user_id'=>$user->id,'is_default'=>true,'country'=>'PH']);
     }
 
-    public function test_admin_can_approve_or_reject_pending_buyer_registrations(): void
+    public function test_ordinary_buyer_approval_endpoint_is_retired_without_changing_existing_records(): void
     {
         $permission=\App\Models\Permission::create(['name'=>'Manage Sellers','slug'=>'manage_sellers','group'=>'Sellers','guard_name'=>'web']);
         Role::where('slug','admin')->firstOrFail()->permissions()->attach($permission);
         $admin=User::factory()->create(['is_active'=>true]);$admin->assignRole('admin');
-
-        $approved=User::factory()->create(['registration_type'=>'buyer','registration_status'=>'pending','is_active'=>false,'valid_id_path'=>'registration-documents/approved-id.pdf']);
-        $approved->assignRole('buyer');
-        $this->actingAs($admin)->post(route('admin.registrations.buyers.review',$approved),['status'=>'approved'])->assertSessionHasNoErrors();
-        $this->assertSame('approved',$approved->fresh()->registration_status);$this->assertTrue($approved->fresh()->is_active);
-
-        $rejected=User::factory()->create(['registration_type'=>'buyer','registration_status'=>'pending','is_active'=>false,'valid_id_path'=>'registration-documents/rejected-id.pdf']);
-        $rejected->assignRole('buyer');
-        $this->actingAs($admin)->post(route('admin.registrations.buyers.review',$rejected),['status'=>'rejected'])->assertSessionHasErrors('review_notes');
-        $this->post(route('admin.registrations.buyers.review',$rejected),['status'=>'rejected','review_notes'=>'Submitted identification could not be verified.'])->assertSessionHasNoErrors();
-        $this->assertSame('rejected',$rejected->fresh()->registration_status);$this->assertFalse($rejected->fresh()->is_active);
-        $this->assertSame('Submitted identification could not be verified.',$rejected->fresh()->registration_review_notes);
+        $pending=User::factory()->create(['registration_type'=>'buyer','registration_status'=>'pending','is_active'=>false]);
+        $pending->assignRole('buyer');
+        $this->actingAs($admin)->post(route('admin.registrations.buyers.review',$pending),['status'=>'approved'])->assertStatus(410);
+        $this->post(route('admin.registrations.buyers.review',$pending),['status'=>'rejected','review_notes'=>'Legacy decision'])->assertStatus(410);
+        $this->assertSame('pending',$pending->fresh()->registration_status);
+        $this->assertFalse($pending->fresh()->is_active);
     }
-
     public function test_public_seller_signup_is_disabled_and_registration_is_buyer_only(): void
     {
         $this->get(route('register'))->assertOk()->assertSee('Register as Buyer')->assertDontSee('Register as Seller');
@@ -215,17 +209,19 @@ class RegistrationAndProductVisibilityTest extends TestCase
         $this->get(route('auth.google.callback'))->assertRedirect(route('profile.complete'));
         $user = User::where('email','google@buyer.test')->firstOrFail();
         $this->assertTrue($user->isBuyer());
+        $this->assertTrue($user->is_active);
+        $this->assertSame('incomplete', $user->registration_status);
         $this->assertFalse($user->isAdmin());
         $this->assertDatabaseHas('social_accounts',['user_id'=>$user->id,'provider'=>'google','provider_id'=>'google-123']);
         $this->get(route('cart.index'))->assertRedirect(route('profile.complete'));
 
         $this->post(route('profile.complete.update'), [
             'first_name'=>'Google','last_name'=>'Buyer','sex'=>'female','birthday'=>'2004-08-15','valid_id'=>UploadedFile::fake()->create('google-id.jpg',100,'image/jpeg'),
-            'phone'=>'09171234567','address_line'=>'1 Google Street','barangay'=>'Web',
-            'city'=>'Manila','province'=>'Metro Manila','postal_code'=>'1000','country'=>'PH',
+            'phone'=>'09171234567','address_line'=>'1 Google Street',
+            'region'=>'Region IV-A (CALABARZON)','city'=>'Santa Cruz','province'=>'Laguna','barangay'=>'Bubukal','postal_code'=>'1000','country'=>'PH',
         ])->assertRedirect(route('login'));
         $this->assertTrue($user->fresh()->hasCompleteBuyerProfile());
-        $this->assertSame('pending',$user->fresh()->registration_status);
+        $this->assertSame('approved',$user->fresh()->registration_status);$this->assertTrue($user->fresh()->is_active);
     }
 
     public function test_google_uses_existing_buyer_email_without_creating_a_duplicate(): void

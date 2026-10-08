@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Address;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Services\PhilippineGeographyService;
 
 class AddressController extends Controller
 {
@@ -38,6 +39,7 @@ class AddressController extends Controller
             'is_default' => ['nullable', 'boolean'],
         ]);
 
+        $data = app(PhilippineGeographyService::class)->normalizeAddress($data);
         $data['is_default'] = $request->boolean('is_default');
         DB::transaction(function () use ($data) {
             if ($data['is_default']) {
@@ -76,6 +78,7 @@ class AddressController extends Controller
             'is_default' => ['nullable', 'boolean'],
         ]);
 
+        $data = app(PhilippineGeographyService::class)->normalizeAddress($data);
         $data['is_default'] = $request->boolean('is_default');
         DB::transaction(function () use ($address, $data) {
             if ($data['is_default']) {

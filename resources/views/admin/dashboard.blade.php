@@ -14,29 +14,18 @@
     <x-admin.stat-card label="Orders" :value="$stats['orders']" color="bg-brand-50 text-brand-600" icon="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
     <x-admin.stat-card label="Pending" :value="$stats['pending_orders']" color="bg-sun-50 text-sun-500" icon="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
     <x-admin.stat-card label="Low Stock" :value="$lowStock->count()" color="bg-rose-50 text-rose-600" icon="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-    <x-admin.stat-card label="Revenue" :value="'₱'.number_format($stats['revenue'])" color="bg-leaf-50 text-leaf-500" icon="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    <x-admin.stat-card label="Net Sales (All Time)" :value="'₱'.number_format($stats['revenue'])" color="bg-leaf-50 text-leaf-500" icon="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
 </div>
 
-<div class="mt-6 grid gap-6 lg:grid-cols-3">
-    {{-- Sales by day --}}
-    <div class="card p-5 lg:col-span-2">
-        <h3 class="mb-4 text-sm font-bold uppercase tracking-wide text-navy-800">Sales (Last 7 Days)</h3>
-        @if($salesByDay->isEmpty())
-            <p class="text-sm text-slate-400">No sales yet.</p>
-        @else
-            <div class="flex h-48 items-end gap-2">
-                @foreach($salesByDay as $date => $total)
-                    @php $max = max(1, $salesByDay->max()); $h = max(4, ($total / $max) * 100); @endphp
-                    <div class="flex flex-1 flex-col items-center gap-1">
-                        <span class="text-[10px] font-semibold text-navy-700">₱{{ number_format($total) }}</span>
-                        <div class="w-full rounded-t-lg bg-brand-500 hover:bg-brand-600 transition" style="height: {{ $h }}px"></div>
-                        <span class="text-[10px] text-slate-400">{{ \Carbon\Carbon::parse($date)->format('d') }}</span>
-                    </div>
-                @endforeach
-            </div>
-        @endif
-    </div>
-
+@include('admin.analytics.styles')
+<section class="sales-workspace mt-6" data-admin-analytics>
+    @include('admin.analytics.filters',$sales)
+    <p class="report-note" data-analytics-loading role="status" hidden>Updating sales…</p>
+    <div class="analytics-error" data-analytics-error role="alert" hidden>Sales could not be updated. <button type="button" data-analytics-retry class="underline">Retry</button></div>
+    <div data-analytics-content>@include('admin.analytics.content',$sales)</div>
+</section>
+@include('admin.analytics.script',$sales)
+<div class="mt-6">
     {{-- Order status --}}
     <div class="card p-5">
         <h3 class="mb-4 text-sm font-bold uppercase tracking-wide text-navy-800">Order Status</h3>

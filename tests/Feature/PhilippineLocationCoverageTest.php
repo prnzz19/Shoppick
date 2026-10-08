@@ -15,7 +15,7 @@ class PhilippineLocationCoverageTest extends TestCase
     {
         parent::setUp();
         Cache::clear();
-        config(['services.psgc.base_url' => 'https://psgc.test/api']);
+        config(['services.psgc.base_url' => 'https://psgc.test/api', 'services.psgc.cache_store' => 'array']);
     }
 
     public function test_location_endpoints_proxy_all_provider_records_without_a_hardcoded_region_list(): void

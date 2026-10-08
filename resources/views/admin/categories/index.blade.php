@@ -1,50 +1,83 @@
 @extends('layouts.admin')
-
 @section('title', 'Categories')
-
 @section('content')
 @php($categoryRoutePrefix = 'admin')
-<div class="mb-6 flex items-center justify-between">
-    <h1 class="text-2xl font-bold text-navy-800">Categories</h1>
+<style>
+    #category-workspace [hidden] { display:none !important; }
+    .category-workspace { display:grid; gap:1.25rem; }
+    .category-list-scroll { max-height:20rem; overflow-y:auto; }
+    .category-choice[aria-pressed="true"] { border-left-color:#14b8a6; background:#effcf9; }
+    .category-choice[aria-pressed="true"] .category-choice-name { color:#0f756d; }
+    @media (min-width:1024px) {
+        .category-workspace { grid-template-columns:minmax(0,38fr) minmax(0,62fr); height:max(420px,calc(100dvh - 180px)); max-height:900px; }
+        .category-master { display:flex; flex-direction:column; min-height:0; }
+        .category-list-scroll { flex:1; min-height:0; max-height:none; }
+        .category-detail-scroll { height:100%; overflow-y:auto; }
+    }
+</style>
+<div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div><p class="text-sm font-semibold text-brand-600">Catalog organization</p><h1 class="text-2xl font-bold text-navy-800">Categories</h1><p class="mt-1 text-sm text-slate-500">Select a category to review its subcategories and manage details.</p></div>
     <button type="button" onclick="openCategoryModal()" class="btn-primary">+ Add Category</button>
 </div>
-
-<div class="grid gap-6 lg:grid-cols-2">
-    @foreach($categories as $cat)
-        <div class="card p-5">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <span class="h-10 w-10 shrink-0"><x-category-visual :category="$cat" /></span>
-                    <div>
-                        <p class="font-semibold text-navy-800">{{ $cat->name }} <span class="text-xs font-normal text-slate-400">({{ $cat->products_count ?? $cat->products->count() }} products)</span></p>
-                        @if($cat->description)<p class="mt-1 line-clamp-2 text-xs text-slate-500">{{ $cat->description }}</p>@endif
-                        <div class="flex gap-2 mt-1">
-                            <span class="badge {{ $cat->is_active ? 'bg-leaf-100 text-leaf-500' : 'bg-slate-100 text-slate-500' }}">{{ $cat->is_active ? 'Active' : 'Inactive' }}</span>
-                            <span class="badge bg-slate-100 text-slate-500">{{ $cat->children->count() }} subcategories</span>
+<div id="category-workspace" class="category-workspace">
+    <section class="category-master card min-w-0 overflow-hidden" aria-labelledby="category-list-heading">
+        <div class="border-b border-slate-100 p-4">
+            <div class="mb-3 flex items-center justify-between gap-2"><h2 id="category-list-heading" class="font-bold text-navy-800">Category list</h2><span class="text-xs text-slate-400">{{ $categories->count() }} {{ Str::plural('category', $categories->count()) }}</span></div>
+            <label for="category-search" class="sr-only">Search categories</label>
+            <input id="category-search" type="search" placeholder="Search categories..." class="input" autocomplete="off" aria-controls="category-list">
+        </div>
+        <div id="category-list" class="category-list-scroll p-2">
+            @foreach($categories as $cat)
+                @php($productCount = $cat->products_count ?? $cat->products->count())
+                <button type="button" data-category-id="{{ $cat->id }}" data-search="{{ $cat->name.' '.$cat->children->pluck('name')->implode(' ') }}" aria-pressed="{{ $loop->first ? 'true' : 'false' }}" aria-controls="category-detail-{{ $cat->id }}" class="category-choice flex w-full items-center gap-3 rounded-xl border-l-4 border-transparent px-3 py-3 text-left transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400">
+                    <span class="h-9 w-9 shrink-0" aria-hidden="true"><x-category-visual :category="$cat" /></span>
+                    <span class="min-w-0 flex-1"><span class="category-choice-name block truncate text-sm font-semibold text-navy-800">{{ $cat->name }}</span><span class="mt-0.5 block text-xs text-slate-500">{{ $productCount }} {{ Str::plural('product', $productCount) }} · {{ $cat->children->count() }} {{ Str::plural('subcategory', $cat->children->count()) }}</span></span>
+                    <span class="badge shrink-0 {{ $cat->is_active ? 'bg-leaf-100 text-leaf-500' : 'bg-slate-100 text-slate-500' }}">{{ $cat->is_active ? 'Active' : 'Inactive' }}</span>
+                </button>
+            @endforeach
+            <p id="category-no-results" class="px-3 py-8 text-center text-sm text-slate-500" role="status" hidden>No categories match your search.</p>
+            @if($categories->isEmpty())<p class="px-3 py-8 text-center text-sm text-slate-500">No categories yet.</p>@endif
+        </div>
+    </section>
+    <section class="card min-w-0 overflow-hidden" aria-label="Category details">
+        <div class="category-detail-scroll">
+            <p id="category-detail-empty" class="p-8 text-center text-sm text-slate-500" @if($categories->isNotEmpty()) hidden @endif>{{ $categories->isEmpty() ? 'Add a category to get started.' : 'Select a category from the list.' }}</p>
+            @foreach($categories as $cat)
+                @php($productCount = $cat->products_count ?? $cat->products->count())
+                <article id="category-detail-{{ $cat->id }}" class="category-detail" aria-labelledby="category-title-{{ $cat->id }}" @if(!$loop->first) hidden @endif>
+                    <div class="border-b border-slate-100 p-5">
+                        <p class="mb-4 text-xs font-bold uppercase tracking-wider text-brand-600">Category details</p>
+                        <div class="flex items-start gap-3">
+                            <span class="h-12 w-12 shrink-0" aria-hidden="true"><x-category-visual :category="$cat" /></span>
+                            <div class="min-w-0 flex-1"><h2 id="category-title-{{ $cat->id }}" class="break-words text-xl font-bold text-navy-800">{{ $cat->name }}</h2><span class="badge mt-2 {{ $cat->is_active ? 'bg-leaf-100 text-leaf-500' : 'bg-slate-100 text-slate-500' }}">{{ $cat->is_active ? 'Active' : 'Inactive' }}</span></div>
+                        </div>
+                        @if($cat->description)<p class="mt-4 break-words text-sm text-slate-500">{{ $cat->description }}</p>@endif
+                        <div class="mt-4 flex flex-wrap gap-2"><span class="chip border-slate-200 text-navy-700">{{ $productCount }} {{ Str::plural('product', $productCount) }}</span><span class="chip border-slate-200 text-navy-700">{{ $cat->children->count() }} {{ Str::plural('subcategory', $cat->children->count()) }}</span></div>
+                    </div>
+                    <div class="p-5">
+                        <h3 class="mb-3 text-sm font-bold text-navy-800">Subcategories</h3>
+                        <div class="divide-y divide-slate-100">
+                            @forelse($cat->children as $child)
+                                @php($childCount = $child->products_count ?? $child->products->count())
+                                <div class="flex flex-wrap items-center gap-3 py-3">
+                                    <span class="min-w-0 flex-1 break-words text-sm font-medium text-navy-700">{{ $child->name }}</span>
+                                    <span class="text-xs text-slate-500">{{ $childCount }} {{ Str::plural('product', $childCount) }}</span>
+                                    <button type="button" data-category-edit="{{ json_encode($child->only(['id', 'name', 'description', 'sort_order', 'is_active'])) }}" class="btn-outline btn-sm" aria-label="Edit {{ $child->name }}">Edit</button>
+                                </div>
+                            @empty
+                                <p class="rounded-xl bg-slate-50 px-4 py-6 text-sm text-slate-500">No subcategories yet.</p>
+                            @endforelse
                         </div>
                     </div>
-                </div>
-                <div class="flex gap-1">
-                    <button type="button" onclick="openCategoryModal({{ json_encode(array_merge($cat->toArray(), ['name' => $cat->name])) }})" class="p-2 text-slate-400 hover:text-brand-600"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
-                    <form method="POST" action="{{ route($categoryRoutePrefix.'.categories.toggle', $cat->id) }}">@csrf<button type="submit" class="p-2 text-slate-400 hover:text-navy-700"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg></button></form>
-                    <form method="POST" action="{{ route($categoryRoutePrefix.'.categories.destroy', $cat->id) }}" data-confirm-title="Delete this category?" data-confirm-message="This action may permanently remove the selected category." data-confirm-action="Delete" data-confirm-type="danger">@csrf @method('DELETE')<button type="submit" class="p-2 text-slate-400 hover:text-rose-600"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button></form>
-                </div>
-            </div>
-
-            @if($cat->children->isNotEmpty())
-                <div class="mt-4 space-y-2 border-t border-slate-100 pt-3">
-                    @foreach($cat->children as $child)
-                        <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
-                            <span class="text-sm text-navy-700">{{ $child->name }} <span class="text-xs text-slate-400">({{ $child->products->count() }})</span></span>
-                            <div class="flex gap-1">
-                                <button type="button" onclick="openCategoryModal({{ json_encode(array_merge($child->toArray(), ['name' => $child->name])) }})" class="p-1.5 text-slate-400 hover:text-brand-600"><svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-            @endif
+                    <div class="flex flex-wrap gap-2 border-t border-slate-100 bg-slate-50/60 p-5">
+                        <button type="button" data-category-edit="{{ json_encode($cat->only(['id', 'name', 'description', 'sort_order', 'is_active'])) }}" class="btn-outline btn-sm">Edit Category</button>
+                        <form method="POST" action="{{ route($categoryRoutePrefix.'.categories.toggle', $cat->id) }}">@csrf<button type="submit" class="btn-outline btn-sm">{{ $cat->is_active ? 'Deactivate' : 'Activate' }}</button></form>
+                        <form method="POST" action="{{ route($categoryRoutePrefix.'.categories.destroy', $cat->id) }}" data-confirm-title="Delete this category?" data-confirm-message="This action may permanently remove the selected category." data-confirm-action="Delete" data-confirm-type="danger">@csrf @method('DELETE')<button type="submit" class="btn-outline btn-sm !border-rose-200 !text-rose-600 hover:!bg-rose-50">Delete Category</button></form>
+                    </div>
+                </article>
+            @endforeach
         </div>
-    @endforeach
+    </section>
 </div>
 
 {{-- Modal --}}
@@ -95,10 +128,34 @@
 
 @push('scripts')
 <script>
+    const categoryChoices = [...document.querySelectorAll('#category-list [data-category-id]')];
+    const categoryDetails = [...document.querySelectorAll('.category-detail')];
+    let selectedCategoryId = categoryChoices[0]?.dataset.categoryId ?? null;
+    function selectCategory(id) {
+        selectedCategoryId = id;
+        categoryChoices.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.categoryId === id)));
+        categoryDetails.forEach(panel => { panel.hidden = panel.id !== 'category-detail-' + id; });
+        document.getElementById('category-detail-empty').hidden = id !== null;
+        document.querySelector('.category-detail-scroll').scrollTop = 0;
+    }
+    categoryChoices.forEach(button => button.addEventListener('click', () => selectCategory(button.dataset.categoryId)));
+    document.getElementById('category-search').addEventListener('input', event => {
+        const search = event.target.value.trim().toLocaleLowerCase();
+        categoryChoices.forEach(button => { button.hidden = !button.dataset.search.toLocaleLowerCase().includes(search); });
+        const visible = categoryChoices.filter(button => !button.hidden);
+        document.getElementById('category-no-results').hidden = visible.length > 0 || categoryChoices.length === 0;
+        if (!visible.some(button => button.dataset.categoryId === selectedCategoryId)) {
+            selectCategory(visible[0]?.dataset.categoryId ?? null);
+        }
+    });
+    document.querySelectorAll('[data-category-edit]').forEach(button => {
+        button.addEventListener('click', () => openCategoryModal(JSON.parse(button.dataset.categoryEdit)));
+    });
     const categoryBaseUrl = @json(url('/'.$categoryRoutePrefix.'/categories'));
     function openCategoryModal(cat) {
         const modal = document.getElementById('category-modal');
         const form = document.getElementById('category-form');
+        form.querySelector('input[type="file"]').value = '';
         document.getElementById('cat-modal-title').textContent = cat ? 'Edit Category' : 'Add Category';
         document.getElementById('cat-method').value = cat ? 'PUT' : 'POST';
         form.action = cat ? categoryBaseUrl + '/' + cat.id : categoryBaseUrl;

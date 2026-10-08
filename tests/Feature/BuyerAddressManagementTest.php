@@ -9,6 +9,7 @@ use Tests\TestCase;
 class BuyerAddressManagementTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Support\MocksPhilippineLocations;
 
     public function test_address_crud_is_csrf_ready_owned_and_available_to_checkout(): void
     {
@@ -55,13 +56,13 @@ class BuyerAddressManagementTest extends TestCase
         $category = Category::create(['name'=>'Address Test', 'slug'=>'address-test']);
         $product = Product::create(['store_id'=>$store->id, 'category_id'=>$category->id, 'name'=>'Checkout Address Item', 'slug'=>'checkout-address-item', 'price'=>100, 'stock'=>5, 'is_active'=>true]);
         $this->post(route('cart.add'), ['product_id'=>$product->id, 'quantity'=>1])->assertRedirect(route('cart.index'));
-        $this->get(route('checkout'))->assertOk()->assertSee('22 Second Street')->assertSee('MAHIPON');
+        $this->get(route('checkout'))->assertOk()->assertSee('22 Second Street')->assertSee('Mahipon');
         $this->post(route('checkout.store'), ['address_id'=>$created->id, 'payment_method'=>'cod'])->assertRedirect()->assertSessionMissing('error');
         $order = $buyer->orders()->latest('id')->firstOrFail();
         $this->assertSame('22 Second Street', data_get($order->shipping_address, 'address_line'));
-        $this->assertSame('MAHIPON', data_get($order->shipping_address, 'barangay'));
-        $this->assertSame('CAVINTI', data_get($order->shipping_address, 'city'));
-        $this->assertSame('LAGUNA', data_get($order->shipping_address, 'province'));
+        $this->assertSame('Mahipon', data_get($order->shipping_address, 'barangay'));
+        $this->assertSame('Cavinti', data_get($order->shipping_address, 'city'));
+        $this->assertSame('Laguna', data_get($order->shipping_address, 'province'));
     }
 
     private function address(User $user, string $line, bool $default): Address
@@ -71,6 +72,6 @@ class BuyerAddressManagementTest extends TestCase
 
     private function payload(string $name, string $line): array
     {
-        return ['full_name'=>$name, 'phone'=>'09170000003', 'label'=>'Home', 'province'=>'LAGUNA', 'city'=>'CAVINTI', 'barangay'=>'MAHIPON', 'postal_code'=>'4013', 'address_line'=>$line];
+        return ['full_name'=>$name, 'phone'=>'09170000003', 'label'=>'Home', 'region'=>'Region IV-A (CALABARZON)', 'region_code'=>'0400000000', 'province'=>'LAGUNA', 'city'=>'CAVINTI', 'barangay'=>'MAHIPON', 'postal_code'=>'4013', 'address_line'=>$line];
     }
 }

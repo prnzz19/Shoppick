@@ -113,7 +113,7 @@
                                             @endphp
                             <span class="inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-[13px] font-semibold leading-5 {{ $dualRole ? 'bg-brand-100 text-brand-800' : ($roleSlugs->contains('buyer') ? 'bg-brand-50 text-brand-800' : 'bg-slate-100 text-slate-700') }}">{{ $roleLabel }}</span>
                         </td>
-                        <td class="table-td text-sm text-slate-500">@if($user->registration_status==='pending')<a class="text-brand-700" href="{{ route('admin.users.show',$user) }}">Review Buyer registration</a><br>@endif{{ $user->created_at->format('M d, Y') }}</td>
+                        <td class="table-td text-sm text-slate-500">{{ $user->created_at->format('M d, Y') }}</td>
                         <td class="table-td">
                             @if($user->id === auth()->id())
                                 <span class="badge bg-leaf-100 text-leaf-500">You</span>

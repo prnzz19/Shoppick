@@ -2,8 +2,11 @@
 
 namespace App\Http\Requests;
 
+use App\Services\PhilippineGeographyService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Validator;
 
 class BuyerRegistrationRequest extends FormRequest
 {
@@ -66,5 +69,29 @@ class BuyerRegistrationRequest extends FormRequest
             'postal_code.required' => 'Postal code is required.',
             'terms.accepted' => 'You must agree to the Terms and Privacy Policy.',
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator) {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+            try {
+                $geography = app(PhilippineGeographyService::class);
+                $data = $geography->normalizeAddress($validator->getData());
+                if ($this instanceof SellerRegistrationRequest && ! $this->boolean('same_address')) {
+                    $data = $geography->normalizeAddress($data, 'store_');
+                }
+                $validator->setData($data);
+                $this->merge($data);
+            } catch (ValidationException $exception) {
+                foreach ($exception->errors() as $field => $messages) {
+                    foreach ($messages as $message) {
+                        $validator->errors()->add($field, $message);
+                    }
+                }
+            }
+        });
     }
 }
