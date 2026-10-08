@@ -14,7 +14,7 @@
 <div
     {{ $attributes->merge(['class' => 'grid gap-4 sm:grid-cols-2']) }}
     data-ph-location
-    data-endpoint="{{ url('/api/philippine-locations') }}"
+    data-endpoint="{{ \Illuminate\Support\Str::beforeLast(route('locations.regions', [], false), '/') }}"
     data-initial-region="{{ $region }}"
     data-initial-region-code="{{ $regionCode }}"
     data-initial-province="{{ $province }}"
@@ -31,9 +31,10 @@
 
     <div>
         <label class="label">Region @if($required)*@endif</label>
-        <select class="input" name="{{ $field('region_code') }}" data-location-select="region" @required($required)>
+        <select class="input" name="{{ $field('region_code') }}" data-location-select="region" disabled @required($required)>
             <option value="">Loading regions...</option>
         </select>
+        <p class="mt-1 hidden text-xs text-rose-600" data-location-field-error="region"></p>
         @if($errors->has($field('region')))<p class="mt-1 text-xs text-rose-600">{{ $errors->first($field('region')) }}</p>@endif
     </div>
     <div data-location-province-wrap>
@@ -41,6 +42,7 @@
         <select class="input" name="{{ $field('province_code') }}" data-location-select="province" disabled>
             <option value="">Select region first</option>
         </select>
+        <p class="mt-1 hidden text-xs text-rose-600" data-location-field-error="province"></p>
         <p class="mt-1 hidden text-xs text-slate-500" data-location-no-province>This region has no province level.</p>
         @if($errors->has($field('province')))<p class="mt-1 text-xs text-rose-600">{{ $errors->first($field('province')) }}</p>@endif
     </div>
@@ -49,6 +51,7 @@
         <select class="input" name="{{ $field('city_code') }}" data-location-select="city" disabled @required($required)>
             <option value="">Select province first</option>
         </select>
+        <p class="mt-1 hidden text-xs text-rose-600" data-location-field-error="city"></p>
         @if($errors->has($field('city')))<p class="mt-1 text-xs text-rose-600">{{ $errors->first($field('city')) }}</p>@endif
     </div>
     <div>
@@ -56,7 +59,9 @@
         <select class="input" name="{{ $field('barangay_code') }}" data-location-select="barangay" disabled @required($required)>
             <option value="">Select city / municipality first</option>
         </select>
+        <p class="mt-1 hidden text-xs text-rose-600" data-location-field-error="barangay"></p>
         @if($errors->has($field('barangay')))<p class="mt-1 text-xs text-rose-600">{{ $errors->first($field('barangay')) }}</p>@endif
     </div>
     <p class="hidden text-xs text-rose-600 sm:col-span-2" data-location-error role="alert"></p>
+    <button type="button" class="hidden justify-self-start text-sm font-semibold text-brand-700 underline sm:col-span-2" data-location-retry>Retry</button>
 </div>

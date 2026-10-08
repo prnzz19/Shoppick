@@ -15,11 +15,14 @@ class SellerApplicationController extends Controller
     public function __construct(protected SellerShopApprovalService $approvals) {}
     public function index(Request $request)
     {
+        $archived = $request->input('tab') === 'archived';
+        $archiveCounts = ['normal' => SellerApplication::whereNull('archived_at')->count(), 'archived' => SellerApplication::whereNotNull('archived_at')->count()];
         $applications = SellerApplication::with(['user','category','reviewer'])
+            ->when($archived, fn ($q) => $q->whereNotNull('archived_at'), fn ($q) => $q->whereNull('archived_at'))
             ->when($request->filled('status'), fn($q) => $q->where('status', $request->status))
             ->when($request->filled('q'), fn($q) => $q->where(fn($q) => $q->where('store_name','like','%'.$request->q.'%')->orWhereHas('user',fn($u) => $u->where('name','like','%'.$request->q.'%')->orWhere('email','like','%'.$request->q.'%'))))
             ->latest()->paginate(15)->withQueryString();
-        return view('admin.sellers.index', compact('applications'));
+        return view('admin.sellers.index', compact('applications','archiveCounts','archived'));
     }
 
     public function show(SellerApplication $application)
@@ -31,12 +34,7 @@ class SellerApplicationController extends Controller
 
     public function reviewBuyer(Request $request, User $user)
     {
-        abort_unless($user->registration_type==='buyer' && $user->registration_status==='pending', 404);
-        $data=$request->validate(['status'=>'required|in:approved,rejected','review_notes'=>'nullable|string|max:2000']);
-        if($data['status']==='rejected' && blank($data['review_notes']??null))throw ValidationException::withMessages(['review_notes'=>'A rejection reason is required.']);
-        $user->update(['registration_status'=>$data['status'],'is_active'=>$data['status']==='approved','registration_review_notes'=>$data['review_notes']??null,'registration_reviewed_by'=>$request->user()->id,'registration_reviewed_at'=>now()]);
-        \App\Services\NotificationService::registrationDecision($user,$data['status']==='approved'?'Your SHOPPICK Buyer account has been approved.':'Your SHOPPICK Buyer registration was rejected.',$data['status']==='approved'?'You may now log in and use your Buyer account.':'Reason: '.$data['review_notes'],route('login'),['decision'=>$data['status']]);
-        return back()->with('success','Buyer registration decision saved.');
+        abort(410, 'Buyer registration no longer requires approval. Use user status controls for account restrictions.');
     }
 
     public function buyerDocument(User $user)

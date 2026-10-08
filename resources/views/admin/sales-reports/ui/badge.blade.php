@@ -1,0 +1,2 @@
+@php($tone = match($label) {'Improving','New Activity','Completed','Active'=>'teal','Stable','Processing','Shipped','Delivered'=>'blue','Declining','Cancelled','Failed','Suspended'=>'red','Mixed Performance'=>'purple',default=>'gray'})
+<span class="report-badge tone-{{ $tone }}" @if($label==='No comparable period') title="No comparable period" @endif>{{ $label==='No comparable period' ? 'No comparison' : $label }}</span>

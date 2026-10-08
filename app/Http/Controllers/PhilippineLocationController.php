@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\PhilippineGeographyService;
 use Illuminate\Http\JsonResponse;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Throwable;
 
 class PhilippineLocationController extends Controller
@@ -40,6 +41,9 @@ class PhilippineLocationController extends Controller
         try {
             return response()->json(['data' => $callback()]);
         } catch (Throwable $exception) {
+            if ($exception instanceof HttpExceptionInterface) {
+                return response()->json(['message' => 'Invalid Philippine location code.'], $exception->getStatusCode());
+            }
             report($exception);
 
             return response()->json([

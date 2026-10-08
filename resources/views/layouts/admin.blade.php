@@ -25,6 +25,7 @@
                     ['admin.shops.index', 'Shops', 'M3 10l2-6h14l2 6M5 10v10h14V10M9 20v-6h6v6', null],
                     ['admin.sellers.applications.index', 'Seller Applications', 'M5 13l4 4L19 7', 'applications'],
                     ['admin.sellers.index', 'Sellers', 'M3 10l2-6h14l2 6M5 10v10h14V10M9 20v-6h6v6', null],
+                    ['admin.sales-reports.index', 'Sales Reports', 'M4 19h16M7 16V8m5 8V4m5 12v-6', null],
                     ['admin.products.index', 'Products', 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4', null],
                     ['admin.categories.index', 'Categories', 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z', null],
                     ['admin.inventory.index', 'Inventory', 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z', 'inventory'],
@@ -39,13 +40,18 @@
                     ['admin.roles.index', 'Roles & Permissions', 'M9 12l2 2 4-4M7.8 4.7a3.4 3.4 0 014.4-.8 3.4 3.4 0 004.4.8', null],
                     ['admin.settings.index', 'System Settings', 'M12 8a4 4 0 100 8 4 4 0 000-8M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1 1-3z', null],
                 ];
+                $salesReportActive = request()->routeIs('admin.sales-reports.*','admin.shops.sales-report*');
+                $sidebarActive = fn ($route) => $route === 'admin.sales-reports.index' ? $salesReportActive
+                    : (request()->routeIs(str_replace('.index','.*',$route))
+                        && ($route !== 'admin.shops.index' || !$salesReportActive)
+                        && ($route !== 'admin.sellers.index' || !request()->routeIs('admin.sellers.applications.*')));
             @endphp
 
             <nav class="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-4">
                 <p class="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Admin Panel</p>
                 @foreach($common as [$route, $label, $icon, $countKey])
                     @if(in_array($route,['admin.users.index','admin.shops.index','admin.products.index','admin.logistics.overview','admin.promotions.index','admin.settings.index']))<p class="col-span-2 px-3 pt-4 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">{{ ['admin.users.index'=>'Users','admin.shops.index'=>'Seller Management','admin.products.index'=>'Marketplace','admin.logistics.overview'=>'Logistics Management','admin.promotions.index'=>'Other Features','admin.settings.index'=>'System'][$route] }}</p>@endif
-                    <a href="{{ route($route) }}" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white {{ request()->routeIs(str_replace('.index','.*',$route)) && ($route!=='admin.sellers.index' || !request()->routeIs('admin.sellers.applications.*')) ? 'bg-brand-500/20 text-brand-300' : '' }}">
+                    <a href="{{ route($route) }}" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white {{ $sidebarActive($route) ? 'bg-brand-500/20 text-brand-300' : '' }}">
                         <svg class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="{{ $icon }}"/></svg>
                         <span class="min-w-0 flex-1 truncate">{{ $label }}</span>
                         @if($countKey)<x-admin.sidebar-count :count="$adminSidebarCounts[$countKey] ?? 0" />@endif
@@ -94,7 +100,7 @@
             <nav class="grid grid-cols-2 gap-2">
                 @foreach($common as [$route, $label, $icon, $countKey])
                     @if(in_array($route,['admin.users.index','admin.shops.index','admin.products.index','admin.logistics.overview','admin.promotions.index','admin.settings.index']))<p class="col-span-2 px-3 pt-4 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">{{ ['admin.users.index'=>'Users','admin.shops.index'=>'Seller Management','admin.products.index'=>'Marketplace','admin.logistics.overview'=>'Logistics Management','admin.promotions.index'=>'Other Features','admin.settings.index'=>'System'][$route] }}</p>@endif
-                    <a href="{{ route($route) }}" class="flex min-w-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/10 {{ request()->routeIs(str_replace('.index','.*',$route)) && ($route!=='admin.sellers.index' || !request()->routeIs('admin.sellers.applications.*')) ? 'bg-brand-500/20 text-brand-300' : '' }}">
+                    <a href="{{ route($route) }}" class="flex min-w-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/10 {{ $sidebarActive($route) ? 'bg-brand-500/20 text-brand-300' : '' }}">
                         <span class="min-w-0 flex-1 truncate">{{ $label }}</span>
                         @if($countKey)<x-admin.sidebar-count :count="$adminSidebarCounts[$countKey] ?? 0" />@endif
                     </a>

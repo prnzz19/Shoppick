@@ -1,6 +1,8 @@
 import './bootstrap';
 import './philippine-locations';
 import './birthday-age';
+import './admin-sellers';
+import './admin-sales-reports';
 
 document.addEventListener('DOMContentLoaded', () => {
     setupGlobalState();

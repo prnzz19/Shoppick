@@ -1,0 +1,10 @@
+<div class="report-table-wrap">
+    <table class="report-table"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr>@foreach(['Shop','Seller','Orders','Sales','Units Sold','Avg Order','Performance','Sales Trend','Actions'] as $label)<th scope="col" class="{{ in_array($label,['Orders','Sales','Units Sold','Avg Order']) ? 'report-number' : '' }}">{{ $label }}</th>@endforeach</tr></thead>
+        <tbody class="divide-y divide-slate-100">@forelse($shops as $shop)<tr data-shop-id="{{ $shop->id }}">
+            <td><div class="report-identity"><span class="report-avatar" aria-hidden="true">{{ mb_strtoupper(mb_substr($shop->name,0,1)) }}</span><div><p class="report-strong">{{ $shop->name }}</p><span class="report-note">{{ ucfirst($shop->status) }}</span></div></div></td>
+            <td class="px-4 py-4">{{ $shop->seller_name ?? 'Unavailable seller' }}</td><td class="report-number">{{ number_format($shop->orders) }}</td><td class="report-number report-strong">₱{{ number_format($shop->sales,2) }}</td><td class="report-number">{{ number_format($shop->units) }}</td><td class="report-number">₱{{ number_format($shop->average,2) }}</td>
+            <td class="px-4 py-4">@include('admin.sales-reports.ui.badge',['label'=>$shop->performance])</td><td class="whitespace-nowrap px-4 py-4 text-xs">@include('admin.sales-reports.ui.trend')</td><td class="px-4 py-4"><a class="report-action" href="{{ route('admin.shops.sales-report',['shop'=>$shop->id]+$detailQuery) }}">View Report <span aria-hidden="true">→</span></a></td>
+        </tr>@empty<tr><td colspan="9" class="px-4 py-12 text-center text-slate-500">No shop sales match your current filters.<br><a data-sales-clear class="mt-3 inline-block text-brand-700" href="{{ route('admin.sales-reports.index') }}">Clear Filters</a></td></tr>@endforelse</tbody>
+    </table>
+</div>
+<p class="mt-3 text-xs text-slate-500">Sales are completed seller-order net totals, recorded on completion dates. Cancelled and pending orders are excluded. Units count each completed order item once.</p>

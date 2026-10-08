@@ -34,10 +34,9 @@ class RegisterController extends Controller
                 'last_name'=>$data['last_name'], 'sex'=>$data['sex'], 'birthday'=>$data['birthday'],
                 'email' => strtolower($data['email']),
                 'phone' => $data['phone'],
-                'valid_id_path'=>$validIdPath, 'registration_type'=>'buyer', 'registration_status'=>'pending',
+                'valid_id_path'=>$validIdPath,
                 'password' => Hash::make($data['password']),
-                'is_active' => false,
-            ]);
+            ] + \App\Services\BuyerAccountState::attributes());
             $user->assignRole('buyer');
             $user->addresses()->create([
                 'full_name' => $name, 'phone' => $data['phone'],
@@ -53,12 +52,6 @@ class RegisterController extends Controller
 
         event(new Registered($user));
 
-        $this->notifyAdmins($user, 'Buyer');
-        return redirect()->route('login')->with('success', 'Registration submitted. Your Buyer account is waiting for administrator approval. You will be notified after review.');
-    }
-
-    private function notifyAdmins(User $user, string $type): void
-    {
-        User::whereHas('roles', fn($query)=>$query->where('slug','admin'))->get()->each(fn($admin)=>\App\Services\NotificationService::send($admin->id,"New {$type} registration received.","{$user->name} is waiting for administrator approval.",'registration',route('admin.users.index', ['tab'=>'buyers']),['user_id'=>$user->id,'type'=>strtolower($type)],'user'));
+        return redirect()->route('login')->with('success', 'Registration successful. You can now log in to your Buyer account.');
     }
 }

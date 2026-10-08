@@ -58,7 +58,6 @@ class GoogleAuthController extends Controller
 
         $email = strtolower($google->getEmail());
         session()->forget('registration_type');
-        $registrationType = 'buyer';
         $account = SocialAccount::with('user.roles')->where('provider', 'google')->where('provider_id', $google->getId())->first();
         $user = $account?->user;
 
@@ -78,22 +77,23 @@ class GoogleAuthController extends Controller
                 return $this->authenticationError('New Buyer registration is temporarily unavailable.');
             }
 
-            $user = DB::transaction(function () use ($user, $google, $email, $registrationType) {
+            $user = DB::transaction(function () use ($user, $google, $email) {
                 if (! $user) {
                     $user = User::create([
                         'name' => $google->getName() ?: Str::before($email, '@'),
                         'email' => $email,
                         'email_verified_at' => now(),
                         'password' => Hash::make(Str::random(64)),
-                        'is_active' => false,
-                        'registration_type' => $registrationType,
-                        'registration_status' => 'incomplete',
-                    ]);
+                    ] + \App\Services\BuyerAccountState::attributes(false));
                     $user->assignRole('buyer');
                 }
                 $user->socialAccounts()->create(['provider' => 'google', 'provider_id' => $google->getId()]);
                 return $user;
             });
+        }
+
+        if ($user->trashed() || ! $user->is_active) {
+            return $this->authenticationError('Your account has been deactivated. Please contact support.');
         }
 
         if ($user->registration_status === 'incomplete') {
@@ -103,7 +103,8 @@ class GoogleAuthController extends Controller
             return redirect()->route('profile.complete');
         }
 
-        if (! $user->is_active) {
+        if (in_array($user->registration_status, ['pending', 'rejected'], true)
+            && ! ($user->isNormalBuyerRegistration() && $user->registration_status === 'pending')) {
             if ($user->registration_status === 'pending') {
                 return $this->authenticationError('Your registration is still waiting for administrator approval.');
             }
@@ -114,7 +115,6 @@ class GoogleAuthController extends Controller
                 return $this->authenticationError('Your registration was rejected.'.$reason);
             }
 
-            return $this->authenticationError('Your account has been deactivated.');
         }
 
         Auth::login($user, true);

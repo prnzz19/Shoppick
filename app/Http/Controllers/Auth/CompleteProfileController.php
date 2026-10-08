@@ -19,10 +19,13 @@ class CompleteProfileController extends Controller
 
     public function update(Request $request)
     {
-        $data=$this->personalData($request);
-        DB::transaction(function()use($request,$data){$user=$request->user();$name=$this->name($data);$path=$request->file('valid_id')->store('registration-documents');$user->update(['name'=>$name,'first_name'=>$data['first_name'],'middle_initial'=>$data['middle_initial']??null,'last_name'=>$data['last_name'],'sex'=>$data['sex'],'birthday'=>$data['birthday'],'phone'=>$data['phone'],'valid_id_path'=>$path,'registration_type'=>'buyer','registration_status'=>'pending','is_active'=>false]);$user->addresses()->updateOrCreate(['is_default'=>true],['full_name'=>$name,'phone'=>$data['phone'],'address_line'=>$data['address_line'],'region'=>$data['region']??null,'region_code'=>$data['region_code']??null,'barangay'=>$data['barangay'],'barangay_code'=>$data['barangay_code']??null,'city'=>$data['city'],'city_code'=>$data['city_code']??null,'province'=>$data['province']??'','province_code'=>$data['province_code']??null,'postal_code'=>$data['postal_code'],'country'=>$data['country'],'label'=>'Home']);});
+        abort_unless($request->user()->is_active && ! $request->user()->trashed()
+            && $request->user()->isNormalBuyerRegistration()
+            && in_array($request->user()->registration_status, ['incomplete', 'approved'], true), 403);
+        $data=app(\App\Services\PhilippineGeographyService::class)->normalizeAddress($this->personalData($request));
+        DB::transaction(function()use($request,$data){$user=$request->user();$name=$this->name($data);$path=$request->file('valid_id')->store('registration-documents');$user->update(['name'=>$name,'first_name'=>$data['first_name'],'middle_initial'=>$data['middle_initial']??null,'last_name'=>$data['last_name'],'sex'=>$data['sex'],'birthday'=>$data['birthday'],'phone'=>$data['phone'],'valid_id_path'=>$path]+\App\Services\BuyerAccountState::attributes());$user->addresses()->updateOrCreate(['is_default'=>true],['full_name'=>$name,'phone'=>$data['phone'],'address_line'=>$data['address_line'],'region'=>$data['region']??null,'region_code'=>$data['region_code']??null,'barangay'=>$data['barangay'],'barangay_code'=>$data['barangay_code']??null,'city'=>$data['city'],'city_code'=>$data['city_code']??null,'province'=>$data['province']??'','province_code'=>$data['province_code']??null,'postal_code'=>$data['postal_code'],'country'=>$data['country'],'label'=>'Home']);});
         Auth::logout();$request->session()->invalidate();$request->session()->regenerateToken();
-        return redirect()->route('login')->with('success','Registration submitted. Your Buyer account is waiting for administrator approval.');
+        return redirect()->route('login')->with('success','Profile completed. You can now log in to your Buyer account.');
     }
 
     private function personalData(Request $request):array

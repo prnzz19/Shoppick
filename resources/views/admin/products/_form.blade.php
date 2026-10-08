@@ -30,11 +30,11 @@
                 </div>
                 <div>
                     <label class="label">Stock</label>
-                    <input type="number" name="stock" value="{{ old('stock', $product->stock ?? 0) }}" min="0" required class="input">
+                    <p class="py-2.5 text-sm font-semibold text-navy-800">{{ $product->stock ?? 0 }}</p>
                 </div>
                 <div>
                     <label class="label">Low Stock Threshold</label>
-                    <input type="number" name="low_stock_threshold" value="{{ old('low_stock_threshold', $product->low_stock_threshold ?? 5) }}" min="0" class="input">
+                    <p class="py-2.5 text-sm text-slate-500">{{ $product->low_stock_threshold ?? 5 }}</p>
                 </div>
             </div>
             <div class="mt-4">
@@ -71,25 +71,18 @@
 
         <div class="card p-5">
             <div class="mb-4 flex items-center justify-between">
-                <h3 class="text-sm font-bold uppercase tracking-wide text-navy-800">Variants (optional)</h3>
-                <button type="button" onclick="addVariantRow()" class="btn-outline btn-sm">+ Add Variant</button>
+                <h3 class="text-sm font-bold uppercase tracking-wide text-navy-800">Seller Inventory</h3>
             </div>
-            <div id="variants-list" class="space-y-2">
-                @php
-                    $variants = old('variants', $product->variants ?? []);
-                @endphp
-                @foreach($variants as $index => $v)
-                    <div class="grid grid-cols-2 gap-2 sm:grid-cols-5 variant-row">
-                        <input type="text" name="variants[{{ $index }}][type]" value="{{ is_array($v) ? ($v['type'] ?? '') : $v->type }}" placeholder="Type (e.g. Color)" class="input !py-2 text-sm">
-                        <input type="text" name="variants[{{ $index }}][value]" value="{{ is_array($v) ? ($v['value'] ?? '') : $v->value }}" placeholder="Value (e.g. Red)" class="input !py-2 text-sm">
-                        <input type="text" name="variants[{{ $index }}][sku]" value="{{ is_array($v) ? ($v['sku'] ?? '') : $v->sku }}" placeholder="SKU" class="input !py-2 text-sm">
-                        <input type="number" name="variants[{{ $index }}][price]" value="{{ is_array($v) ? ($v['price'] ?? '') : $v->price }}" placeholder="Price" class="input !py-2 text-sm" step="0.01">
-                        <div class="flex gap-2">
-                            <input type="number" name="variants[{{ $index }}][stock]" value="{{ is_array($v) ? ($v['stock'] ?? 0) : $v->stock }}" placeholder="Stock" class="input !py-2 text-sm">
-                            <button type="button" onclick="this.closest('.variant-row').remove()" class="p-2 text-rose-500"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
-                        </div>
+            <p class="mb-4 text-sm text-slate-500">Stock, warning thresholds, and variants are managed by sellers. Admin access is view-only.</p>
+            <div class="space-y-2">
+                @forelse($product->variants ?? [] as $variant)
+                    <div class="flex flex-wrap justify-between gap-2 rounded-lg bg-slate-50 p-3 text-sm">
+                        <span class="font-medium text-navy-800">{{ $variant->label }}</span>
+                        <span class="text-slate-500">SKU: {{ $variant->sku ?: '—' }} · Stock: {{ $variant->stock }}</span>
                     </div>
-                @endforeach
+                @empty
+                    <p class="text-sm text-slate-400">No variants.</p>
+                @endforelse
             </div>
         </div>
     </div>
@@ -107,25 +100,3 @@
     <button type="submit" class="btn-primary">Save Product</button>
     <a href="{{ route('admin.products.index') }}" class="btn-ghost">Cancel</a>
 </div>
-
-@push('scripts')
-<script>
-    let variantIdx = {{ count(old('variants', $product->variants ?? [])) }};
-    function addVariantRow() {
-        const list = document.getElementById('variants-list');
-        const row = document.createElement('div');
-        row.className = 'grid grid-cols-2 gap-2 sm:grid-cols-5 variant-row';
-        row.innerHTML = `
-            <input type="text" name="variants[${variantIdx}][type]" placeholder="Type (e.g. Color)" class="input !py-2 text-sm">
-            <input type="text" name="variants[${variantIdx}][value]" placeholder="Value (e.g. Red)" class="input !py-2 text-sm">
-            <input type="text" name="variants[${variantIdx}][sku]" placeholder="SKU" class="input !py-2 text-sm">
-            <input type="number" name="variants[${variantIdx}][price]" placeholder="Price" class="input !py-2 text-sm" step="0.01">
-            <div class="flex gap-2">
-                <input type="number" name="variants[${variantIdx}][stock]" placeholder="Stock" class="input !py-2 text-sm">
-                <button type="button" onclick="this.closest('.variant-row').remove()" class="p-2 text-rose-500"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
-            </div>`;
-        list.appendChild(row);
-        variantIdx++;
-    }
-</script>
-@endpush

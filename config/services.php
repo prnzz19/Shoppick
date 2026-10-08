@@ -6,6 +6,8 @@ return [
         'base_url' => env('PSGC_API_URL', 'https://psgc.cloud/api'),
         'timeout' => env('PSGC_API_TIMEOUT', 10),
         'cache_ttl' => env('PSGC_CACHE_TTL', 86400),
+        'cache_store' => env('PSGC_CACHE_STORE', 'psgc'),
+        'ca_bundle' => env('PSGC_CA_BUNDLE'),
     ],
 
     'image_moderation' => [

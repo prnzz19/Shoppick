@@ -14,6 +14,7 @@ use Tests\TestCase;
 class BirthdayAgeFieldsTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Support\MocksPhilippineLocations;
 
     protected function tearDown(): void
     {
@@ -53,7 +54,7 @@ class BirthdayAgeFieldsTest extends TestCase
         $payload = [
             'first_name'=>'Secure', 'last_name'=>'Buyer', 'sex'=>'female',
             'birthday'=>'2030-01-01', 'age'=>'30', 'email'=>'secure-buyer@example.test',
-            'phone'=>'09171234567', 'address_line'=>'1 Test Street', 'province'=>'Laguna',
+            'phone'=>'09171234567', 'address_line'=>'1 Test Street', 'region'=>'Region IV-A (CALABARZON)', 'province'=>'Laguna',
             'city'=>'Cavinti', 'barangay'=>'Mahipon', 'postal_code'=>'4013', 'country'=>'PH',
             'valid_id'=>UploadedFile::fake()->create('id.pdf', 10, 'application/pdf'),
             'password'=>'password', 'password_confirmation'=>'password', 'terms'=>'1',

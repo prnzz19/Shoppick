@@ -1,0 +1,1 @@
+<span class="report-trend {{ $change['difference'] > 0 ? 'up' : ($change['difference'] < 0 ? 'down' : '') }}">{{ $change['difference'] > 0 ? '▲' : ($change['difference'] < 0 ? '▼' : '—') }} {{ $change['label'] }}</span>

@@ -15,6 +15,7 @@ use Tests\TestCase;
 class AdminModerationDynamicSellerWorkflowTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Support\MocksPhilippineLocations;
 
     public function test_two_newly_registered_sellers_and_additional_images_appear_dynamically(): void
     {
@@ -69,7 +70,7 @@ class AdminModerationDynamicSellerWorkflowTest extends TestCase
             'first_name' => 'Dynamic', 'last_name' => "Seller {$label}", 'sex' => 'male', 'birthday' => '1995-01-01',
             'email' => $email, 'phone' => $suffix === 'one' ? '09171234561' : '09171234562',
             'password' => 'password', 'password_confirmation' => 'password', 'address_line' => '1 Seller Street',
-            'barangay' => 'Central', 'city' => 'Manila', 'province' => 'Metro Manila', 'postal_code' => '1000',
+            'region' => 'Region IV-A (CALABARZON)', 'barangay' => 'Bubukal', 'city' => 'Santa Cruz', 'province' => 'Laguna', 'postal_code' => '1000',
             'country' => 'PH', 'store_name' => "Dynamic Shop {$label}", 'store_description' => 'A legitimate test marketplace shop.',
             'category_id' => $category->id, 'valid_id' => UploadedFile::fake()->create("seller-{$suffix}-id.jpg", 100, 'image/jpeg'),
             'business_permit' => UploadedFile::fake()->create("seller-{$suffix}-permit.pdf", 100, 'application/pdf'),
@@ -77,7 +78,7 @@ class AdminModerationDynamicSellerWorkflowTest extends TestCase
         ])->assertSessionHasNoErrors()->assertRedirect(route('login'));
 
         $seller = User::where('email', $email)->firstOrFail();
-        $this->actingAs($admin)->post(route('admin.registrations.buyers.review',$seller),['status'=>'approved'])->assertSessionHasNoErrors();
+        $this->assertTrue($seller->is_active);$this->assertSame('approved',$seller->registration_status);
         $this->actingAs($seller->fresh())->post(route('seller.apply.store'),[
             'store_name'=>"Dynamic Shop {$label}",'store_description'=>'A legitimate test marketplace shop.','category_id'=>$category->id,'phone'=>$seller->phone,'address'=>'1 Seller Street, Manila',
             'valid_id'=>UploadedFile::fake()->create('id.pdf',100,'application/pdf'),'business_permit'=>UploadedFile::fake()->create('permit.pdf',100,'application/pdf'),
