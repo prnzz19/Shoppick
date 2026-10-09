@@ -40,6 +40,7 @@ class AdminSidebarCounts
                 ->count(),
             'moderation' => ModerationScan::query()
                 ->whereIn('status', ProductModerationStateService::ATTENTION_STATUSES)
+                ->where(fn ($q) => $q->where('status','!=','scan_failed')->orWhereHas('product', fn ($p) => $p->whereNotIn('moderation_status',['clean','approved'])))
                 ->whereHas('product')
                 ->whereHas('image')
                 ->distinct('product_id')

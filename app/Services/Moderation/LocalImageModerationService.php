@@ -17,6 +17,6 @@ class LocalImageModerationService implements ImageModerationService
             throw new RuntimeException('Image file is unavailable or invalid.');
         }
 
-        return ['status' => 'safe', 'category' => 'safe', 'confidence' => null, 'risk_level' => 'low', 'reference' => null];
+        return ['content_verified' => false, 'status' => 'safe', 'category' => 'safe', 'confidence' => null, 'risk_level' => 'low', 'reference' => null];
     }
 }

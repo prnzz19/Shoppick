@@ -61,7 +61,7 @@ class AutomaticImageModerationTest extends TestCase
         $this->assertSame(0, app(AdminSidebarCounts::class)->get()['moderation']);
     }
 
-    public function test_failed_scan_is_held_and_can_be_manually_rejected_with_reason(): void
+    public function test_optional_failed_scan_is_not_held_but_admin_can_still_reject_with_reason(): void
     {
         $this->app->instance(ImageModerationService::class, new class implements ImageModerationService
         {
@@ -72,7 +72,7 @@ class AutomaticImageModerationTest extends TestCase
         });
         $scan = $this->upload('products/failure.jpg')->moderationScans()->firstOrFail();
         $this->assertSame('scan_failed', $scan->status);
-        $this->assertFalse($this->product->fresh()->is_active);
+        $this->assertTrue($this->product->fresh()->is_active);
 
         $this->actingAs($this->admin)->post(route('admin.moderation.review', $scan), [
             'decision' => 'rejected', 'reason' => 'Product image violates SHOPPICK marketplace image policy.',

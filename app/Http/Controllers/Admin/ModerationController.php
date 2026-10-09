@@ -87,7 +87,7 @@ class ModerationController extends Controller
                     'description' => $notes, 'action_taken' => 'product_image_rejected',
                 ]);
             }
-            $state->refresh($scan->product->fresh());
+            $state->refresh($scan->product->fresh(), $approved);
             if ($scan->seller_id) {
                 NotificationService::send(
                     $scan->seller_id,

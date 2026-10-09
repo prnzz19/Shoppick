@@ -12,6 +12,9 @@ class ProductImage extends Model
 
     protected static function booted(): void
     {
+        static::updated(function (ProductImage $image) {
+            if ($image->wasChanged('path')) app(ProductImageModerationEnrollmentService::class)->rescan($image);
+        });
         static::created(function (ProductImage $image) {
             app(ProductImageModerationEnrollmentService::class)->enroll($image);
         });
