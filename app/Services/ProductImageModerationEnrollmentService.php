@@ -56,6 +56,22 @@ class ProductImageModerationEnrollmentService
         return $scan;
     }
 
+    public function rescan(ProductImage $image): void
+    {
+        $scan = $image->moderationScans()->first();
+        if (!$scan) { $this->enroll($image); return; }
+        // A replacement or retry must never erase a safety flag or human rejection.
+        if (in_array($scan->status, ['flagged','under_review','rejected'], true)) return;
+        $scan->update(['status'=>'pending_scan','moderation_result'=>null,'decision'=>null,
+            'review_type'=>null,'reviewed_by'=>null,'reviewed_at'=>null,'failure_message'=>null]);
+        app(ProductModerationStateService::class)->refresh($image->product);
+        if (config('services.image_moderation.queued')) {
+            ModerateProductImage::dispatch($scan->id)->afterCommit();
+        } else {
+            DB::afterCommit(fn () => ModerateProductImage::dispatchSync($scan->id));
+        }
+    }
+
     public function reconcile(bool $dispatch = false): array
     {
         $eligible = $this->eligibleImages()->count();

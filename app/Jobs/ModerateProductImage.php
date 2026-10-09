@@ -27,40 +27,47 @@ class ModerateProductImage implements ShouldQueue
     public function handle(ImageModerationService $service, ?ProductModerationStateService $state = null): void
     {
         $state ??= app(ProductModerationStateService::class);
-        $scan = ModerationScan::with(['product', 'image', 'store.user', 'store.sellerProfile'])->findOrFail($this->scanId);
-        $scan->update(['status' => 'scanning', 'failure_message' => null]);
-
+        $scan = ModerationScan::with(['product','image'])->find($this->scanId);
+        if (!$scan?->product || !$scan->image || in_array($scan->status,['rejected','flagged','under_review'],true) || $scan->review_type === 'manual') return;
+        $context = [$scan->image->path, $scan->product->only(['name','description','category_id'])];
+        $scan->update(['status'=>'scanning','failure_message'=>null]);
+        $failure = null;
         try {
             $result = $service->scan(Storage::disk('public')->path($scan->image->path));
             $classification = $this->classification($result);
-            $scan->update([
-                'provider' => config('services.image_moderation.provider', 'local'),
-                'provider_reference' => $result['reference'] ?? null,
-                'status' => $classification,
-                'detected_category' => $result['category'] ?? ($classification === 'approved' ? 'safe' : 'uncertain'),
-                'moderation_result' => $classification === 'approved' ? 'safe' : ($classification === 'flagged' ? 'potential_policy_violation' : 'uncertain'),
-                'confidence' => isset($result['confidence']) && is_numeric($result['confidence']) ? $result['confidence'] : null,
-                'risk_level' => $result['risk_level'] ?? match ($classification) {
-                    'flagged' => 'high',
-                    'pending_scan' => 'medium',
-                    default => 'low',
-                },
-                'decision' => $classification === 'approved' ? 'auto_approved' : null,
-                'review_type' => $classification === 'approved' ? 'automatic' : null,
-                'reviewed_at' => $classification === 'approved' ? now() : null,
-            ]);
-
-            if ($classification === 'flagged') {
-                $this->flag($scan->fresh(['product', 'store', 'seller']));
-            }
-
-            $state->refresh($scan->product->fresh());
-            AdminActivityLog::record('moderation.'.$classification, 'moderation_scan', $scan->id, ['actor' => 'system', 'provider' => $scan->provider]);
         } catch (\Throwable $exception) {
-            $scan->update(['status' => 'scan_failed', 'moderation_result' => 'scan_failed', 'risk_level' => 'medium', 'failure_message' => 'Moderation provider temporarily unavailable.']);
-            $state->refresh($scan->product->fresh());
-            report($exception);
+            $result = [];
+            $classification = 'scan_failed';
+            $failure = $exception;
         }
+        \Illuminate\Support\Facades\DB::transaction(function () use ($scan, $context, $result, $classification, $state) {
+            $current = ModerationScan::with(['product','image'])->lockForUpdate()->find($scan->id);
+            if (!$current?->product || !$current->image || $current->review_type === 'manual' ||
+                in_array($current->status,['flagged','rejected','under_review'],true) ||
+                $context !== [$current->image->path,$current->product->only(['name','description','category_id'])]) return;
+            $current->update([
+                'provider'=>config('services.image_moderation.provider','local'),
+                'provider_reference'=>$result['reference'] ?? null,
+                'status'=>$classification,
+                'detected_category'=>$result['category'] ?? ($classification === 'approved' ? 'safe' : 'uncertain'),
+                'moderation_result'=>match($classification) {
+                    'approved'=>($result['content_verified'] ?? true) ? 'safe' : 'file_validated',
+                    'flagged'=>'potential_policy_violation',
+                    'scan_failed'=>'scan_failed',
+                    default=>'uncertain',
+                },
+                'confidence'=>isset($result['confidence']) && is_numeric($result['confidence']) ? $result['confidence'] : null,
+                'risk_level'=>$result['risk_level'] ?? ($classification === 'flagged' ? 'high' : 'low'),
+                'decision'=>$classification === 'approved' ? 'auto_approved' : null,
+                'review_type'=>$classification === 'approved' ? 'automatic' : null,
+                'reviewed_at'=>$classification === 'approved' ? now() : null,
+                'failure_message'=>$classification === 'scan_failed' ? 'Moderation provider temporarily unavailable.' : null,
+            ]);
+            $state->refresh($current->product);
+            if ($classification === 'flagged') $this->flag($current->fresh(['product','store','seller']));
+            AdminActivityLog::record('moderation.'.$classification,'moderation_scan',$current->id,['actor'=>'system','provider'=>$current->provider]);
+        });
+        if ($failure) report($failure);
     }
 
     private function classification(array $result): string
@@ -68,6 +75,7 @@ class ModerateProductImage implements ShouldQueue
         return match (strtolower((string) ($result['status'] ?? 'uncertain'))) {
             'safe', 'clean', 'approved' => 'approved',
             'flagged', 'harmful', 'prohibited', 'high_risk' => 'flagged',
+            'failed', 'timeout', 'unavailable', 'error', 'scan_failed' => 'scan_failed',
             default => 'pending_scan',
         };
     }

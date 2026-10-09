@@ -20,6 +20,7 @@ class ProductService
             $this->storeImages($product, $data['images'] ?? [], $data['primary_image'] ?? null);
             $this->storeVariants($product, $data['variants'] ?? []);
 
+            app(ProductModerationStateService::class)->refresh($product);
             return $product->load('images', 'variants');
         });
     }
@@ -28,6 +29,7 @@ class ProductService
     {
         return DB::transaction(function () use ($product, $data) {
             $product->update($this->extractProductData($data));
+            $contentChanged = $product->wasChanged(['name','description','category_id']);
 
             foreach ($data['remove_image_ids'] ?? [] as $imageId) {
                 $image = $product->images()->find($imageId);
@@ -47,6 +49,8 @@ class ProductService
                 $this->syncVariants($product, $data['variants']);
             }
 
+            $state = app(ProductModerationStateService::class);
+            $contentChanged ? $state->rescanAfterEdit($product) : $state->refresh($product);
             return $product->fresh(['images', 'variants']);
         });
     }

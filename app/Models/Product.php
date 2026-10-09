@@ -114,7 +114,8 @@ class Product extends Model
         if ($this->trashed()) return 'Archived';
         if ($this->store?->status !== 'active') return 'Store Suspended';
         if ($this->publication_status === 'draft') return 'Draft';
-        if (in_array($this->moderation_status, ['pending_scan', 'scanning', 'under_review', 'flagged'])) return 'Under Moderation';
+        if (in_array($this->moderation_status, ['pending_scan', 'scanning'])) return 'Under Moderation';
+        if (in_array($this->moderation_status, ['under_review', 'flagged'])) return 'Review Required';
         if ($this->moderation_status === 'rejected') return 'Rejected';
         if ($this->moderation_status === 'scan_failed') return 'Review Required';
         if (! $this->is_active) return 'Suspended';
@@ -128,7 +129,7 @@ class Product extends Model
             'Archived' => 'Archived products are hidden from Buyers until restored and republished.',
             'Under Moderation' => 'Waiting for image review.',
             'Rejected' => $this->suspension_reason ?: 'This product was rejected during review.',
-            'Review Required' => 'The image check could not finish. An Admin can review it.',
+            'Review Required' => 'Safety verification requires Admin review.',
             'Suspended' => $this->suspension_reason ?: 'This product is currently suspended.',
             'Store Suspended' => 'Your store is currently suspended.',
             'Draft' => 'Publish this draft when it is ready.',
