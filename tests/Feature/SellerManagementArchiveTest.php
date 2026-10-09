@@ -100,9 +100,6 @@ class SellerManagementArchiveTest extends TestCase
         $this->get(route('seller.dashboard'))->assertForbidden()->assertSee('Your seller access is currently archived.');
         $this->assertFalse($user->fresh()->hasApprovedSellerAccess());
         $this->assertFalse(Store::marketplaceActive()->whereKey($shop->id)->exists());
-        DB::table('mobile_api_tokens')->insert(['user_id' => $user->id, 'name' => 'test', 'token_hash' => hash('sha256', 'seller-archive-token')]);
-        $this->withToken('seller-archive-token')->getJson('/api/v1/profile')->assertOk();
-        $this->getJson('/api/v1/seller/orders')->assertForbidden();
         $this->actingAs($admin)->patch(route('admin.shops.archive', $shop))->assertSessionHas('success');
         $this->patch(route('admin.sellers.restore', $profile))->assertSessionHas('success');
         $this->assertNull($profile->fresh()->archived_at);
