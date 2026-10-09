@@ -36,7 +36,7 @@ class BuyerOrderHistoryTest extends TestCase
         $this->get(route('orders.index', ['tab' => 'history', 'q' => 'History Shop']))
             ->assertSee($completed->order_number);
 
-        $other = User::factory()->create(); $other->assignRole('buyer');
+        $other = User::factory()->create(['is_active' => true]); $other->assignRole('buyer');
         $this->actingAs($other)->get(route('orders.show', $completed->order_number))->assertNotFound();
         $this->post(route('orders.buy-again', [$completed->order_number, $completed->items->first()]))->assertNotFound();
     }
