@@ -1,5 +1,5 @@
 <div class="report-metrics">
-@foreach(['sales'=>'Total Sales','orders'=>isset($changes) ? 'Completed Orders' : 'Total Orders','units'=>'Units Sold','average'=>'Average Order Value'] as $key=>$label)
+@foreach(['sales'=>'Total Sales','orders'=>'Completed Orders','units'=>'Units Sold','average'=>'Average Order Value'] as $key=>$label)
 <section class="report-card report-metric" aria-label="{{ $label }}">
     <div class="report-metric-top"><span class="report-icon-tile">@include('admin.sales-reports.ui.icon',['icon'=>$key])</span><h2 class="report-metric-label">{{ $label }}</h2></div>
     <p class="report-value">{{ in_array($key,['sales','average']) ? '₱'.number_format($summary[$key],2) : number_format($summary[$key]) }}</p>

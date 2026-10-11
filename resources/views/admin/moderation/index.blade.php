@@ -12,7 +12,7 @@
     $filterParams=['q'=>request('q'),'shop'=>request('shop')];
 @endphp
 
-<div><p class="text-sm font-semibold text-brand-600">Trust & Safety</p><h1 class="text-2xl font-extrabold">Product Image Moderation</h1><p class="text-sm text-slate-500">Safe images are approved automatically. Only flagged, uncertain, or failed scans require attention.</p></div>
+<div><p class="text-sm font-semibold text-brand-600">Trust & Safety</p><h1 class="text-2xl font-extrabold">Product Image Moderation</h1><p class="text-sm text-slate-500">Review suspected safety listings. Technical scan failures alone do not block ordinary products.</p></div>
 
 <form method="GET" action="{{ route('admin.moderation.index') }}" class="card mt-6 grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)_auto]">
     <input class="input" type="search" name="q" value="{{ request('q') }}" placeholder="Search product, shop, or seller">
@@ -35,7 +35,7 @@
             <div id="shop-moderation-{{ $storeId }}" x-show="open[@js((string)$storeId)]" x-transition.opacity x-cloak class="overflow-x-auto"><table class="w-full min-w-[820px] text-left text-sm"><thead><tr class="border-b"><th class="p-4">Image</th><th>Product</th><th>Detection</th><th>Confidence</th><th>Priority</th><th>Date</th><th>Status</th><th>Action</th></tr></thead><tbody>
                 @foreach($items as $scan)
                     @php $detection=match($scan->status){'approved'=>'Safe','flagged'=>'Potential Policy Violation','pending_scan','under_review'=>'Uncertain','scan_failed'=>'Scan Failed','rejected'=>'Policy Violation Confirmed',default=>'Processing'}; @endphp
-                    <tr class="border-b"><td class="p-4"><img src="{{ $scan->image->url }}" class="h-14 w-14 rounded-lg object-cover" alt=""></td><td><span class="font-medium text-navy-900">{{ $scan->product->name }}</span>@if($scan->status==='approved')<span class="mt-1 block text-xs text-slate-500">{{ $scan->review_type==='automatic'?'Auto Approved':'Manual Approval' }}</span>@endif</td><td>{{ $detection }}</td><td>{{ $scan->confidence!==null?number_format($scan->confidence*100,1).'%':'—' }}</td><td>{{ ucfirst($scan->risk_level) }}</td><td>{{ $scan->created_at->format('M d, Y') }}</td><td><x-admin.status-badge :status="$scan->status"/></td><td><a class="font-semibold text-brand-600" href="{{ route('admin.moderation.show',$scan) }}">{{ in_array($scan->status,$attention,true)?'Review':'View' }}</a></td></tr>
+                    <tr class="border-b"><td class="p-4"><img src="{{ $scan->image->url }}" class="h-14 w-14 rounded-lg object-cover" alt=""></td><td><span class="font-medium text-navy-900">{{ $scan->product->name }}</span>@if($scan->status==='approved')<span class="mt-1 block text-xs text-slate-500">{{ $scan->review_type==='automatic'?'Auto Approved':'Manual Approval' }}</span>@endif</td><td>{{ $detection }}</td><td>{{ $scan->confidence!==null?number_format($scan->confidence*100,1).'%':'—' }}</td><td>{{ ucfirst($scan->risk_level) }}</td><td>{{ $scan->created_at->format('M d, Y') }}</td><td><x-admin.status-badge :status="$scan->status"/></td><td><a class="font-semibold text-brand-600" href="{{ route('admin.moderation.show',$scan) }}">{{ in_array($scan->product->moderation_status,$attention,true)?'Review':'View' }}</a></td></tr>
                 @endforeach
             </tbody></table></div>
         </section>

@@ -17,14 +17,7 @@
     <x-admin.stat-card label="Net Sales (All Time)" :value="'₱'.number_format($stats['revenue'])" color="bg-leaf-50 text-leaf-500" icon="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
 </div>
 
-@include('admin.analytics.styles')
-<section class="sales-workspace mt-6" data-admin-analytics>
-    @include('admin.analytics.filters',$sales)
-    <p class="report-note" data-analytics-loading role="status" hidden>Updating sales…</p>
-    <div class="analytics-error" data-analytics-error role="alert" hidden>Sales could not be updated. <button type="button" data-analytics-retry class="underline">Retry</button></div>
-    <div data-analytics-content>@include('admin.analytics.content',$sales)</div>
-</section>
-@include('admin.analytics.script',$sales)
+<div class="mt-6 mb-6"><a class="btn-outline" href="{{ route('admin.analytics.index') }}">View Analytics &rarr;</a></div>
 <div class="mt-6">
     {{-- Order status --}}
     <div class="card p-5">

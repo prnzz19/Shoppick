@@ -97,4 +97,29 @@
 .sales-workspace .report-table th.report-number{text-align:right}
 
 .sales-workspace .report-pagination{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}.sales-workspace .report-page-links{display:flex;align-items:center;gap:5px;flex-wrap:wrap}.sales-workspace .report-page-links a,.sales-workspace .report-page-links span{padding:7px 10px;border-radius:8px;font-size:12px}.sales-workspace .report-page-links a{background:white;border:1px solid #e2e8f0;color:#475569}.sales-workspace .report-page-links a:hover{border-color:#99f6e4;color:#0f766e}.sales-workspace .report-page-links .current{background:#0f766e;color:white}.sales-workspace .report-page-links [aria-disabled]{color:#94a3b8}
+
+.sales-workspace .report-chart-dashboard{display:grid;gap:20px;margin:20px 0 28px}
+.sales-workspace .report-chart-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:20px}
+.sales-workspace .report-chart-products{grid-column:1/-1}
+.sales-workspace .report-chart-frame{position:relative;height:250px;margin-top:18px;min-width:0}
+.sales-workspace .report-chart-wide{height:310px}
+.sales-workspace .report-chart-legend{display:flex;flex-wrap:wrap;gap:18px;font-size:12px;color:#475569}
+.sales-workspace .report-chart-legend>span{display:flex;align-items:center;gap:7px}
+.sales-workspace .report-chart-legend i{width:10px;height:10px;border-radius:3px;background:#0d9488}
+.sales-workspace .report-chart-legend i.previous{background:#94a9c4}
+.sales-workspace .report-chart-legend i.growth{background:#d97706;height:3px}
+.sales-workspace .report-chart-empty{min-height:230px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#64748b;text-align:center;border-radius:12px;background:#f8fafc;margin-top:18px;padding:24px;font-size:13px}
+.sales-workspace .report-chart-empty strong{color:#334155;font-size:15px}
+.sales-workspace .report-chart-empty.compact{min-height:210px}
+.sales-workspace .report-status-legend,.sales-workspace .report-ranking-values{display:grid;gap:0;margin-top:16px;font-size:12px}
+.sales-workspace .report-status-legend li,.sales-workspace .report-ranking-values li{display:flex;gap:16px;justify-content:space-between;padding:9px 0;border-top:1px solid #f1f5f9}
+.sales-workspace .report-ranking-values span{overflow-wrap:anywhere;min-width:0}
+.sales-workspace .report-ranking-values strong{white-space:nowrap;color:#15233f}
+.sales-workspace .report-status-legend small{color:#64748b;font-weight:400;margin-left:8px}
+.sales-workspace .report-chart-data{margin-top:18px;font-size:12px}
+.sales-workspace .report-chart-data summary{color:#0f766e;cursor:pointer;margin-bottom:10px}
+.sales-workspace .report-detail-heading{margin:24px 0 12px}
+.sales-workspace [data-product-ranking]{height:36px;min-width:105px;font-size:12px;margin-left:6px}
+@media(max-width:900px){.sales-workspace .report-chart-grid{grid-template-columns:minmax(0,1fr)}.sales-workspace .report-chart-products{grid-column:auto}}
+@media(max-width:640px){.sales-workspace .report-chart-wide{height:260px}.sales-workspace .report-filter-heading{flex-wrap:wrap}.sales-workspace .report-chart-grid{gap:16px}}
 </style>

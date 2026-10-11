@@ -1,3 +1,4 @@
+import {setupSalesCharts, destroySalesCharts} from './admin-sales-charts';
 // Uses the Sellers workspace's fetch/abort/history pattern for read-only reports.
 export function setupAdminSalesReports(root = document.querySelector('[data-admin-sales-reports]')) {
     if (!root || root.dataset.enhanced === 'true') return;
@@ -9,7 +10,7 @@ export function setupAdminSalesReports(root = document.querySelector('[data-admi
     const retry = root.querySelector('[data-sales-retry]');
     const clear = root.querySelector('[data-sales-clear-control]');
     const defaults = { shop: '', range: 'all', shop_status: '', performance: '', sort: 'sales_desc', q: '', from: '', to: '' };
-    const sections = ['summary','table','pagination','period','exports'];
+    const sections = ['summary','table','pagination','period','exports','charts'];
     let timer, controller, retryParams;
     let generation = 0;
 
@@ -83,7 +84,9 @@ export function setupAdminSalesReports(root = document.querySelector('[data-admi
             const pageUrl = new URL(data.url,form.action);
             if (pageUrl.origin !== location.origin || pageUrl.pathname !== new URL(form.action).pathname) throw new Error('Invalid URL');
             const hadFocus = ['table','pagination','exports'].some(part => root.querySelector(`[data-sales-${part}]`).contains(document.activeElement));
+            destroySalesCharts(root);
             for (const part of sections) root.querySelector(`[data-sales-${part}]`).innerHTML = data[`${part}_html`];
+            void setupSalesCharts(root);
             controls();
             if (hadFocus) table.focus({preventScroll:true});
             if (historyMode === 'push' && pageUrl.href !== location.href) history.pushState(null,'',pageUrl);

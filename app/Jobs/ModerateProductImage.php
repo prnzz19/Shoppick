@@ -61,7 +61,7 @@ class ModerateProductImage implements ShouldQueue
                 'decision'=>$classification === 'approved' ? 'auto_approved' : null,
                 'review_type'=>$classification === 'approved' ? 'automatic' : null,
                 'reviewed_at'=>$classification === 'approved' ? now() : null,
-                'failure_message'=>$classification === 'scan_failed' ? 'Moderation provider temporarily unavailable.' : null,
+                'failure_message'=>$classification === 'scan_failed' ? 'Image check did not produce a safety classification.' : null,
             ]);
             $state->refresh($current->product);
             if ($classification === 'flagged') $this->flag($current->fresh(['product','store','seller']));
@@ -72,11 +72,20 @@ class ModerateProductImage implements ShouldQueue
 
     private function classification(array $result): string
     {
+        // Positive safety evidence takes precedence over an uncertain technical status.
+        $category = strtolower(trim((string) ($result['category'] ?? '')));
+        if (in_array($category, ['weapon','weapons','firearm','firearms','ammunition','explosive','explosives'], true)) {
+            return 'flagged';
+        }
+        // Explicit quality-only outcomes are not safety detections.
+        if (in_array($category, ['image_quality','low_quality','low_resolution','blurry','blurred','poor_lighting'], true)) {
+            return 'scan_failed';
+        }
         return match (strtolower((string) ($result['status'] ?? 'uncertain'))) {
             'safe', 'clean', 'approved' => 'approved',
             'flagged', 'harmful', 'prohibited', 'high_risk' => 'flagged',
             'failed', 'timeout', 'unavailable', 'error', 'scan_failed' => 'scan_failed',
-            default => 'pending_scan',
+            default => 'scan_failed',
         };
     }
 

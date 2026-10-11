@@ -170,4 +170,123 @@ class FutureProductModerationTest extends TestCase
         $this->post(route('seller.products.publication',$product),['action'=>'activate'])->assertSessionHas('error');
         $this->assertFalse($product->fresh()->is_active);
     }
+
+    public function test_everyday_products_with_unknown_or_quality_only_results_do_not_require_review(): void
+    {
+        foreach (['USB desk lamp','Insulated tumbler','Bluetooth earbuds','Portable fan','Cotton shirt','Mixed nuts food pack','Fitness yoga mat'] as $name) {
+            foreach ([[], ['status'=>null], ['status'=>'unknown'], ['status'=>'flagged','category'=>'blurry'], ['status'=>'uncertain','category'=>'low_resolution']] as $result) {
+                $this->provider($result);
+                $product = $this->create($name);
+                $this->normal($product);
+                $this->assertTrue(Product::publiclyVisible()->whereKey($product->id)->exists());
+                $this->assertSame('scan_failed', $product->moderationScans()->first()->status);
+            }
+        }
+        $this->assertSame(0, app(AdminSidebarCounts::class)->get()['moderation']);
+        $this->assertDatabaseCount('reports', 0);
+    }
+
+    public function test_optional_queued_scans_do_not_hide_normal_products_or_count_as_admin_work(): void
+    {
+        \Illuminate\Support\Facades\Queue::fake();
+        config(['services.image_moderation.queued'=>true]);
+        $product = $this->create();
+        $this->normal($product);
+        $this->assertSame('pending_scan', $product->moderationScans()->first()->status);
+        $product->images()->first()->update(['path'=>'products/new-lamp.jpg']);
+        $this->normal($product);
+        $this->assertSame(0, app(AdminSidebarCounts::class)->get()['moderation']);
+    }
+
+    public function test_old_image_check_could_not_finish_state_is_reconciled_without_claiming_scan_success(): void
+    {
+        $this->provider(['status'=>'failed']);
+        $product = $this->create('Portable fan');
+        $scan = $product->moderationScans()->first();
+        $scan->update(['failure_message'=>'Image check could not finish.']);
+        $before = $scan->fresh()->getAttributes();
+        $product->update(['moderation_status'=>'scan_failed','is_active'=>false]);
+        $this->assertSame('Review Required', $product->fresh()->sellerStatus());
+        $this->artisan('products:reconcile-optional-scans',['--apply'=>true])->expectsOutput('Recovered: 1')->assertSuccessful();
+        $this->normal($product);
+        $this->assertSame($before, $scan->fresh()->getAttributes());
+    }
+
+    public function test_optional_checks_preserve_inactive_draft_archived_and_suspended_shop_visibility(): void
+    {
+        $this->provider(['status'=>'unknown']);
+        $product = $this->create();
+        $product->update(['is_active'=>false]);
+        app(ProductService::class)->update($product, ['description'=>'Everyday portable lighting']);
+        $this->assertFalse($product->fresh()->is_active);
+        $this->assertFalse(Product::publiclyVisible()->whereKey($product->id)->exists());
+        $product->update(['publication_status'=>'draft']);
+        app(ProductModerationStateService::class)->refresh($product);
+        $this->assertSame('Draft', $product->fresh()->sellerStatus());
+        $product->delete();
+        app(ProductModerationStateService::class)->refresh($product);
+        $this->assertFalse($product->is_active);
+        $this->assertSame('Archived', $product->sellerStatus());
+        $this->store->update(['status'=>'suspended']);
+        $other = $this->create('Another lamp');
+        $this->assertFalse($other->is_active);
+        $this->assertFalse(Product::publiclyVisible()->whereKey($other->id)->exists());
+    }
+
+    public function test_weapon_text_requires_human_review_even_with_automatic_safe_image_result(): void
+    {
+        $this->provider(['status'=>'safe']);
+        $product = $this->create('Synthetic rifle listing');
+        $this->assertSame('Review Required', $product->sellerStatus());
+        $this->assertFalse($product->is_active);
+        $this->assertSame(1, app(AdminSidebarCounts::class)->get()['moderation']);
+        $this->post(route('seller.products.publication',$product),['action'=>'activate'])->assertSessionHas('error');
+        $this->seed(\Database\Seeders\RolesAndPermissionsSeeder::class);
+        $admin = User::factory()->create(['is_active'=>true]);
+        $admin->assignRole('admin');
+        $scan = $product->moderationScans()->first();
+        $this->actingAs($admin)->get(route('admin.moderation.index',['status'=>'pending_scan']))->assertOk()->assertSee($product->name);
+        $this->get(route('admin.moderation.show',$scan))->assertOk()->assertSee('Admin Final Review')->assertSee('Listing safety review required');
+        $this->post(route('admin.moderation.review',$scan),['decision'=>'false_positive','notes'=>'Synthetic fixture reviewed.'])->assertSessionHasNoErrors();
+        $this->normal($product);
+    }
+
+    public function test_weapon_evidence_wins_over_unknown_status_and_quality_failure(): void
+    {
+        $this->provider(['status'=>'unknown','category'=>'weapon']);
+        $product = $this->create('Test fixture');
+        $this->assertSame('Review Required', $product->sellerStatus());
+        $this->assertDatabaseHas('reports',['target_id'=>$product->id,'source'=>'automated_moderation']);
+        $this->provider(['status'=>'flagged','category'=>'blurry']);
+        $this->assertFalse($this->create('Synthetic pistol fixture')->is_active);
+    }
+
+    public function test_weapon_without_image_is_not_published_and_description_category_are_checked(): void
+    {
+        $product = app(ProductService::class)->create(['name'=>'Synthetic weapon fixture','store_id'=>$this->store->id,'category_id'=>$this->category->id,'price'=>100,'stock'=>2,'publication_status'=>'published','is_active'=>true]);
+        $this->assertSame('Review Required',$product->sellerStatus());
+        $this->assertFalse($product->is_active);
+        $this->provider([]);
+        $normal = $this->create();
+        app(ProductService::class)->update($normal,['description'=>'Synthetic ammunition test fixture']);
+        $this->assertFalse($normal->fresh()->is_active);
+    }
+
+    public function test_seller_create_and_image_edit_remain_normal_and_other_seller_cannot_edit(): void
+    {
+        $this->provider(['status'=>'unknown']);
+        $data = ['name'=>'Ordinary USB lamp','category_id'=>$this->category->id,'price'=>100,'stock'=>4,'publication_action'=>'publish','images'=>[$this->image()]];
+        $this->post(route('seller.products.store'),$data)->assertSessionHasNoErrors()->assertRedirect(route('seller.products.index'));
+        $product = Product::where('name','Ordinary USB lamp')->firstOrFail();
+        $this->normal($product);
+        $this->put(route('seller.products.update',$product),['name'=>$product->name,'category_id'=>$this->category->id,'price'=>120,'stock'=>4,'is_active'=>1,'images'=>[$this->image()]])->assertSessionHasNoErrors();
+        $this->normal($product);
+        $this->get(route('seller.products.index'))->assertOk()->assertSee('Ordinary USB lamp')->assertDontSee('Safety verification requires Admin');
+        $outsider = User::factory()->create(['is_active'=>true]);
+        $outsider->assignRole('seller');
+        $profile = SellerProfile::create(['user_id'=>$outsider->id,'status'=>'approved']);
+        Store::create(['user_id'=>$outsider->id,'seller_profile_id'=>$profile->id,'name'=>'Other shop','slug'=>'other-shop','status'=>'active']);
+        $this->actingAs($outsider)->put(route('seller.products.update',$product),['name'=>'Unauthorized'])->assertForbidden();
+        $this->assertSame('Ordinary USB lamp',$product->fresh()->name);
+    }
 }

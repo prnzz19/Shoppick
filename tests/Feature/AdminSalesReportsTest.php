@@ -237,4 +237,77 @@ class AdminSalesReportsTest extends TestCase
         file_put_contents($dir.'/report.pdf',$this->get(route('admin.sales-reports.pdf',['range'=>'week','shop'=>$panda->id]))->assertOk()->getContent());
         file_put_contents($dir.'/report.csv',$this->get(route('admin.sales-reports.csv',['range'=>'week','shop'=>$panda->id]))->assertOk()->streamedContent());
     }
+
+    public function test_chart_totals_statuses_and_ajax_follow_the_same_shop_filters(): void
+    {
+        [$panda,$tech] = $this->fixture();
+        $this->sale($panda,75,1,'2026-09-29');
+        $pending = $panda->sellerOrders()->where('status','pending')->first();
+        $pending->forceFill(['created_at'=>'2026-10-07'])->save();
+        $query = ['range'=>'week','shop'=>$panda->id];
+        $page = $this->get(route('admin.sales-reports.index',$query))->assertOk();
+        $data = $page->viewData('charts');
+        $this->assertEquals($page->viewData('summary')['sales'],array_sum(array_column($data['trend'],'current')));
+        $this->assertEquals(150,array_sum(array_column($data['trend'],'current')));
+        $this->assertEquals(175,array_sum(array_column($data['trend'],'previous')));
+        $this->assertEquals(100,$data['trend'][1]['growth']);
+        $this->assertNull($data['trend'][0]['growth']);
+        $this->assertSame(['Completed'=>1,'Pending'=>1],array_column($data['statuses'],'value','label'));
+        $this->assertSame(['Panda Picks'],array_column($data['topShops'],'label'));
+        $this->assertEquals(150,array_sum(array_column($data['products']['sales'],'value')));
+        $json=$this->getJson(route('admin.sales-reports.filter',$query))->assertOk();
+        $this->assertSame(view('admin.sales-reports.charts',$page->original->getData())->render(),$json->json('charts_html'));
+        $filtered=$this->get(route('admin.sales-reports.index',['range'=>'week','shop_status'=>'suspended','q'=>'Tech','performance'=>'New Activity']))->assertOk()->viewData('charts');
+        $this->assertSame(['Tech Corner'],array_column($filtered['topShops'],'label'));
+        $this->assertEquals(50,array_sum(array_column($filtered['trend'],'current')));
+    }
+
+    public function test_chart_rankings_are_top_five_and_use_net_allocation_not_gross_item_totals(): void
+    {
+        for($i=1;$i<=7;$i++) $this->sale($this->shop('Rank '.$i),$i*100,8-$i,'2026-10-06');
+        $data=$this->get(route('admin.sales-reports.index',['range'=>'week']))->assertOk()->viewData('charts');
+        $this->assertSame(['Rank 7','Rank 6','Rank 5','Rank 4','Rank 3'],array_column($data['topShops'],'label'));
+        $this->assertEquals([700,600,500,400,300],array_column($data['products']['sales'],'value'));
+        $this->assertEquals([7,6,5,4,3],array_column($data['products']['units'],'value'));
+    }
+
+    public function test_chart_grouping_empty_states_and_shop_isolation(): void
+    {
+        [$panda,$tech,$empty]=$this->fixture();
+        $this->sale($panda,33,1,'2026-10-08 13:00:00');
+        $today=$this->get(route('admin.shops.sales-report',[$panda,'range'=>'today']))->assertOk()->viewData('charts');
+        $this->assertSame('hour',$today['grouping']);
+        $this->assertCount(24,$today['trend']);
+        $this->assertEquals(33,$today['trend'][13]['current']);
+        $this->assertNull($today['topShops']);
+        $all=$this->get(route('admin.shops.sales-report',[$panda,'range'=>'all']))->assertOk()->viewData('charts');
+        $this->assertSame('month',$all['grouping']);
+        $this->assertEquals(283,array_sum(array_column($all['trend'],'current')));
+        $this->assertNull($all['previous']);
+        $this->assertEquals([null],array_unique(array_column($all['trend'],'growth')));
+        $blank=$this->get(route('admin.shops.sales-report',[$empty,'range'=>'week']))->assertOk()->assertSee('No completed sales for this period.')->viewData('charts');
+        $this->assertFalse($blank['hasSales']);
+        $this->assertSame([],$blank['statuses']);
+        $this->assertSame([],$blank['products']['sales']);
+        $long=$this->get(route('admin.sales-reports.index',['range'=>'custom','from'=>'2026-08-01','to'=>'2026-10-31']))->assertOk()->viewData('charts');
+        $this->assertSame('week',$long['grouping']);
+        $this->assertLessThanOrEqual(14,count($long['trend']));
+        $this->assertEquals(333,array_sum(array_column($long['trend'],'current')));
+    }
+
+    public function test_comparison_handles_unequal_months_and_undated_sales_without_inventing_growth(): void
+    {
+        $shop=$this->shop('Calendar Shop');
+        $this->sale($shop,100,1,'2026-09-30');
+        $this->sale($shop,200,1,'2026-10-31');
+        $data=$this->get(route('admin.sales-reports.index',['range'=>'month']))->assertOk()->viewData('charts');
+        $this->assertCount(31,$data['trend']);
+        $this->assertNull($data['trend'][30]['previous']);
+        $this->assertNull($data['trend'][30]['growth']);
+        $undated=$this->sale($shop,50,1,'2026-10-01');
+        $undated->update(['completed_at'=>null]);
+        $all=$this->get(route('admin.sales-reports.index'))->assertOk()->viewData('charts');
+        $this->assertEquals(50,$all['undatedSales']);
+        $this->assertEquals(300,array_sum(array_column($all['trend'],'current')));
+    }
 }

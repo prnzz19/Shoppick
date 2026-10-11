@@ -13,7 +13,7 @@ class AdminReportController extends Controller
     {
         $data = $analytics->data($analytics->filters($request));
         if ($request->expectsJson()) {
-            return response()->json(['content_html' => view('admin.analytics.content', $data)->render(), 'url' => route('admin.analytics.index', $data['filters']['query'] + ($request->has('page') ? ['page' => $request->integer('page')] : []))]);
+            return response()->json(['content_html' => view('admin.analytics.content', $data)->render(), 'url' => route('admin.analytics.index', $data['filters']['query'] + ($request->has('page') ? ['page' => $request->integer('page')] : []), false)]);
         }
 
         return view('admin.analytics.index', $data + $analytics->options());

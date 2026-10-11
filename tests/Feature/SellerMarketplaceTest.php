@@ -88,7 +88,7 @@ class SellerMarketplaceTest extends TestCase
         $profile=SellerProfile::create(['user_id'=>$seller->id,'status'=>'approved']);
         $store=Store::create(['user_id'=>$seller->id,'seller_profile_id'=>$profile->id,'name'=>'Publish Store','slug'=>'publish-store','status'=>'active']);
         $category=Category::create(['name'=>'Food','slug'=>'food','is_active'=>true]);
-        $product=Product::create(['store_id'=>$store->id,'category_id'=>$category->id,'name'=>'New SHOPPICK Orange','slug'=>'new-shoppick-orange','price'=>100,'stock'=>10,'is_active'=>false,'moderation_status'=>'pending_scan','publication_status'=>'published']);
+        $product=Product::create(['store_id'=>$store->id,'category_id'=>$category->id,'name'=>'New SHOPPICK Orange','slug'=>'new-shoppick-orange','price'=>100,'stock'=>10,'is_active'=>false,'moderation_status'=>'under_review','publication_status'=>'published']);
 
         $this->actingAs($seller)->post(route('seller.products.publication',$product),['action'=>'activate'])
             ->assertSessionHas('error','This product is currently under review.');

@@ -142,8 +142,8 @@ class AdminModerationGroupingTest extends TestCase
             'seller_id' => $seller->id,
             'status' => 'pending_scan',
         ]);
-        $this->assertSame('pending_scan', $product->fresh()->moderation_status);
-        $this->assertFalse($product->fresh()->is_active);
+        $this->assertSame('clean', $product->fresh()->moderation_status);
+        $this->assertTrue($product->fresh()->is_active);
     }
 
     private function scan(Product $product, Store $store, User $seller, string $status): ModerationScan
