@@ -2,7 +2,8 @@
 @section('title','Sales & Marketplace Analytics')
 @section('content')
 @include('admin.analytics.styles')
-<main class="sales-workspace" data-admin-analytics>
+@include('admin.analytics.partials.sales-styles')
+<main class="sales-workspace" data-admin-analytics data-sales-overview-host>
     <header class="report-header"><div><p class="report-eyebrow">Analytics</p><h1>Sales &amp; Marketplace Analytics</h1><p class="report-subtitle">Understand sales performance, shop contribution, product demand, and order trends.</p></div></header>
     @include('admin.analytics.filters')
     <p class="report-note" data-analytics-loading role="status" hidden>Updating analytics…</p>

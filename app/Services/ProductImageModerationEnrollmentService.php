@@ -39,7 +39,7 @@ class ProductImageModerationEnrollmentService
             );
 
             if ($scan->wasRecentlyCreated) {
-                $product->update(['moderation_status' => 'pending_scan', 'is_active' => false]);
+                app(ProductModerationStateService::class)->refresh($product);
             }
 
             return [$scan, $scan->wasRecentlyCreated];

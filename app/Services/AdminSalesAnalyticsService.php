@@ -120,8 +120,8 @@ class AdminSalesAnalyticsService
         $shops = $dashboard ? $topShops : ($export ? $shopQuery->cursor() : $shopQuery->paginate(10)->withPath(route('admin.analytics.index'))->appends($filters['query']));
         $categoryQuery = $this->comparedBreakdown($filters, 'category');
         $categoryDecline = (clone $categoryQuery)->whereColumn('sales', '<', 'previous_sales')->orderByRaw('sales - previous_sales')->first();
-        $categories = $export ? (clone $categoryQuery)->orderByDesc('sales')->get() : (clone $categoryQuery)->orderByDesc('sales')->limit(20)->get();
-        $products = $this->comparedBreakdown($filters, 'product')->orderByDesc('sales')->orderBy('id')->limit($dashboard ? 5 : 10)->get();
+        $categories = $export ? (clone $categoryQuery)->orderByDesc('sales')->get() : (clone $categoryQuery)->when($dashboard, fn ($q) => $q->where('orders', '>', 0))->orderByDesc('sales')->limit(20)->get();
+        $products = $this->comparedBreakdown($filters, 'product')->when($dashboard, fn ($q) => $q->where('orders', '>', 0))->orderByDesc('sales')->orderBy('id')->limit($dashboard ? 5 : 10)->get();
         $monthly = ! $filters['from'] || $filters['from']->diffInDays($filters['to']) > 90;
         $bucket = $monthly ? (DB::connection()->getDriverName() === 'sqlite' ? "strftime('%Y-%m', seller_orders.completed_at)" : "DATE_FORMAT(seller_orders.completed_at, '%Y-%m')") : 'DATE(seller_orders.completed_at)';
         // Category attribution uses the same grouped net amounts as KPI cards.
@@ -170,7 +170,21 @@ class AdminSalesAnalyticsService
             return (object) ['status' => $status, 'orders' => $count, 'share_percent' => $statusTotal ? $count / $statusTotal * 100 : 0, 'previous_orders' => $previous ? (int) ($oldStatuses[$status] ?? 0) : null, 'change' => $this->reports->change($count, $previous ? (int) ($oldStatuses[$status] ?? 0) : null)];
         });
 
-        return compact('filters', 'summary', 'previous', 'changes', 'performance', 'counts', 'topShops', 'topFiveShare', 'shops', 'categories', 'products', 'series', 'chart', 'monthly', 'statuses', 'statusRows', 'oldStatuses', 'statusTotal', 'cancellations', 'noSaleProducts', 'noSaleShops', 'insights', 'period', 'generated', 'detailQuery', 'dashboard');
+        $overview = null;
+        if (!$export) {
+            $overview = app(SalesReportChartService::class)->timeline($filters, $this->storeIds($filters), null, true);
+            $overview['categories'] = $categories->where('orders', '>', 0)->take(5)->map(fn ($row) => ['label'=>$row->name,'value'=>(float)$row->sales])->values()->all();
+            // Labels only: keep actual category structure visible when no category has sales.
+            $overview['categoryLabels'] = count($overview['categories']) ? [] : Category::when(isset($filters['query']['category']), fn ($q) => $q->whereKey($filters['query']['category']))->orderBy('name')->limit(5)->pluck('name')->all();
+            $overview['products'] = ['sales'=>$products->where('orders', '>', 0)->take(5)->map(fn ($row) => ['label'=>$row->name,'value'=>(float)$row->sales])->values()->all()];
+            $overview['statuses'] = $statuses->map(fn ($row) => ['label'=>(string)str($row->status)->headline(),'value'=>(int)$row->orders])->values()->all();
+            $overview['topShops'] = null;
+            // One bounded logo query, never a query per shop.
+            $logos = $topShops->isEmpty() ? collect() : Store::whereIn('id', $topShops->pluck('id'))->pluck('logo', 'id');
+            $topShops->each(function ($row) use ($logos) { $row->logo = $logos[$row->id] ?? null; });
+        }
+
+        return compact('overview', 'filters', 'summary', 'previous', 'changes', 'performance', 'counts', 'topShops', 'topFiveShare', 'shops', 'categories', 'products', 'series', 'chart', 'monthly', 'statuses', 'statusRows', 'oldStatuses', 'statusTotal', 'cancellations', 'noSaleProducts', 'noSaleShops', 'insights', 'period', 'generated', 'detailQuery', 'dashboard');
     }
 
     private function insights(array $summary, ?array $previous, array $changes, array $counts, $shops, $categories, array $cancellations, array $noProducts): array

@@ -1,5 +1,6 @@
 @include('admin.sales-reports.ui.metrics')
 <p class="report-source">Completed seller-order net sales, recorded on completion dates. Delivered, pending and cancelled orders do not contribute to sales.</p>
+@include('admin.sales-reports.charts')
 <div class="report-sections">
     <section class="report-card" aria-labelledby="report-performance-title">
         <div class="report-filter-heading"><div><h2 id="report-performance-title" class="report-section-title">Performance</h2><p class="report-note">Current results compared with the previous period</p></div>@include('admin.sales-reports.ui.badge',['label'=>$performance])</div>

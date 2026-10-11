@@ -8,19 +8,14 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\SellerApplication;
 use App\Models\User;
-use App\Services\AdminSalesAnalyticsService;
 use App\Services\MarketplaceSalesReportService;
 use App\Services\ShopSalesReportService;
 use Illuminate\Http\Request;
 
 class AdminDashboardController extends Controller
 {
-    public function index(Request $request, AdminSalesAnalyticsService $analytics)
+    public function index()
     {
-        $sales = $analytics->data($analytics->filters($request, '7days'), true);
-        if ($request->expectsJson()) {
-            return response()->json(['content_html' => view('admin.analytics.content', $sales)->render(), 'url' => route('admin.dashboard', $sales['filters']['query'])]);
-        }
         $recentApplications = SellerApplication::with('user')->latest()->take(5)->get();
         $stats = [
             'buyers' => User::whereHas('roles', fn ($q) => $q->where('slug', 'buyer'))->count(),
@@ -53,6 +48,6 @@ class AdminDashboardController extends Controller
 
         return view('admin.dashboard', compact(
             'recentApplications', 'stats', 'recentOrders', 'lowStock', 'statusCounts'
-        ) + ['sales' => $sales]);
+        ));
     }
 }

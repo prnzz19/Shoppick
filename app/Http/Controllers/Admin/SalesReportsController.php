@@ -14,6 +14,7 @@ class SalesReportsController extends Controller
     public function index(Request $request)
     {
         $data = $this->reports->data($this->reports->filters($request));
+        $data = $this->charts($data);
         $data['shopOptions'] = Store::orderBy('name')->get(['id','name']);
         return view('admin.sales-reports.index',$data);
     }
@@ -21,11 +22,23 @@ class SalesReportsController extends Controller
     public function filter(Request $request)
     {
         $data = $this->reports->data($this->reports->filters($request));
+        $data = $this->charts($data);
         $parts = [];
-        foreach (['summary','table','pagination','period','exports'] as $part) $parts[$part.'_html'] = view('admin.sales-reports.'.$part,$data)->render();
+        foreach (['summary','table','pagination','period','exports','charts'] as $part) $parts[$part.'_html'] = view('admin.sales-reports.'.$part,$data)->render();
         $query = $data['filters']['query'];
         if ($data['shops']->currentPage() > 1) $query['page'] = $data['shops']->currentPage();
         return response()->json($parts+['url'=>route('admin.sales-reports.index',$query),'total'=>$data['shops']->total(),'page'=>$data['shops']->currentPage()])->header('Cache-Control','private, no-store');
+    }
+
+    private function charts(array $data): array
+    {
+        $filters = $data['filters'];
+        $scope = $this->reports->query($filters)->select('id');
+        // Marketplace search/status/performance select shops, not individual orders.
+        $dates = $filters;
+        $dates['query'] = array_intersect_key($filters['query'], array_flip(['range','from','to']));
+        $charts = app(\App\Services\SalesReportChartService::class)->data($dates, $scope);
+        return $data + ['charts'=>$charts, 'previous'=>$charts['previous'], 'changes'=>$charts['changes'], 'performance'=>$charts['performance']];
     }
 
     private function exportData(Request $request): array

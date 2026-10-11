@@ -19,22 +19,26 @@ class ModerationController extends Controller
     {
         $search = trim((string) $request->input('q'));
         $status = (string) $request->input('status');
-        $statusValues = $status === 'pending_scan' ? ['pending_scan', 'under_review'] : [$status];
+        $statusValues = [$status];
+        // The pending review tab follows listing safety state, not optional scanner work.
+        $filterStatus = fn ($scan) => $status === 'pending_scan'
+            ? $scan->whereHas('product', fn ($product) => $product->whereIn('moderation_status', ['pending_scan','scanning','under_review','scan_failed']))
+            : $scan->whereIn('status', $statusValues);
         $shops = Store::query()->marketplaceActive()->with(['user', 'sellerProfile'])
             ->whereHas('products.images.moderationScans')
-            ->when($status !== '', fn ($query) => $query->whereHas('products.images.moderationScans', fn ($scan) => $scan->whereIn('status', $statusValues)))
+            ->when($status !== '', fn ($query) => $query->whereHas('products.images.moderationScans', $filterStatus))
             ->when($request->filled('shop'), fn ($query) => $query->whereKey($request->integer('shop')))
-            ->when($search !== '', fn ($query) => $query->where(function ($match) use ($search, $status, $statusValues) {
+            ->when($search !== '', fn ($query) => $query->where(function ($match) use ($search, $status, $filterStatus) {
                 $match->where('name', 'like', "%{$search}%")
                     ->orWhereHas('user', fn ($seller) => $seller->where(fn ($user) => $user->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%")))
                     ->orWhereHas('products', fn ($product) => $product->where('name', 'like', "%{$search}%")
-                        ->whereHas('images.moderationScans', fn ($scan) => $scan->when($status !== '', fn ($query) => $query->whereIn('status', $statusValues))));
+                        ->whereHas('images.moderationScans', fn ($scan) => $scan->when($status !== '', $filterStatus)));
             }))->orderBy('name')->orderBy('id')->paginate(12)->withQueryString();
 
         $storeIds = $shops->getCollection()->pluck('id');
         $scans = ModerationScan::with(['product', 'image', 'seller', 'reviewer', 'store.user', 'store.sellerProfile'])
             ->whereIn('store_id', $storeIds)->whereHas('product')->whereHas('image')
-            ->when($status !== '', fn ($query) => $query->whereIn('status', $statusValues))
+            ->when($status !== '', $filterStatus)
             ->when($search !== '', fn ($query) => $query->where(function ($match) use ($search) {
                 $match->whereHas('product', fn ($product) => $product->where('name', 'like', "%{$search}%"))
                     ->orWhereHas('store', fn ($store) => $store->where('name', 'like', "%{$search}%"))
@@ -45,6 +49,12 @@ class ModerationController extends Controller
         $summaries = $storeIds->isEmpty() ? collect() : ModerationScan::whereIn('store_id', $storeIds)->whereHas('product')->whereHas('image')
             ->selectRaw("store_id, COUNT(DISTINCT product_id) as product_count, COUNT(DISTINCT CASE WHEN status IN ('pending_scan','under_review') THEN product_id END) as pending_count, COUNT(DISTINCT CASE WHEN status = 'flagged' THEN product_id END) as flagged_count, COUNT(DISTINCT CASE WHEN status = 'approved' THEN product_id END) as approved_count, COUNT(DISTINCT CASE WHEN status = 'rejected' THEN product_id END) as rejected_count, COUNT(DISTINCT CASE WHEN status = 'scan_failed' THEN product_id END) as scan_failed_count")
             ->groupBy('store_id')->get()->keyBy('store_id');
+        // Technical scan history remains available; pending counts show actual listing holds.
+        $pendingCounts = \App\Models\Product::whereIn('store_id', $storeIds)
+            ->whereIn('moderation_status', ['pending_scan','scanning','under_review','scan_failed'])
+            ->whereHas('images.moderationScans')->selectRaw('store_id, COUNT(*) as total')
+            ->groupBy('store_id')->pluck('total','store_id');
+        foreach ($summaries as $storeId => $summary) $summary->pending_count = $pendingCounts->get($storeId, 0);
         $shopOptions = Store::marketplaceActive()->with('user:id,name,email')->whereHas('products.images.moderationScans')->orderBy('name')->orderBy('id')->get(['id', 'user_id', 'name']);
 
         return view('admin.moderation.index', compact('shops', 'groupedScans', 'summaries', 'shopOptions'));
@@ -109,7 +119,7 @@ class ModerationController extends Controller
             'status' => 'pending_scan', 'moderation_result' => null, 'decision' => null, 'review_type' => null,
             'reviewed_by' => null, 'reviewed_at' => null, 'review_notes' => null, 'rejection_reason' => null, 'failure_message' => null,
         ]);
-        $scan->product->update(['moderation_status' => 'pending_scan', 'is_active' => false]);
+        app(ProductModerationStateService::class)->refresh($scan->product);
         config('services.image_moderation.queued')
             ? ModerateProductImage::dispatch($scan->id)
             : ModerateProductImage::dispatchSync($scan->id);

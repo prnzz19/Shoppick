@@ -23,6 +23,8 @@
     </form>
     <div data-sales-summary>@include('admin.sales-reports.summary')</div>
     <div class="my-4 flex flex-wrap items-center gap-3"><div data-sales-period>@include('admin.sales-reports.period')</div><span data-sales-loading hidden role="status" class="text-sm text-brand-700">Updating reports…</span><span data-sales-error hidden role="alert" class="text-sm text-rose-700"></span><button data-sales-retry hidden type="button" class="btn-outline">Retry</button></div>
+    <div data-sales-charts>@include('admin.sales-reports.charts')</div>
+    <h2 class="report-section-title report-detail-heading">Shop Performance</h2>
     <div data-sales-table tabindex="-1" role="region" aria-label="Shop sales results" aria-busy="false">@include('admin.sales-reports.table')</div>
     <div data-sales-pagination class="mt-4">@include('admin.sales-reports.pagination')</div>
 </div>

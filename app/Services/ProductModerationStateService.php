@@ -6,7 +6,7 @@ use App\Models\Product;
 
 class ProductModerationStateService
 {
-    public const ATTENTION_STATUSES = ['pending_scan', 'flagged', 'under_review', 'scan_failed'];
+    public const ATTENTION_STATUSES = ['pending_scan', 'scanning', 'flagged', 'under_review', 'scan_failed'];
 
     public function requiresMandatoryImageVerification(Product $product): bool
     {
@@ -24,7 +24,7 @@ class ProductModerationStateService
         $statuses = $scans->pluck('status');
         $mandatory = $this->requiresMandatoryImageVerification($product);
         $verified = $scans->isNotEmpty() && $scans->every(fn ($scan) =>
-            $scan->status === 'approved' && ($scan->review_type === 'manual' || $scan->moderation_result === 'safe'));
+            $scan->status === 'approved' && $scan->review_type === 'manual');
         $hold = !$allowManualRelease && (
             filled($product->suspension_reason) ||
             ($product->moderation_status === 'rejected' && $scans->isEmpty()) ||
@@ -32,20 +32,23 @@ class ProductModerationStateService
                 ->where('source','!=','automated_moderation')->exists()
         );
         $status = match (true) {
-            $scans->isEmpty() && in_array($product->moderation_status,['pending_scan','under_review','flagged','rejected','scan_failed']) => $product->moderation_status,
+            $scans->isEmpty() && in_array($product->moderation_status,['under_review','flagged','rejected']) => $product->moderation_status,
             $statuses->contains('rejected') => 'rejected',
             $statuses->contains('flagged') => 'flagged',
             $hold => in_array($product->moderation_status,['rejected','under_review','flagged']) ? $product->moderation_status : 'under_review',
             $statuses->contains('under_review') => 'under_review',
-            $mandatory && !$verified => $statuses->contains('scan_failed') ? 'scan_failed' : 'under_review',
-            $statuses->contains('pending_scan'), $statuses->contains('scanning') => 'pending_scan',
+            $mandatory && !$verified => 'under_review',
+            // Technical states are scan history, not evidence of a restricted listing.
+            $statuses->contains('pending_scan'), $statuses->contains('scanning') => 'clean',
             $statuses->contains('scan_failed') => 'clean',
             $scans->isNotEmpty() => 'approved',
             default => 'clean',
         };
         $product->update([
             'moderation_status'=>$status,
-            'is_active'=>in_array($status,['clean','approved'],true) && $product->publication_status === 'published' && $product->store?->isMarketplaceActive(),
+            'is_active'=>in_array($status,['clean','approved'],true) && !$product->trashed()
+                && ($product->is_active || $allowManualRelease || !in_array($product->moderation_status,['clean','approved'],true))
+                && $product->publication_status === 'published' && $product->store?->isMarketplaceActive(),
             'suspension_reason'=>$allowManualRelease && in_array($status,['clean','approved'],true) ? null : ($product->suspension_reason ?: ($statuses->contains('flagged') ? 'Safety concern requires Admin review.' : null)),
         ]);
     }
@@ -55,6 +58,10 @@ class ProductModerationStateService
         if ($product->moderation_status !== 'scan_failed' || filled($product->suspension_reason)
             || $this->requiresMandatoryImageVerification($product)
             || $product->reports()->whereIn('status',['open','under_review','escalated'])->exists()) return false;
+        // Never reinterpret a human decision as a technical failure.
+        if ($product->moderationScans()->where(function ($query) {
+            $query->where('review_type','manual')->orWhereNotNull('reviewed_by')->orWhereNotNull('rejection_reason');
+        })->exists() || \App\Models\Violation::where('product_id',$product->id)->exists()) return false;
         $statuses = $product->moderationScans()->pluck('status');
         return $statuses->contains('scan_failed') && $statuses->every(fn ($status) => in_array($status,['scan_failed','approved'],true));
     }

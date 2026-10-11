@@ -37,6 +37,7 @@ Route::prefix('seller')->name('seller.')->middleware(['auth', 'registration.appr
     Route::post('reviews/{review}/reply', [SellerReviewController::class, 'reply'])->name('reviews.reply');
     Route::get('sales', [CenterController::class, 'sales'])->name('sales.index');
     Route::get('marketing', [MarketingController::class, 'index'])->name('marketing.index');
+    Route::get('marketing/products', [MarketingController::class, 'products'])->name('marketing.products');
     Route::post('marketing/vouchers', [MarketingController::class, 'store'])->name('marketing.vouchers.store');
     Route::put('marketing/vouchers/{voucher}', [MarketingController::class, 'update'])->name('marketing.vouchers.update');
     Route::post('marketing/vouchers/{voucher}/toggle', [MarketingController::class, 'toggle'])->name('marketing.vouchers.toggle');

@@ -20,7 +20,9 @@ class ShopSalesReportController extends Controller
 
     public function show(Request $request, Store $shop)
     {
-        return view('admin.shops.sales-report.index',$this->data($request,$shop));
+        $data = $this->data($request,$shop);
+        $data['charts'] = app(\App\Services\SalesReportChartService::class)->data($data['filters'], Store::whereKey($shop->id)->select('id'), $shop);
+        return view('admin.shops.sales-report.index',$data);
     }
 
     public function print(Request $request, Store $shop)

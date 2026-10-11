@@ -50,7 +50,7 @@ class AdminModerationDynamicSellerWorkflowTest extends TestCase
         $this->assertSame(1, substr_count($all->getContent(), 'id="shop-moderation-'.$sellerTwo->store->id.'"'));
 
         $this->actingAs($admin)->get(route('admin.moderation.index', ['status' => 'pending_scan']))->assertOk()
-            ->assertSee('Dynamic Shop One')->assertSee('Dynamic Shop Two')->assertSee('Product C');
+            ->assertDontSee('Product A')->assertDontSee('Product B')->assertDontSee('Product C');
         $this->actingAs($admin)->get(route('admin.moderation.index', ['q' => 'Product B']))->assertOk()
             ->assertSee('Dynamic Shop One')->assertSee('Product B')
             ->assertDontSee('id="shop-moderation-'.$sellerTwo->store->id.'"', false);

@@ -129,7 +129,7 @@ class Product extends Model
             'Archived' => 'Archived products are hidden from Buyers until restored and republished.',
             'Under Moderation' => 'Waiting for image review.',
             'Rejected' => $this->suspension_reason ?: 'This product was rejected during review.',
-            'Review Required' => 'Safety verification requires Admin review.',
+            'Review Required' => 'This listing requires a safety review before it can be published.',
             'Suspended' => $this->suspension_reason ?: 'This product is currently suspended.',
             'Store Suspended' => 'Your store is currently suspended.',
             'Draft' => 'Publish this draft when it is ready.',

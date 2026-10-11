@@ -1,25 +1,20 @@
 <?php
-
 namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
-use App\Models\SellerOrder;
-use App\Models\Review;
+use App\Services\SellerDashboardService;
+use App\Services\ShopSalesReportService;
+use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
-    public function __invoke()
+    public function __invoke(Request $request, SellerDashboardService $dashboard, ShopSalesReportService $reports)
     {
-        $store = auth()->user()->store()->withCount('products')->firstOrFail();
-        $orders = SellerOrder::where('store_id', $store->id);
-        $stats = ['today_sales' => (clone $orders)->where('status','completed')->whereDate('completed_at',today())->sum('seller_total'),
-            'new_orders' => (clone $orders)->where('status','pending')->count(), 'products' => $store->products_count,
-            'low_stock' => $store->products()->whereColumn('stock', '<=', 'low_stock_threshold')->count(),
-            'earnings' => (clone $orders)->where('status', 'completed')->sum('seller_total')];
-        $recentOrders = $orders->with(['order.user', 'items'])->latest()->limit(8)->get();
-        $lowStockProducts=$store->products()->whereColumn('stock','<=','low_stock_threshold')->orderBy('stock')->limit(5)->get();
-        $recentReviews=Review::visible()->whereHas('product',fn($q)=>$q->where('store_id',$store->id))->with(['product','user'])->latest()->limit(4)->get();
-        $salesChart=collect(range(6,0))->map(function($days)use($store){$date=today()->subDays($days); return ['label'=>$date->format('D'),'value'=>(float)SellerOrder::where('store_id',$store->id)->where('status','completed')->whereDate('completed_at',$date)->sum('seller_total')];});
-        return view('seller.dashboard', compact('store', 'stats', 'recentOrders','lowStockProducts','recentReviews','salesChart'));
+        $store = $request->user()->store()->firstOrFail();
+        // Only dates are accepted; request-provided shop/category IDs cannot broaden seller scope.
+        $dates = $request->only('range','from','to');
+        $dates['range'] ??= '30days';
+        $filters = $reports->filters(Request::create('/', 'GET', $dates));
+        return view('seller.dashboard', $dashboard->data($store, $filters) + ['dashboardUnread'=>$request->user()->notificationsData()->unread()->count()]);
     }
 }

@@ -1,3 +1,5 @@
+import './seller-dashboard';
+import './seller-marketing';
 import './bootstrap';
 import './philippine-locations';
 import './birthday-age';
@@ -5,6 +7,7 @@ import './admin-sellers';
 import './admin-sales-reports';
 import './rider-portal';
 import './buyer-auth';
+import './admin-analytics';
 
 document.addEventListener('DOMContentLoaded', () => {
     setupGlobalState();

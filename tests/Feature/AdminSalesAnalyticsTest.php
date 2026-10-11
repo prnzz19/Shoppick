@@ -101,8 +101,8 @@ class AdminSalesAnalyticsTest extends TestCase
         $this->assertEquals(90, $page->viewData('products')->firstWhere('name', 'Phone')->sales);
         $this->assertSame(['Panda Picks', 'Tech Corner'], $page->viewData('topShops')->pluck('name')->all());
         $this->assertEquals(100, $page->viewData('topFiveShare'));
-        $dash = $this->get(route('admin.dashboard', ['range' => 'week']))->assertOk()->viewData('sales');
-        $this->assertSame($summary, $dash['summary']);
+        $dash = $this->get(route('admin.dashboard'))->assertOk()->viewData('stats');
+        $this->assertEquals($this->page(['range'=>'all'])->viewData('summary')['sales'], $dash['revenue']);
         $report = $this->get(route('admin.sales-reports.index', ['range' => 'week']))->assertOk()->viewData('summary');
         unset($report['shops']);
         $this->assertSame($summary, $report);
@@ -147,7 +147,7 @@ class AdminSalesAnalyticsTest extends TestCase
         $this->assertEquals(200, array_sum(array_column($page->viewData('chart')['points'], 'sales')));
         $page = $this->page(['range' => 'today']);
         $this->assertSame(0.0, $page->viewData('summary')['average']);
-        $page->assertSee('No completed sales were recorded for this period.');
+        $page->assertSee('No completed sales for this period.');
         $page = $this->page(['range' => 'all']);
         $this->assertNull($page->viewData('previous'));
         $this->assertSame('No comparable period', $page->viewData('performance'));
@@ -178,7 +178,7 @@ class AdminSalesAnalyticsTest extends TestCase
         foreach ($counts as $table => $count) {
             $this->assertSame($count, DB::table($table)->count());
         }
-        $this->getJson(route('admin.dashboard', ['range' => 'week']))->assertOk()->assertJsonStructure(['content_html', 'url']);
+        $this->getJson(route('admin.analytics.index', ['range' => 'week']))->assertOk()->assertJsonStructure(['content_html', 'url']);
         $this->actingAs(User::factory()->create(['is_active' => true])->assignRole('buyer'));
         foreach (['index', 'pdf', 'print', 'csv'] as $action) {
             $this->get(route('admin.analytics.'.$action))->assertForbidden();
@@ -242,7 +242,7 @@ class AdminSalesAnalyticsTest extends TestCase
         $this->sale($shop, 50, '2026-10-06', [])->forceFill(['completed_at' => null])->save();
         $page = $this->page(['range' => 'all']);
         $this->assertSame(50.0, $page->viewData('summary')['sales']);
-        $page->assertSee('No dated completed sales are available to plot.')->assertSee('no recorded completion date');
+        $page->assertSee('No dated completed sales to plot.')->assertSee('no recorded completion date');
         $this->assertSame(0.0, $this->page()->viewData('summary')['sales']);
     }
 
@@ -266,13 +266,116 @@ class AdminSalesAnalyticsTest extends TestCase
             file_put_contents($dir.'/analytics-'.$i.'.html', $html);
             $responses['analytics?'.http_build_query($query)] = $this->getJson(route('admin.analytics.index', $query))->assertOk()->json();
         }
-        foreach (['week', '30days', 'month', 'today'] as $range) {
-            file_put_contents($dir.'/dashboard-'.$range.'.html', $this->get(route('admin.dashboard', ['range' => $range]))->assertOk()->getContent());
-            $responses['dashboard?range='.$range] = $this->getJson(route('admin.dashboard', ['range' => $range]))->assertOk()->json();
+        foreach (['week', '7days', '30days', 'month', 'today', 'all'] as $range) {
+            file_put_contents($dir.'/overview-'.$range.'.html', $this->get(route('admin.analytics.index', ['range' => $range]))->assertOk()->getContent());
+            $responses['analytics?range='.$range] = $this->getJson(route('admin.analytics.index', ['range' => $range]))->assertOk()->json();
         }
         file_put_contents($dir.'/print.html', $this->get(route('admin.analytics.print', ['range' => 'week']))->assertOk()->getContent());
         file_put_contents($dir.'/analytics.pdf', $this->get(route('admin.analytics.pdf', ['range' => 'week']))->assertOk()->getContent());
         file_put_contents($dir.'/responses.json', json_encode($responses));
         file_put_contents($dir.'/ids.json', json_encode(['tech' => $f['tech']->id, 'beauty' => $f['beauty']->id]));
+    }
+
+    public function test_analytics_visual_overview_chart_aggregates_match_reports_and_preserve_period_scopes(): void
+    {
+        $this->fixture();
+        foreach (['today'=>'hour','7days'=>'day','30days'=>'week','month'=>'week','all'=>'month'] as $range=>$grouping) {
+            $page=$this->get(route('admin.analytics.index',['range'=>$range]))->assertOk();
+            $sales=$page->original->getData(); $chart=$sales['overview'];
+            $this->assertSame($grouping,$chart['grouping']);
+            $report=$this->get(route('admin.sales-reports.index',['range'=>$range]))->assertOk()->viewData('summary');
+            $this->assertEquals($report['sales'],$sales['summary']['sales']);
+            $this->assertEquals($report['sales'],array_sum(array_column($chart['trend'],'current')));
+            $this->assertEquals($report['orders'],array_sum(array_column($chart['trend'],'currentOrders')));
+            $this->assertEquals($sales['previous']['sales'] ?? 0,array_sum(array_column($chart['trend'],'previous')));
+            $json=$this->getJson(route('admin.analytics.index',['range'=>$range]))->assertOk();
+            $this->assertSame(view('admin.analytics.content',$sales)->render(),$json->json('content_html'));
+        }
+        $sales=$this->get(route('admin.analytics.index',['range'=>'week']))->assertOk()->original->getData();
+        $this->assertEquals(['Electronics'=>170,'Beauty'=>30],array_column($sales['overview']['categories'],'value','label'));
+        $this->assertEquals(['Phone'=>90,'Cable'=>80,'Cream'=>30],array_column($sales['overview']['products']['sales'],'value','label'));
+        $this->assertSame(['Panda Picks','Tech Corner'],$sales['topShops']->pluck('name')->all());
+        $this->assertEquals(['Cancelled'=>1,'Completed'=>2,'Pending'=>1],array_column($sales['overview']['statuses'],'value','label'));
+    }
+
+    public function test_analytics_visual_zero_states_and_admin_only_chart_response(): void
+    {
+        $page=$this->get(route('admin.analytics.index',['range'=>'all']))->assertOk()
+            ->assertSee('No completed sales for this period.')
+            ->assertSee('No shop sales available for this period.')
+            ->assertSee('No products sold during this period.')
+            ->assertSee('Sales Insights');
+        foreach (['categories', 'period', 'comparison'] as $chart) {
+            $page->assertSee('data-report-chart="'.$chart.'"', false);
+        }
+        $overview = $page->original->getData()['overview'];
+        $this->assertCount(1, $overview['trend']);
+        $this->assertEquals(0, $overview['trend'][0]['current']);
+        $this->assertEmpty($overview['categories']);
+        $page->assertSee('No completed sales yet.');
+        $this->assertFalse($page->original->getData()['overview']['hasSales']);
+        $this->assertNull($page->original->getData()['overview']['previous']);
+        $this->actingAs(User::factory()->create(['is_active'=>true])->assignRole('buyer'));
+        $this->getJson(route('admin.analytics.index'))->assertForbidden();
+        auth()->logout();
+        $this->getJson(route('admin.analytics.index'))->assertUnauthorized();
+    }
+
+
+    public function test_analytics_visual_refresh_urls_are_relative_behind_https_proxy_and_zero_periods_keep_axes(): void
+    {
+        Category::create(['name'=>'Actual category', 'slug'=>'actual-category']);
+        foreach (['7days'=>7, '30days'=>5, 'month'=>5, 'all'=>1] as $range=>$count) {
+            $url='/admin/analytics?range='.$range;
+            $page=$this->withHeader('X-Forwarded-Proto','https')->get($url)->assertOk();
+            $page->assertSee('action="/admin/analytics"', false);
+            $overview=$page->original->getData()['overview'];
+            $this->assertCount($count,$overview['trend']);
+            $this->assertEquals(0,array_sum(array_column($overview['trend'],'current')));
+            $this->assertSame(['Actual category'],$overview['categoryLabels']);
+            $response=$this->getJson($url)->assertOk()->assertJsonPath('url',$url);
+            $this->assertStringContainsString('data-report-chart="categories"',$response->json('content_html'));
+            $this->assertStringContainsString('data-report-chart="period"',$response->json('content_html'));
+            $this->assertStringContainsString('data-report-chart="comparison"',$response->json('content_html'));
+        }
+    }
+
+    public function test_analytics_visual_chart_query_count_is_bounded_and_does_not_write_records(): void
+    {
+        $this->fixture();
+        $service=app(\App\Services\AdminSalesAnalyticsService::class);
+        $filters=$service->filters(\Illuminate\Http\Request::create('/','GET',['range'=>'week']));
+        DB::enableQueryLog(); DB::flushQueryLog();
+        $service->data($filters,true); $first=DB::getQueryLog();
+        DB::disableQueryLog();
+        for($i=0;$i<8;$i++)$this->shop('Additional Shop '.$i);
+        DB::enableQueryLog(); DB::flushQueryLog();
+        $service->data($filters,true); $second=DB::getQueryLog();
+        DB::disableQueryLog();
+        $this->assertCount(count($first),$second);
+        foreach($second as $query)$this->assertDoesNotMatchRegularExpression('/^\s*(insert|update|delete|replace|alter|drop)/i',$query['query']);
+    }
+
+    public function test_dashboard_is_operational_and_analytics_has_one_visual_summary(): void
+    {
+        $this->get(route('admin.dashboard'))->assertOk()->assertSee('Recent Orders')->assertSee('Low Stock Alerts')
+            ->assertSee('Recent Seller Applications')->assertSee('View Analytics')->assertDontSee('data-sales-chart-dashboard',false);
+        $page=$this->get(route('admin.analytics.index'))->assertOk();
+        $html=$page->getContent();
+        $this->assertSame(1,substr_count($html,'name="range"'));
+        $this->assertSame(1,substr_count($html,'data-sales-chart-dashboard'));
+        foreach(['Marketplace Diagnostics','Sales by Shop','Order Status Analysis','Cancellation Trend','Period Comparison','Products with No Sales'] as $label)$page->assertSee($label);
+        $page->assertDontSee('Diagnostic Insights');
+        $this->assertSame(1,substr_count($html,'class="report-metrics"'));
+        $f=$this->fixture();
+        foreach ([['shop'=>$f['panda']->id],['category'=>$f['beauty']->id],['status'=>'cancelled'],['shop'=>$f['panda']->id,'category'=>$f['electronics']->id]] as $scope) {
+            $filtered=$this->page($scope);
+            $summary=$filtered->viewData('summary'); $overview=$filtered->viewData('overview');
+            $this->assertEquals($summary['sales'],array_sum(array_column($overview['trend'],'current')));
+            $this->assertEquals($summary['sales'],array_sum(array_column($overview['categories'],'value')));
+            $this->assertEquals($filtered->viewData('previous')['sales'],array_sum(array_column($overview['trend'],'previous')));
+            $this->assertEquals($filtered->viewData('statusTotal'),array_sum(array_column($overview['statuses'],'value')));
+            $this->getJson(route('admin.analytics.index',['range'=>'week']+$scope))->assertOk();
+        }
     }
 }

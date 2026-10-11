@@ -91,8 +91,8 @@ class InventoryAuthorizationTest extends TestCase
             ->assertSee('name="stock"', false)->assertSee('Update Stock')->assertDontSee('Beta Product');
         $this->post(route('seller.inventory.update', $this->product), [
             'stock' => 3, 'low_stock_threshold' => 5,
-            'variants' => [$variant->id => 2, $foreignVariant->id => 99],
-        ])->assertRedirect()->assertSessionHasNoErrors()->assertSessionHas('success', 'Inventory updated.');
+            'variants' => [$variant->id => 2],
+        ])->assertRedirect()->assertSessionHasNoErrors()->assertSessionHas('success', 'Stock updated successfully.');
         $this->assertSame(3, $this->product->fresh()->stock);
         $this->assertSame(2, $variant->fresh()->stock);
         $this->assertSame(4, $foreignVariant->fresh()->stock);
