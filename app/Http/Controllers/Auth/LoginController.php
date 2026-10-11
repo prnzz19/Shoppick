@@ -16,20 +16,31 @@ class LoginController extends Controller
 
     public function login(Request $request)
     {
+        if(is_string($request->input('email')))$request->merge(['email'=>mb_strtolower(trim($request->input('email')))]);
         $credentials = $request->validate([
-            'email' => ['required', 'email'],
+            'email' => ['required', 'string', 'email'],
             'password' => ['required', 'string'],
         ]);
 
         $remember = $request->boolean('remember');
+        $key='website-login:'.hash('sha256',$credentials['email'].'|'.$request->ip());
+        if(\Illuminate\Support\Facades\RateLimiter::tooManyAttempts($key,5))throw ValidationException::withMessages(['email'=>'Too many sign-in attempts. Please try again shortly.']);
 
         if (! Auth::attempt($credentials, $remember)) {
+            \Illuminate\Support\Facades\RateLimiter::hit($key,60);
             throw ValidationException::withMessages([
                 'email' => __('These credentials do not match our records.'),
             ]);
         }
 
         $user = Auth::user();
+        \Illuminate\Support\Facades\RateLimiter::clear($key);
+        if (! $user->trashed() && \App\Support\BuyerIdentity::needsVerification($user)) {
+            Auth::logout();Auth::login($user,false);
+            $request->session()->regenerate();
+            $request->session()->put('buyer_verification_remember',$remember);
+            return redirect()->route('buyer.verification');
+        }
 
         if ($user->trashed()) {
             Auth::logout();

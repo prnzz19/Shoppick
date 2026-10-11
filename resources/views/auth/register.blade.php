@@ -1,62 +1,17 @@
 @extends('layouts.auth')
-
-@section('title', 'Register')
-
+@section('title','Create Buyer Account')
 @section('auth-card')
-<div class="w-full max-w-2xl">
-    <div class="card w-full p-6 sm:p-8">
-        <h1 class="text-2xl font-bold text-navy-800">Create your SHOPPICK account</h1>
-        <p class="mt-1 text-sm text-slate-500">Register as a Buyer and shop securely from trusted sellers.</p>
-
-        @if(\App\Support\GoogleOAuth::isAvailable())
-            <a href="{{ route('auth.google.redirect',['account_type'=>'buyer']) }}" class="btn-outline mt-6 flex w-full items-center justify-center gap-3"><span class="text-lg font-bold text-brand-600">G</span>Continue with Google</a>
-        @else
-            <button type="button" disabled class="btn-outline mt-6 flex w-full cursor-not-allowed items-center justify-center gap-3 opacity-55"><span class="text-lg font-bold text-brand-600">G</span>Continue with Google</button>
-            <p class="mt-2 text-center text-xs text-slate-400">Google registration is currently unavailable.</p>
-        @endif
-        <div class="my-5 flex items-center gap-3 text-xs font-semibold uppercase text-slate-400"><span class="h-px flex-1 bg-slate-200"></span>Or<span class="h-px flex-1 bg-slate-200"></span></div>
-
-        <form method="POST" action="{{ route('register.submit') }}" enctype="multipart/form-data" class="mt-6 space-y-4">
-            @csrf
-            <p class="pt-2 text-xs font-bold uppercase tracking-wider text-brand-600">Personal Information</p>
-            <div class="grid gap-4 sm:grid-cols-3"><div><label class="label">First Name *</label><input name="first_name" value="{{ old('first_name') }}" required autofocus class="input"></div><div><label class="label">Middle Initial</label><input name="middle_initial" maxlength="5" value="{{ old('middle_initial') }}" class="input"></div><div><label class="label">Last Name *</label><input name="last_name" value="{{ old('last_name') }}" required class="input"></div></div>
-            <div class="grid gap-4 sm:grid-cols-3"><div><label class="label">Sex *</label><select name="sex" required class="input"><option value="">Select</option><option value="female" @selected(old('sex')==='female')>Female</option><option value="male" @selected(old('sex')==='male')>Male</option></select></div><x-birthday-age-fields :birthday="old('birthday')" /></div>
-            <div>
-                <label class="label">Email</label>
-                <input type="email" name="email" value="{{ old('email') }}" required class="input">
-                @error('email')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
-            </div>
-            <div>
-                <label class="label">Mobile Number</label>
-                <input type="tel" name="phone" value="{{ old('phone') }}" placeholder="09171234567" required class="input">
-                @error('phone')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
-            </div>
-            <p class="pt-2 text-xs font-bold uppercase tracking-wider text-brand-600">Address</p>
-            <div><label class="label">House No. / Street</label><input name="address_line" value="{{ old('address_line') }}" required class="input">@error('address_line')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror</div>
-            <x-philippine-location-fields
-                :region="old('region')" :region-code="old('region_code')"
-                :province="old('province')" :province-code="old('province_code')"
-                :city="old('city')" :city-code="old('city_code')"
-                :barangay="old('barangay')" :barangay-code="old('barangay_code')"
-            />
-            <div><label class="label">Postal Code</label><input name="postal_code" value="{{ old('postal_code') }}" required class="input">@error('postal_code')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror</div>
-            <input type="hidden" name="country" value="PH">
-            <div><label class="label">Upload Valid ID *</label><input type="file" name="valid_id" accept="image/jpeg,image/png,application/pdf" required class="input"><p class="mt-1 text-xs text-slate-500">JPG, PNG, or PDF up to 5 MB. Stored privately for Admin review.</p>@error('valid_id')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror</div>
-            <p class="pt-2 text-xs font-bold uppercase tracking-wider text-brand-600">Security</p>
-            <div>
-                <label class="label">Password</label>
-                <input type="password" name="password" required class="input">
-                @error('password')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
-            </div>
-            <div>
-                <label class="label">Confirm Password</label>
-                <input type="password" name="password_confirmation" required class="input">
-            </div>
-            <label class="flex items-start gap-2 text-sm text-slate-600"><input type="checkbox" name="terms" value="1" required class="mt-1 h-4 w-4 rounded border-slate-300 text-brand-500">I agree to the Terms and Privacy Policy.</label>
-            @error('terms')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
-            <button type="submit" class="btn-primary w-full">Register as Buyer</button>
-        </form><p class="mt-4 text-sm text-slate-600">All new accounts start as Buyers. Apply to become a Seller from your account after registration approval.</p><a href="{{ route('register.rider') }}" class="mt-3 block text-sm text-brand-700">Apply as Rider</a>
-    </div>
-    <p class="mt-4 text-center text-sm text-slate-600">Already have an account? <a href="{{ route('login') }}" class="font-semibold text-brand-600 hover:text-brand-700">Login</a></p>
-</div>
+<div class="w-full max-w-2xl"><section class="card p-6 sm:p-8"><p class="text-xs font-bold uppercase tracking-widest text-brand-700">SHOPPICK Buyer</p><h1 class="mt-2 text-2xl font-black text-navy-900">Create your SHOPPICK account</h1><p class="mt-2 text-sm leading-6 text-slate-500">Join as a Buyer. Verify your email to start shopping. Fields marked * are required.</p>
+@if($errors->any())<div role="alert" class="alert-error mt-5">{{ $errors->first() }} Please check the highlighted fields.</div>@endif
+@if($errors->has('email')||$errors->has('phone'))<p class="mt-3 text-sm text-slate-600">Already registered? <a class="font-semibold text-brand-700 underline" href="{{ route('login') }}">Sign in to continue verification</a>.</p>@endif
+@if(\App\Support\GoogleOAuth::isAvailable())<a href="{{ route('auth.google.redirect',['account_type'=>'buyer']) }}" class="btn-outline mt-5 w-full">Continue with Google</a>@else<button type="button" disabled class="btn-outline mt-5 w-full">Continue with Google</button><p class="mt-2 text-center text-xs text-slate-400">Google registration is currently unavailable.</p>@endif
+<form method="POST" action="{{ route('register.submit') }}" enctype="multipart/form-data" class="mt-7 space-y-5" data-buyer-registration data-buyer-form data-birthday-cutoff="{{ \App\Support\BuyerIdentity::birthdayCutoff() }}">@csrf
+<input type="hidden" name="registration_token" value="{{ $registrationToken }}">
+<fieldset><legend class="mb-4 text-xs font-bold uppercase tracking-widest text-brand-700">Personal information</legend><div class="grid gap-4 sm:grid-cols-2">@foreach(['first_name'=>'First Name','last_name'=>'Last Name'] as $field=>$label)<div><label for="buyer-{{ $field }}" class="label">{{ $label }} *</label><input id="buyer-{{ $field }}" name="{{ $field }}" value="{{ old($field) }}" required minlength="2" maxlength="50" class="input" autocomplete="{{ $field==='first_name'?'given-name':'family-name' }}" @if($field==='first_name') autofocus @endif>@error($field)<p class="mt-1 text-xs text-rose-700" role="alert">{{ $message }}</p>@enderror</div>@endforeach<div><label for="buyer-middle" class="label">Middle Initial (optional)</label><input id="buyer-middle" name="middle_initial" maxlength="5" value="{{ old('middle_initial') }}" class="input">@error('middle_initial')<p class="text-xs text-rose-700">{{ $message }}</p>@enderror</div><div><label for="buyer-sex" class="label">Sex *</label><select id="buyer-sex" name="sex" required class="input"><option value="">Select</option><option value="female" @selected(old('sex')==='female')>Female</option><option value="male" @selected(old('sex')==='male')>Male</option></select>@error('sex')<p class="text-xs text-rose-700">{{ $message }}</p>@enderror</div><x-birthday-age-fields :birthday="old('birthday')" /></div><p class="mt-3 text-xs text-slate-500">You must be at least 18 years old.</p></fieldset>
+<fieldset class="border-t border-slate-100 pt-5"><legend class="text-xs font-bold uppercase tracking-widest text-brand-700">Contact information</legend><div class="mt-4 grid gap-4 sm:grid-cols-2"><div><label for="buyer-email" class="label">Email *</label><input id="buyer-email" name="email" type="email" maxlength="255" autocomplete="email" required value="{{ old('email') }}" class="input">@error('email')<p class="mt-1 text-xs text-rose-700" role="alert">{{ $message }}</p>@enderror</div><div><label for="buyer-phone" class="label">Mobile Number *</label><input id="buyer-phone" name="phone" type="tel" autocomplete="tel" required value="{{ old('phone') }}" class="input" placeholder="09XXXXXXXXX or +639XXXXXXXXX">@error('phone')<p class="mt-1 text-xs text-rose-700" role="alert">{{ $message }}</p>@enderror</div></div></fieldset>
+<fieldset class="border-t border-slate-100 pt-5"><legend class="text-xs font-bold uppercase tracking-widest text-brand-700">Your delivery address</legend><div class="mt-4 space-y-4"><div><label for="buyer-address" class="label">House No. / Street *</label><input id="buyer-address" name="address_line" maxlength="255" required value="{{ old('address_line') }}" class="input">@error('address_line')<p class="text-xs text-rose-700">{{ $message }}</p>@enderror</div><x-philippine-location-fields :region="old('region')" :region-code="old('region_code')" :province="old('province')" :province-code="old('province_code')" :city="old('city')" :city-code="old('city_code')" :barangay="old('barangay')" :barangay-code="old('barangay_code')"/><div><label for="buyer-postal" class="label">Postal Code *</label><input id="buyer-postal" name="postal_code" value="{{ old('postal_code') }}" required inputmode="numeric" pattern="[0-9]{4}" maxlength="4" class="input">@error('postal_code')<p class="text-xs text-rose-700">{{ $message }}</p>@enderror</div><input type="hidden" name="country" value="PH"></div></fieldset>
+<div><label for="buyer-id" class="label">Upload Valid ID *</label><input id="buyer-id" type="file" name="valid_id" accept="image/jpeg,image/png,application/pdf" required class="input"><p class="mt-2 text-xs leading-5 text-slate-500">Existing SHOPPICK identity requirement. JPG, PNG, or PDF, up to 5 MB, stored privately. Buyer activation requires email verification, not Admin approval.</p>@error('valid_id')<p class="text-xs text-rose-700">{{ $message }}</p>@enderror</div>
+<fieldset class="border-t border-slate-100 pt-5"><legend class="text-xs font-bold uppercase tracking-widest text-brand-700">Security</legend><div class="mt-4 space-y-4">@foreach(['password'=>'Password','password_confirmation'=>'Confirm Password'] as $field=>$label)<div><label for="buyer-{{ $field }}" class="label">{{ $label }} *</label><div class="relative"><input id="buyer-{{ $field }}" type="password" name="{{ $field }}" required minlength="8" autocomplete="new-password" class="input pr-20"><button type="button" data-buyer-password="buyer-{{ $field }}" aria-controls="buyer-{{ $field }}" aria-pressed="false" class="absolute right-2 top-1 min-h-10 px-2 text-sm font-semibold text-brand-700">Show</button></div>@error($field)<p class="text-xs text-rose-700">{{ $message }}</p>@enderror</div>@endforeach<div class="flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-500" aria-label="Password requirements">@foreach(['length'=>'8+ characters','upper'=>'Uppercase','lower'=>'Lowercase','number'=>'Number','symbol'=>'Special character'] as $key=>$label)<span data-password-rule="{{ $key }}">○ {{ $label }}</span>@endforeach</div></div></fieldset>
+<label class="flex items-start gap-3 text-sm leading-6 text-slate-600"><input type="checkbox" name="terms" value="1" @checked(old('terms')) required class="mt-1"> <span>I accept the <a href="{{ url('/terms') }}" target="_blank" rel="noopener" class="font-semibold text-brand-700 underline">Terms</a> and <a href="{{ url('/privacy') }}" target="_blank" rel="noopener" class="font-semibold text-brand-700 underline">Privacy Policy</a>.</span></label>@error('terms')<p class="text-xs text-rose-700">{{ $message }}</p>@enderror
+<button type="submit" class="btn-primary min-h-12 w-full">Register as Buyer</button><p class="text-center text-xs text-slate-500">We will email a 6-digit verification code after registration.</p></form><p class="mt-5 text-sm leading-6 text-slate-600">All new accounts start as Buyers. Apply to become a Seller from your account after email verification.</p><a href="{{ route('register.rider') }}" class="mt-3 block text-sm text-brand-700">Apply as Rider</a></section><p class="mt-5 text-center text-sm text-slate-600">Already have an account? <a href="{{ route('login') }}" class="font-semibold text-brand-700">Login</a></p></div>
 @endsection

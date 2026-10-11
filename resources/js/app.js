@@ -3,6 +3,8 @@ import './philippine-locations';
 import './birthday-age';
 import './admin-sellers';
 import './admin-sales-reports';
+import './rider-portal';
+import './buyer-auth';
 
 document.addEventListener('DOMContentLoaded', () => {
     setupGlobalState();

@@ -9,13 +9,16 @@ use App\Http\Controllers\Auth\CompleteProfileController;
 use App\Http\Controllers\Auth\RiderApplicationController;
 use Illuminate\Support\Facades\Route;
 
+Route::get('terms',fn()=>view('auth.buyer-policy',['title'=>'Terms','content'=>app(\App\Services\SystemSettings::class)->get('legal.terms')]))->name('buyer.terms');
+Route::get('privacy',fn()=>view('auth.buyer-policy',['title'=>'Privacy Policy','content'=>app(\App\Services\SystemSettings::class)->get('legal.privacy')]))->name('buyer.privacy');
+
 Route::middleware('guest')->group(function () {
     Route::get('login', [LoginController::class, 'showLoginForm'])->name('login');
-    Route::post('login', [LoginController::class, 'login'])->name('login.submit');
+    Route::post('login', [LoginController::class, 'login'])->middleware('throttle:20,1')->name('login.submit');
 
     Route::get('register', [RegisterController::class, 'showRegistrationForm'])->name('register');
     Route::get('register/buyer', [RegisterController::class, 'showBuyerRegistrationForm'])->name('register.buyer');
-    Route::post('register/buyer', [RegisterController::class, 'register'])->name('register.submit');
+    Route::post('register/buyer', [RegisterController::class, 'register'])->middleware('throttle:10,1')->name('register.submit');
     Route::get('register/rider', [RiderApplicationController::class, 'create'])->name('register.rider');
     Route::post('register/rider', [RiderApplicationController::class, 'store'])->name('register.rider.submit');
     Route::get('auth/google/redirect', [GoogleAuthController::class, 'redirect'])->name('auth.google.redirect');
@@ -30,6 +33,9 @@ Route::middleware('guest')->group(function () {
 
 Route::post('logout', [LoginController::class, 'logout'])->name('logout')->middleware('auth');
 Route::middleware('auth')->group(function () {
+    Route::get('verify-buyer-email',[\App\Http\Controllers\Auth\BuyerVerificationController::class,'show'])->name('buyer.verification');
+    Route::post('verify-buyer-email',[\App\Http\Controllers\Auth\BuyerVerificationController::class,'verify'])->middleware('throttle:10,1')->name('buyer.verification.verify');
+    Route::post('verify-buyer-email/resend',[\App\Http\Controllers\Auth\BuyerVerificationController::class,'resend'])->middleware('throttle:5,1')->name('buyer.verification.resend');
     Route::get('rider-application/status', [RiderApplicationController::class, 'status'])->name('rider.application.status');
     Route::post('rider-application/resubmit', [RiderApplicationController::class, 'resubmit'])->name('rider.application.resubmit');
     Route::get('complete-profile', [CompleteProfileController::class, 'show'])->name('profile.complete');

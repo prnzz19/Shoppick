@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->redirectGuestsTo(fn (\Illuminate\Http\Request $request) => route($request->is('rider', 'rider/*') ? 'rider.login' : 'login'));
         $middleware->web(append: [\App\Http\Middleware\MarketplacePreferences::class]);
         $middleware->alias([
             'role' => EnsureRole::class,
@@ -25,5 +26,26 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->render(function (\Throwable $error, \Illuminate\Http\Request $request) {
+            if (!$request->is('register','register/buyer','verify-buyer-email','verify-buyer-email/*','login')
+                || $error instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface
+                || $error instanceof \Illuminate\Validation\ValidationException
+                || $error instanceof \Illuminate\Auth\AuthenticationException
+                || $error instanceof \Illuminate\Auth\Access\AuthorizationException
+                || $error instanceof \Illuminate\Database\Eloquent\ModelNotFoundException
+                || $error instanceof \Illuminate\Http\Exceptions\HttpResponseException) return null;
+            return $request->expectsJson()?response()->json(['message'=>'Unable to complete your request. Please try again.'],503):response()->view('auth.buyer-unavailable',[],503);
+        });
+        $exceptions->render(function (\Throwable $error, \Illuminate\Http\Request $request) {
+            if (!$request->is('rider', 'rider/*')
+                || $error instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface
+                || $error instanceof \Illuminate\Validation\ValidationException
+                || $error instanceof \Illuminate\Auth\AuthenticationException
+                || $error instanceof \Illuminate\Auth\Access\AuthorizationException
+                || $error instanceof \Illuminate\Database\Eloquent\ModelNotFoundException
+                || $error instanceof \Illuminate\Http\Exceptions\HttpResponseException) return null;
+            return $request->expectsJson()
+                ? response()->json(['message'=>'Unable to complete your request. Please try again.'],503)
+                : response()->view('rider.unavailable',[],503);
+        });
     })->create();

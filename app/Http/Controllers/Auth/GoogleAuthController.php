@@ -25,7 +25,12 @@ class GoogleAuthController extends Controller
         }
 
         session(['registration_type'=>'buyer']);
-        return Socialite::driver('google')->scopes(['openid', 'email', 'profile'])->redirect();
+        try {
+            return Socialite::driver('google')->scopes(['openid', 'email', 'profile'])->redirect();
+        } catch (\Throwable $error) {
+            Log::warning('Google OAuth redirect failed.', ['exception_class'=>$error::class]);
+            return $this->authenticationError("We couldn't start Google sign-in. Please try again.");
+        }
     }
 
     public function callback()
@@ -52,78 +57,104 @@ class GoogleAuthController extends Controller
             return $this->authenticationError("We couldn't complete Google sign-in. Please try again.");
         }
 
-        if (! $google->getEmail()) {
+        $googleData = $google->getRaw();
+        $emailVerified = filter_var($googleData['email_verified'] ?? $googleData['verified_email'] ?? false, FILTER_VALIDATE_BOOL);
+        $email = mb_strtolower(trim((string)$google->getEmail()));
+        $subject = (string)$google->getId();
+        if (!$emailVerified || !filter_var($email,FILTER_VALIDATE_EMAIL) || strlen($email)>255 || $subject==='' || strlen($subject)>255) {
             return $this->authenticationError('Google did not provide a verified email address.');
         }
 
-        $email = strtolower($google->getEmail());
         session()->forget('registration_type');
-        $account = SocialAccount::with('user.roles')->where('provider', 'google')->where('provider_id', $google->getId())->first();
-        $user = $account?->user;
+        try {
+            $account = SocialAccount::with('user.roles')->where('provider', 'google')->where('provider_id', $subject)->first();
+            $user = $account?->user;
 
-        if (! $user) {
-            $googleData = $google->getRaw();
-            $emailVerified = filter_var($googleData['email_verified'] ?? $googleData['verified_email'] ?? false, FILTER_VALIDATE_BOOL);
-            if (! $emailVerified) {
-                return $this->authenticationError('Google did not provide a verified email address.');
-            }
+            // Never reassign an orphaned provider identity to a different account.
+            if($account&&!$user)return $this->authenticationError('Your account is unavailable. Please contact support.');
 
-            $user = User::with('roles')->whereRaw('LOWER(email) = ?', [$email])->first();
-            if ($user && ($user->isAdmin() || ! $user->isBuyer())) {
-                return $this->authenticationError('This account cannot be linked through public Google login.');
-            }
-
-            if (!$user && (!app(\App\Services\SystemSettings::class)->get('marketplace.allow_registration') || app(\App\Services\SystemSettings::class)->get('marketplace.status') === 'maintenance')) {
-                return $this->authenticationError('New Buyer registration is temporarily unavailable.');
-            }
-
-            $user = DB::transaction(function () use ($user, $google, $email) {
-                if (! $user) {
-                    $user = User::create([
-                        'name' => $google->getName() ?: Str::before($email, '@'),
-                        'email' => $email,
-                        'email_verified_at' => now(),
-                        'password' => Hash::make(Str::random(64)),
-                    ] + \App\Services\BuyerAccountState::attributes(false));
-                    $user->assignRole('buyer');
+            if (! $user) {
+                $user = User::withTrashed()->with('roles')->whereRaw('LOWER(TRIM(email)) = ?', [$email])->first();
+                if ($user && ($user->isAdmin() || ! $user->isBuyer())) {
+                    return $this->authenticationError('This account cannot be linked through public Google login.');
                 }
-                $user->socialAccounts()->create(['provider' => 'google', 'provider_id' => $google->getId()]);
-                return $user;
-            });
-        }
 
-        if ($user->trashed() || ! $user->is_active) {
-            return $this->authenticationError('Your account has been deactivated. Please contact support.');
-        }
+                if($user){
+                    if($user->trashed()||$user->getAttribute('archived_at')||(!$user->is_active&&!\App\Support\BuyerIdentity::needsVerification($user)))return $this->authenticationError('Your account has been deactivated. Please contact support.');
+                    if(\App\Support\BuyerIdentity::needsVerification($user))app(\App\Services\BuyerEmailVerification::class)->assertEligible($user);
+                    // Google is authoritative for Gmail or a verified Workspace domain.
+                    // Other domains need existing-account authentication before linking.
+                    if(!str_ends_with($email,'@gmail.com')&&empty($googleData['hd']))return $this->authenticationError('Please sign in with your SHOPPICK password to use this existing account.');
+                    if($user->socialAccounts()->where('provider','google')->where('provider_id','!=',$subject)->exists())return $this->authenticationError('This account is already linked to a different Google identity. Please sign in.');
+                }
 
-        if ($user->registration_status === 'incomplete') {
+                if (!$user && (!app(\App\Services\SystemSettings::class)->get('marketplace.allow_registration') || app(\App\Services\SystemSettings::class)->get('marketplace.status') === 'maintenance')) {
+                    return $this->authenticationError('New Buyer registration is temporarily unavailable.');
+                }
+
+                $user = DB::transaction(function () use ($user, $google, $email, $googleData) {
+                    if (! $user) {
+                        $user = User::create([
+                            'name' => $google->getName() ?: Str::before($email, '@'),
+                            'email' => $email,
+                            'email_verified_at' => now(),
+                            'first_name' => $googleData['given_name'] ?? null,
+                            'last_name' => $googleData['family_name'] ?? null,
+                            'password' => Hash::make(Str::random(64)),
+                        ] + \App\Services\BuyerAccountState::attributes(false));
+                        $user->assignRole('buyer');
+                        $user->forceFill(['buyer_web_email'=>$email])->save();
+                    }
+                    $user->socialAccounts()->create(['provider' => 'google', 'provider_id' => $google->getId()]);
+                    return $user;
+                });
+            }
+
+            if($user->isAdmin()||!$user->isBuyer())return $this->authenticationError('This account cannot be linked through public Google login.');
+
+            if(! $user->trashed()&&!$user->getAttribute('archived_at')&&\App\Support\BuyerIdentity::needsVerification($user)){
+                app(\App\Services\BuyerEmailVerification::class)->assertEligible($user);
+                // Password registrations retain their SHOPPICK OTP requirement.
+                Auth::login($user,false);request()->session()->regenerate();
+                return redirect()->route('buyer.verification')->with('status','This account is waiting for email verification.');
+            }
+
+            if ($user->trashed() || $user->getAttribute('archived_at') || ! $user->is_active) {
+                return $this->authenticationError('Your account has been deactivated. Please contact support.');
+            }
+
+            if ($user->registration_status === 'incomplete') {
+                Auth::login($user, true);
+                request()->session()->regenerate();
+
+                return redirect()->route('profile.complete');
+            }
+
+            if (in_array($user->registration_status, ['pending', 'rejected'], true)
+                && ! ($user->isNormalBuyerRegistration() && $user->registration_status === 'pending')) {
+                if ($user->registration_status === 'pending') {
+                    return $this->authenticationError('Your registration is still waiting for administrator approval.');
+                }
+
+                if ($user->registration_status === 'rejected') {
+                    $reason = $user->registration_review_notes ? ' Reason: '.$user->registration_review_notes : '';
+
+                    return $this->authenticationError('Your registration was rejected.'.$reason);
+                }
+
+            }
+
             Auth::login($user, true);
             request()->session()->regenerate();
 
-            return redirect()->route('profile.complete');
+
+            return $user->hasCompleteBuyerProfile()
+                ? redirect()->intended(route('home'))
+                : redirect()->route('profile.complete');
+        } catch(\Throwable $error) {
+            Log::warning('Google account sign-in failed.', ['exception_class'=>$error::class]);
+            return $this->authenticationError("We couldn't complete Google sign-in. Please try again.");
         }
-
-        if (in_array($user->registration_status, ['pending', 'rejected'], true)
-            && ! ($user->isNormalBuyerRegistration() && $user->registration_status === 'pending')) {
-            if ($user->registration_status === 'pending') {
-                return $this->authenticationError('Your registration is still waiting for administrator approval.');
-            }
-
-            if ($user->registration_status === 'rejected') {
-                $reason = $user->registration_review_notes ? ' Reason: '.$user->registration_review_notes : '';
-
-                return $this->authenticationError('Your registration was rejected.'.$reason);
-            }
-
-        }
-
-        Auth::login($user, true);
-        request()->session()->regenerate();
-
-
-        return $user->hasCompleteBuyerProfile()
-            ? redirect()->intended(route('home'))
-            : redirect()->route('profile.complete');
     }
 
     private function authenticationError(string $message)

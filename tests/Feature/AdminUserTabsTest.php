@@ -92,7 +92,7 @@ class AdminUserTabsTest extends TestCase
 
     public function test_new_buyer_registration_increments_once_and_remains_once_after_seller_role_is_added(): void
     {
-        Storage::fake('local');
+        Storage::fake('local'); \Illuminate\Support\Facades\Mail::fake();
         Role::create(['name' => 'Buyer', 'slug' => 'buyer', 'guard_name' => 'web']);
         Role::create(['name' => 'Seller', 'slug' => 'seller', 'guard_name' => 'web']);
         $permission = Permission::create(['name' => 'Manage Users', 'slug' => 'manage_users', 'guard_name' => 'web']);
@@ -107,10 +107,10 @@ class AdminUserTabsTest extends TestCase
             'first_name' => 'New', 'last_name' => 'Buyer', 'sex' => 'female', 'birthday' => '2000-01-01',
             'valid_id' => UploadedFile::fake()->create('new-buyer-id.jpg', 100, 'image/jpeg'),
             'email' => 'new-buyer@shoppick.test', 'phone' => '09171234567',
-            'password' => 'password', 'password_confirmation' => 'password', 'address_line' => '12 Market Street',
+            'password' => 'Buyer@2026', 'password_confirmation' => 'Buyer@2026', 'address_line' => '12 Market Street',
             'region' => 'Region IV-A (CALABARZON)', 'barangay' => 'Bubukal', 'city' => 'Santa Cruz', 'province' => 'Laguna', 'postal_code' => '1000',
             'country' => 'PH', 'terms' => '1',
-        ])->assertRedirect(route('login'))->assertSessionHasNoErrors();
+        ])->assertRedirect(route('buyer.verification'))->assertSessionHasNoErrors();
 
         $newBuyer = User::where('email', 'new-buyer@shoppick.test')->firstOrFail();
         $this->actingAs($admin)->get(route('admin.users.index', ['tab' => 'buyers']))

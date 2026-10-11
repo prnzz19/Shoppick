@@ -40,6 +40,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'buyer_web_email', 'buyer_web_phone', 'buyer_web_signup_key',
         'valid_id_path',
     ];
 

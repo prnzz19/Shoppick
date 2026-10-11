@@ -42,21 +42,24 @@ class BuyerImmediateAccessTest extends TestCase
 
     private function newBuyer(): User
     {
-        $this->post(route('register.submit'), $this->registration())->assertRedirect(route('login'))->assertSessionHasNoErrors()
-            ->assertSessionHas('success', 'Registration successful. You can now log in to your Buyer account.');
+        $this->post(route('register.submit'), $this->registration())->assertRedirect(route('buyer.verification'))->assertSessionHasNoErrors();
+        $this->post(route('buyer.verification.verify'),['code'=>Mail::sent(\App\Mail\BuyerVerificationCode::class)->last()->code])->assertRedirect(route('home'));
+        $this->post(route('logout'));
 
         return User::where('email', 'immediate-buyer@example.test')->firstOrFail();
     }
 
-    public function test_registration_is_active_buyer_only_and_can_immediately_login_and_shop(): void
+    public function test_registration_is_buyer_only_and_verification_enables_login_and_shopping(): void
     {
         $payload = $this->registration() + ['roles' => ['admin', 'seller', 'rider', 'logistics'], 'role' => 'admin', 'registration_type' => 'seller', 'is_active' => false, 'registration_status' => 'pending'];
-        $this->post(route('register.submit'), $payload)->assertRedirect(route('login'))->assertSessionHasNoErrors();
+        $this->post(route('register.submit'), $payload)->assertRedirect(route('buyer.verification'))->assertSessionHasNoErrors();
         $buyer = User::where('email', $payload['email'])->firstOrFail();
         $this->assertSame(['buyer'], $buyer->roles()->pluck('slug')->all());
-        $this->assertTrue($buyer->is_active);
-        $this->assertSame('approved', $buyer->registration_status);
+        $this->assertFalse($buyer->is_active);
+        $this->assertSame('unverified', $buyer->registration_status);
         $this->assertTrue(Hash::check('BuyerPass123!', $buyer->password));
+        $this->post(route('buyer.verification.verify'),['code'=>Mail::sent(\App\Mail\BuyerVerificationCode::class)->last()->code])->assertRedirect(route('home'));
+        $this->post(route('logout'));
         $this->post(route('login.submit'), ['email' => $buyer->email, 'password' => 'BuyerPass123!'])->assertRedirect(route('home'))->assertSessionHasNoErrors();
         $this->assertAuthenticatedAs($buyer);
         $this->get(route('account.profile'))->assertOk();
@@ -100,11 +103,13 @@ class BuyerImmediateAccessTest extends TestCase
             $user = User::factory()->create($state + ['password' => Hash::make('BuyerPass123!')])->assignRole('buyer');
             $this->post(route('login.submit'), ['email' => $user->email, 'password' => 'BuyerPass123!'])->assertSessionHasErrors('email');
             $this->assertGuest();
+            $this->postJson('/api/v1/login', ['email' => $user->email, 'password' => 'BuyerPass123!'])->assertForbidden();
         }
         $archived = User::factory()->create(['is_active' => true, 'registration_type' => 'buyer', 'registration_status' => 'approved', 'password' => Hash::make('BuyerPass123!')])->assignRole('buyer');
         $archived->delete();
         $this->post(route('login.submit'), ['email' => $archived->email, 'password' => 'BuyerPass123!'])->assertSessionHasErrors('email');
         $this->assertGuest();
+        $this->postJson('/api/v1/login', ['email' => $archived->email, 'password' => 'BuyerPass123!'])->assertUnprocessable();
         $this->actingAs($archived)->get(route('account.profile'))->assertRedirect(route('login'));
     }
 
@@ -114,6 +119,21 @@ class BuyerImmediateAccessTest extends TestCase
         $this->post(route('login.submit'), ['email' => $buyer->email, 'password' => 'BuyerPass123!'])->assertSessionHasNoErrors();
         $this->get(route('account.profile'))->assertOk();
         $this->assertSame('pending', $buyer->fresh()->registration_status, 'Login must not apply reconciliation.');
+    }
+
+    public function test_mobile_registration_and_authentication_use_the_same_active_buyer_state(): void
+    {
+        $payload = $this->registration() + ['role' => 'admin', 'roles' => ['seller', 'admin', 'logistics', 'rider']];
+        $this->postJson('/api/v1/register', $payload)->assertCreated()->assertJsonPath('message', 'Registration successful. You can now log in to your Buyer account.');
+        $buyer = User::where('email', $payload['email'])->firstOrFail();
+        $this->assertTrue($buyer->is_active);
+        $this->assertSame('approved', $buyer->registration_status);
+        $this->assertSame(['buyer'], $buyer->roles()->pluck('slug')->all());
+        $response = $this->postJson('/api/v1/login', ['email' => $buyer->email, 'password' => 'BuyerPass123!'])->assertCreated();
+        $token = $response->json('token');
+        $this->withToken($token)->getJson('/api/v1/profile')->assertOk();
+        $buyer->update(['is_active' => false]);
+        $this->withToken($token)->getJson('/api/v1/profile')->assertUnauthorized();
     }
 
     public function test_admin_users_show_active_buyers_without_an_approval_button(): void

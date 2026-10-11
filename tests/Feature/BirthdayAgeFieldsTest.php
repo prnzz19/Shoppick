@@ -48,7 +48,7 @@ class BirthdayAgeFieldsTest extends TestCase
     public function test_future_birthday_is_rejected_and_forged_age_is_ignored(): void
     {
         Carbon::setTestNow('2026-09-10 12:00:00');
-        Storage::fake('local');
+        Storage::fake('local'); \Illuminate\Support\Facades\Mail::fake();
         Role::create(['name'=>'Buyer', 'slug'=>'buyer', 'guard_name'=>'web']);
 
         $payload = [
@@ -57,11 +57,11 @@ class BirthdayAgeFieldsTest extends TestCase
             'phone'=>'09171234567', 'address_line'=>'1 Test Street', 'region'=>'Region IV-A (CALABARZON)', 'province'=>'Laguna',
             'city'=>'Cavinti', 'barangay'=>'Mahipon', 'postal_code'=>'4013', 'country'=>'PH',
             'valid_id'=>UploadedFile::fake()->create('id.pdf', 10, 'application/pdf'),
-            'password'=>'password', 'password_confirmation'=>'password', 'terms'=>'1',
+            'password'=>'Buyer@2026', 'password_confirmation'=>'Buyer@2026', 'terms'=>'1',
         ];
 
         $this->post(route('register.submit'), $payload)
-            ->assertSessionHasErrors(['birthday'=>'Birthday cannot be in the future.']);
+            ->assertSessionHasErrors(['birthday'=>'You must be at least 18 years old.']);
 
         $payload['birthday'] = '2005-12-20';
         $payload['valid_id'] = UploadedFile::fake()->create('id.pdf', 10, 'application/pdf');

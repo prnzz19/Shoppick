@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\BuyerRegistrationRequest;
+use App\Http\Requests\WebsiteBuyerRegistrationRequest;
 use App\Http\Requests\SellerRegistrationRequest;
 use App\Models\User;
 use App\Services\SellerRegistrationService;
@@ -17,17 +17,22 @@ class RegisterController extends Controller
 {
     public function showRegistrationForm()
     {
-        return view('auth.register');
+        session()->put('buyer_signup_token',bin2hex(random_bytes(32)));
+        return view('auth.register',['registrationToken'=>session('buyer_signup_token')]);
     }
 
-    public function showBuyerRegistrationForm() { return view('auth.register'); }
+    public function showBuyerRegistrationForm() { return $this->showRegistrationForm(); }
 
-    public function register(BuyerRegistrationRequest $request)
+    public function register(WebsiteBuyerRegistrationRequest $request)
     {
         $data = $request->validated();
+        $created=true;
 
-        $validIdPath = $request->file('valid_id')->store('registration-documents');
-        $user = DB::transaction(function () use ($data, $validIdPath) {
+        $retry=$request->retryUser();
+        $validIdPath = $retry?->valid_id_path??$request->file('valid_id')->store('registration-documents','local');
+        try {
+        $user = DB::transaction(function () use ($data, $validIdPath, $request, &$created) {
+            if($retry=$request->retryUser()){$created=false;return $retry;}
             $name = trim($data['first_name'].' '.(($data['middle_initial'] ?? null) ? $data['middle_initial'].'. ' : '').$data['last_name']);
             $user = User::create([
                 'name' => $name, 'first_name'=>$data['first_name'], 'middle_initial'=>$data['middle_initial']??null,
@@ -36,7 +41,9 @@ class RegisterController extends Controller
                 'phone' => $data['phone'],
                 'valid_id_path'=>$validIdPath,
                 'password' => Hash::make($data['password']),
-            ] + \App\Services\BuyerAccountState::attributes());
+                'registration_type'=>'buyer','registration_status'=>'unverified','is_active'=>false,'email_verified_at'=>null,
+            ]);
+            $user->forceFill(['buyer_web_email'=>$data['email'],'buyer_web_phone'=>$data['phone'],'buyer_web_signup_key'=>isset($data['registration_token'])?hash('sha256',$data['registration_token']):null])->save();
             $user->assignRole('buyer');
             $user->addresses()->create([
                 'full_name' => $name, 'phone' => $data['phone'],
@@ -49,9 +56,21 @@ class RegisterController extends Controller
             ]);
             return $user;
         });
+        } catch (\Illuminate\Database\UniqueConstraintViolationException $error) {
+            if($retry=$request->retryUser()){$created=false;$user=$retry;if($validIdPath!==$user->valid_id_path)\Illuminate\Support\Facades\Storage::disk('local')->delete($validIdPath);}
+            else {\Illuminate\Support\Facades\Storage::disk('local')->delete($validIdPath);throw \Illuminate\Validation\ValidationException::withMessages(['email'=>'An account with those contact details already exists. Please sign in.']);}
+        } catch (\Throwable $error) {
+            \Illuminate\Support\Facades\Storage::disk('local')->delete($validIdPath);
+            report($error);
+            return back()->withInput($request->except('password','password_confirmation','valid_id'))->withErrors(['email'=>'Unable to create your account. Please try again.']);
+        }
 
-        event(new Registered($user));
+        if($created)event(new Registered($user));elseif($validIdPath!==$user->valid_id_path)\Illuminate\Support\Facades\Storage::disk('local')->delete($validIdPath);
 
-        return redirect()->route('login')->with('success', 'Registration successful. You can now log in to your Buyer account.');
+        Auth::login($user,false);
+        $request->session()->regenerate();
+        try {if($created)app(\App\Services\BuyerEmailVerification::class)->send($user);}
+        catch (\Throwable $error) {report($error);return redirect()->route('buyer.verification')->withErrors(['code'=>'We could not send your code. Please use Resend code to try again.']);}
+        return redirect()->route('buyer.verification')->with('status',$created?'Account created. Check your email for the verification code.':'This account is waiting for email verification. Enter your code or request a new one.');
     }
 }
