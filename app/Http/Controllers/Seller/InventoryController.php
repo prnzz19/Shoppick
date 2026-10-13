@@ -48,7 +48,7 @@ class InventoryController extends Controller
             'stock_asc' => ['stock','asc'], 'stock_desc' => ['stock','desc'],
             default => ['updated_at','desc'],
         };
-        $products = $query->orderBy($column,$direction)->orderBy('id')->paginate(10)->withQueryString();
+        $products = $query->orderBy($column,$direction)->orderBy('id')->paginate(10)->withPath(route('seller.inventory.index',[],false))->withQueryString();
         if ($products->currentPage() > $products->lastPage()) {
             $redirect = ['q' => $filters['q'] !== '' ? $filters['q'] : null,
                 'category' => $filters['category'] ?? null,
@@ -57,7 +57,7 @@ class InventoryController extends Controller
                 'sort' => $filters['sort'] ?? 'updated',
                 'page' => $products->lastPage(),];
             $redirect = array_filter($redirect, fn ($value) => $value !== null && $value !== '');
-            return redirect()->route('seller.inventory.index',$redirect);
+            return new \Illuminate\Http\RedirectResponse(route('seller.inventory.index',$redirect,false));
         }
         return view('seller.inventory.index',compact('products','categories','summary','filters'));
     }

@@ -39,9 +39,14 @@
                 </div>
                 <nav class="space-y-1 text-sm" aria-label="Buyer account">
                     @php
+                        $buyerUnreadMessages = \App\Models\BuyerSellerConversation::query()
+                            ->where('buyer_id', auth()->id())
+                            ->whereHas('messages', fn ($messages) => $messages->where('sender_id', '!=', auth()->id())->whereNull('read_at'))
+                            ->count();
                         $links = [
                             'account.profile' => ['Buyer Dashboard', route('account.profile')],
                             'orders.index' => ['My Orders', route('orders.index')],
+                            'messages.index' => ['Messages', route('messages.index')],
                             'account.addresses' => ['Addresses', route('account.addresses')],
                             'wishlist.index' => ['Wishlist', route('wishlist.index')],
                             'notifications.index' => ['Notifications', route('notifications.index')],
@@ -49,10 +54,10 @@
                         ];
                     @endphp
                     @foreach($links as $route => [$label, $url])
-                        <a href="{{ $url }}" @click="accountMenu = false" class="flex items-center gap-3 rounded-xl px-3 py-2.5 font-semibold transition {{ request()->routeIs($route) ? 'bg-brand-50 text-brand-800' : 'text-slate-600 hover:bg-brand-50/70 hover:text-brand-800' }}">
+                        <a href="{{ $url }}" @click="accountMenu = false" class="flex items-center gap-3 rounded-xl px-3 py-2.5 font-semibold transition {{ request()->routeIs($route) || ($route === 'messages.index' && request()->routeIs('messages.*')) ? 'bg-brand-50 text-brand-800' : 'text-slate-600 hover:bg-brand-50/70 hover:text-brand-800' }}">
                             <span class="flex h-7 w-7 items-center justify-center rounded-lg {{ request()->routeIs($route) ? 'bg-white text-brand-600' : 'text-slate-400' }}">
-                                @if($route === 'account.profile')<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="1.8" d="M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z"/></svg>@elseif($route === 'orders.index')<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="1.8" d="M6 3h12v18H6zM9 7h6M9 11h6M9 15h4"/></svg>@elseif($route === 'account.addresses')<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="1.8" d="M12 21s7-4.7 7-11a7 7 0 1 0-14 0c0 6.3 7 11 7 11Z"/><circle cx="12" cy="10" r="2.2"/></svg>@elseif($route === 'wishlist.index')<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="1.8" d="m12 20-7.2-7.2A4.8 4.8 0 0 1 12 6.4a4.8 4.8 0 0 1 7.2 6.4L12 20Z"/></svg>@elseif($route === 'notifications.index')<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="1.8" d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Zm-8 12h4"/></svg>@else<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="1.8" d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7.4-3a7.5 7.5 0 0 1-.1 1.2l2 1.5-2 3.4-2.4-1a7.8 7.8 0 0 1-2.1 1.2l-.3 2.6h-4l-.3-2.6a7.8 7.8 0 0 1-2.1-1.2l-2.4 1-2-3.4 2-1.5A7.5 7.5 0 0 1 5.6 12c0-.4 0-.8.1-1.2l-2-1.5 2-3.4 2.4 1a7.8 7.8 0 0 1 2.1-1.2l.3-2.6h4l.3 2.6a7.8 7.8 0 0 1 2.1 1.2l2.4-1 2 3.4-2 1.5c.1.4.2.8.2 1.2Z"/></svg>@endif
-                            </span><span>{{ $label }}</span>
+                                @if($route === 'account.profile')<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="1.8" d="M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z"/></svg>@elseif($route === 'orders.index')<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="1.8" d="M6 3h12v18H6zM9 7h6M9 11h6M9 15h4"/></svg>@elseif($route === 'messages.index')<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="1.8" d="M20 11.5a8.5 8.5 0 0 1-8.5 8.5H4l1.7-3.4A8.5 8.5 0 1 1 20 11.5ZM8 11h.01M12 11h.01M16 11h.01"/></svg>@elseif($route === 'account.addresses')<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="1.8" d="M12 21s7-4.7 7-11a7 7 0 1 0-14 0c0 6.3 7 11 7 11Z"/><circle cx="12" cy="10" r="2.2"/></svg>@elseif($route === 'wishlist.index')<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="1.8" d="m12 20-7.2-7.2A4.8 4.8 0 0 1 12 6.4a4.8 4.8 0 0 1 7.2 6.4L12 20Z"/></svg>@elseif($route === 'notifications.index')<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="1.8" d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Zm-8 12h4"/></svg>@else<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="1.8" d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7.4-3a7.5 7.5 0 0 1-.1 1.2l2 1.5-2 3.4-2.4-1a7.8 7.8 0 0 1-2.1 1.2l-.3 2.6h-4l-.3-2.6a7.8 7.8 0 0 1-2.1-1.2l-2.4 1-2-3.4 2-1.5A7.5 7.5 0 0 1 5.6 12c0-.4 0-.8.1-1.2l-2-1.5 2-3.4 2.4 1a7.8 7.8 0 0 1 2.1-1.2l.3-2.6h4l.3 2.6a7.8 7.8 0 0 1 2.1 1.2l2.4-1 2 3.4-2 1.5c.1.4.2.8.2 1.2Z"/></svg>@endif
+                            </span><span>{{ $label }}</span>@if($route === 'messages.index' && $buyerUnreadMessages > 0)<span class="ml-auto rounded-full bg-accent-500 px-2 py-0.5 text-[10px] font-bold text-white">{{ $buyerUnreadMessages }}</span>@endif
                         </a>
                     @endforeach
                     @php

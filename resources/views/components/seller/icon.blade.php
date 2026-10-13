@@ -1,6 +1,7 @@
 @props(['name'])
 @php
     $paths = [
+        'photo' => 'M3 3h18v18H3V3Zm0 14 6-6 4 4 3-3 5 5M8 7h.01',
         'home' => 'M3 10l9-7 9 7M5 9v12h5v-7h4v7h5V9',
         'orders' => 'M8 4H5v17h14V4h-3M9 3h6v4H9V3ZM8 11h8M8 15h8',
         'box' => 'M20 7l-8-4-8 4v10l8 4 8-4V7ZM4 7l8 5 8-5M12 12v9M8 5l8 5',
@@ -14,6 +15,7 @@
         'left' => 'm14 6-6 6 6 6',
         'right' => 'M4 12h16m-6-6 6 6-6 6',
         'logout' => 'M9 4H4v16h5M8 12h13m-5-5 5 5-5 5',
+        'pdf' => 'M6 3h9l4 4v14H6V3zm9 0v5h4M9 13h7m-7 4h5',
         'menu' => 'M4 6h16M4 12h16M4 18h16',
         'close' => 'm6 6 12 12M6 18 18 6',
         'chat' => 'M21 11a9 9 0 01-9 9H4l-2 2 1-7A9 9 0 1121 11ZM8 11h.01M12 11h.01M16 11h.01',

@@ -49,5 +49,11 @@ class CenterController extends Controller {
  }
  public function orders(Request $r){$storeId=$r->user()->store->id;$q=SellerOrder::where('store_id',$storeId);$tab=$r->status?:'all';if($tab==='to_pay')$q->whereHas('order',fn($o)=>$o->whereIn('payment_status',['unpaid','pending'])->where('payment_method','!=','cod'));elseif(isset(SellerOrder::TAB_GROUPS[$tab]))$q->whereIn('status',SellerOrder::TAB_GROUPS[$tab]);if($r->q)$q->where(fn($x)=>$x->where('seller_order_number','like','%'.$r->q.'%')->orWhereHas('order',fn($o)=>$o->where('buyer_name','like','%'.$r->q.'%')));$orders=$q->with(['order.user','items'])->latest()->paginate(20)->withQueryString();$base=SellerOrder::where('store_id',$storeId);$counts=['all'=>(clone $base)->count(),'to_pay'=>(clone $base)->whereHas('order',fn($o)=>$o->whereIn('payment_status',['unpaid','pending'])->where('payment_method','!=','cod'))->count()];foreach(SellerOrder::TAB_GROUPS as $key=>$statuses)$counts[$key]=(clone $base)->whereIn('status',$statuses)->count();return view('seller.orders._center',compact('orders','counts','tab'));}
  public function reviews(Request $r){$store=$r->user()->store;$base=Review::visible()->whereHas('product',fn($q)=>$q->where('store_id',$store->id));$average=(clone $base)->avg('rating')??0;$reviews=$base->with(['product','user','reply'])->latest()->paginate(20);return view('seller.reviews._center',compact('reviews','average'));}
- public function sales(Request $r){$base=SellerOrder::where('store_id',$r->user()->store->id);$stats=['today'=>(clone $base)->where('status','completed')->whereDate('completed_at',today())->sum('seller_total'),'month'=>(clone $base)->where('status','completed')->whereBetween('completed_at',[now()->startOfMonth(),now()->endOfMonth()])->sum('seller_total'),'completed'=>(clone $base)->where('status','completed')->sum('seller_total'),'pending'=>(clone $base)->whereNotIn('status',['completed','cancelled'])->sum('seller_total'),'commission'=>(clone $base)->where('status','completed')->sum('commission_amount')];$orders=$base->with('order')->latest()->paginate(20);return view('seller.sales._center',compact('stats','orders'));}
+ public function sales(Request $r, \App\Services\SellerSalesService $sales)
+ {
+     $data=$sales->page($r);
+     if ($r->input('export')==='pdf') return $sales->pdf($r,$data);
+     return view('seller.sales._center',$data);
+ }
+
 }

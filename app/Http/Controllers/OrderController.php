@@ -95,7 +95,7 @@ class OrderController extends Controller
     {
         $order = auth()->user()->orders()
             ->with(['items.product', 'items.variant', 'payments', 'voucher', 'reviews',
-                'sellerOrders.shipment', 'sellerOrders.histories.changedBy.roles',
+                'sellerOrders.store', 'sellerOrders.shipment', 'sellerOrders.histories.changedBy.roles',
                 'shipments.store', 'shipments.rider', 'shipments.vehicle', 'shipments.proofOfDelivery', 'shipments.events'])
             ->where('order_number', $orderNumber)
             ->firstOrFail();
