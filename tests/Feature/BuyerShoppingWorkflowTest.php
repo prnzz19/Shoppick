@@ -289,6 +289,7 @@ class BuyerShoppingWorkflowTest extends TestCase
         ]);
 
         $firstProduct = $this->product('First Seller Product', 5, 300);
+        $firstSellerAnotherProduct = $this->product('First Seller Another Product', 5, 150);
         $secondProduct = Product::create([
             'store_id' => $secondStore->id, 'category_id' => $this->category->id,
             'name' => 'Second Seller Product', 'slug' => 'second-seller-product',
@@ -302,7 +303,7 @@ class BuyerShoppingWorkflowTest extends TestCase
         ]);
 
         $this->actingAs($this->buyer);
-        foreach ([$firstProduct, $secondProduct] as $product) {
+        foreach ([$firstProduct, $firstSellerAnotherProduct, $secondProduct] as $product) {
             $this->post(route('cart.add'), ['product_id' => $product->id, 'quantity' => 1])->assertRedirect(route('cart.index'));
         }
         $this->post(route('checkout.store'), ['address_id' => $address->id, 'payment_method' => 'cod'])
@@ -310,13 +311,21 @@ class BuyerShoppingWorkflowTest extends TestCase
 
         $order = Order::where('user_id', $this->buyer->id)->firstOrFail();
         $this->assertSame(2, $order->sellerOrders()->count());
-        $this->assertSame(2, $order->items()->count());
+        $this->assertSame(3, $order->items()->count());
         $this->assertSame([$this->store->id, $secondStore->id], $order->sellerOrders()->orderBy('store_id')->pluck('store_id')->all());
 
         $firstSellerOrder = $order->sellerOrders()->where('store_id', $this->store->id)->firstOrFail();
         $secondSellerOrder = $order->sellerOrders()->where('store_id', $secondStore->id)->firstOrFail();
-        $this->actingAs($this->seller)->get(route('seller.orders.index'))->assertSee($firstProduct->name)->assertDontSee($secondProduct->name);
-        $this->actingAs($secondSeller)->get(route('seller.orders.index'))->assertSee($secondProduct->name)->assertDontSee($firstProduct->name);
+        $this->assertSame(2, $firstSellerOrder->items()->count());
+        $this->assertSame(1, $secondSellerOrder->items()->count());
+        $this->actingAs($this->seller)->get(route('seller.orders.index'))
+            ->assertSee($firstProduct->name)
+            ->assertSee($firstSellerAnotherProduct->name)
+            ->assertDontSee($secondProduct->name);
+        $this->actingAs($secondSeller)->get(route('seller.orders.index'))
+            ->assertSee($secondProduct->name)
+            ->assertDontSee($firstProduct->name)
+            ->assertDontSee($firstSellerAnotherProduct->name);
 
         $statusService = app(SellerOrderStatusService::class);
         $statusService->transition($firstSellerOrder, $this->seller, 'confirmed');

@@ -1,3 +1,4 @@
+import './seller-sales';
 import './seller-dashboard';
 import './seller-marketing';
 import './bootstrap';

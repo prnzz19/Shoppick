@@ -9,9 +9,20 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\WishlistController;
 use App\Http\Controllers\ProductReportController;
+use App\Http\Controllers\BuyerSellerMessageController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'registration.approved'])->group(function () {
+    Route::middleware('role:buyer')->group(function () {
+        Route::get('messages', [BuyerSellerMessageController::class, 'buyerIndex'])->name('messages.index');
+        Route::post('messages/start', [BuyerSellerMessageController::class, 'buyerStart'])->middleware('throttle:12,1')->name('messages.start');
+        Route::get('messages/{conversation}', [BuyerSellerMessageController::class, 'buyerShow'])->whereNumber('conversation')->name('messages.show');
+        Route::get('messages/{conversation}/updates', [BuyerSellerMessageController::class, 'buyerUpdates'])->whereNumber('conversation')->name('messages.updates');
+        Route::get('messages/{conversation}/attachments/{attachment}', [BuyerSellerMessageController::class, 'buyerAttachment'])->whereNumber(['conversation', 'attachment'])->name('messages.attachment');
+        Route::get('messages/{conversation}/older', [BuyerSellerMessageController::class, 'buyerOlder'])->whereNumber('conversation')->name('messages.older');
+        Route::post('messages/{conversation}/send', [BuyerSellerMessageController::class, 'buyerSend'])->whereNumber('conversation')->middleware('throttle:30,1')->name('messages.send');
+    });
+
     // Cart
     Route::get('cart', [CartController::class, 'index'])->name('cart.index');
     Route::post('cart/add', [CartController::class, 'add'])->name('cart.add');

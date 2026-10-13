@@ -55,6 +55,24 @@
         </div>
     @endif
 
+    @if($order->sellerOrders->isNotEmpty())
+        <section class="card mb-6 p-5">
+            <h2 class="font-bold text-navy-800">Contact a Seller</h2>
+            <p class="mt-1 text-sm text-slate-500">Each conversation includes only that shop's order portion.</p>
+            <div class="mt-3 flex flex-wrap gap-2">
+                @foreach($order->sellerOrders as $sellerOrder)
+                    @if($sellerOrder->store && (int) $sellerOrder->store->user_id !== (int) auth()->id())
+                        <form method="POST" action="{{ route('messages.start') }}">
+                            @csrf
+                            <input type="hidden" name="seller_order_id" value="{{ $sellerOrder->id }}">
+                            <button class="btn-outline btn-sm" type="submit">Message {{ $sellerOrder->store->name }}</button>
+                        </form>
+                    @endif
+                @endforeach
+            </div>
+        </section>
+    @endif
+
     @if($order->shipments->isNotEmpty())
     <div class="card mb-6 p-5"><h2 class="font-bold text-navy-800">Delivery Tracking</h2><p class="mt-1 text-sm text-slate-500">Status updates are shown without exposing a Rider's physical location.</p>@foreach($order->shipments as $shipment)<div class="mt-3 border-t pt-3 text-sm"><div class="flex justify-between"><b>{{ $shipment->shipment_number }} · {{ $shipment->store?->name }}</b><x-admin.status-badge :status="$shipment->status"/></div><p class="mt-1 text-slate-500">Delivery partner assigned: {{ $shipment->rider?'Yes':'Not yet' }} · Vehicle: {{ $shipment->vehicle?->code??'Not assigned' }}</p><div class="mt-3 space-y-2">@foreach($shipment->events->sortBy('created_at') as $event)<div class="flex items-start justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2"><div><b>{{ ucwords(str_replace('_',' ',$event->status)) }}</b>@if($event->note)<p class="text-xs text-slate-500">{{ $event->note }}</p>@endif</div><time class="whitespace-nowrap text-xs text-slate-400">{{ $event->created_at->format('M d · g:i A') }}</time></div>@endforeach</div><p class="mt-2 text-xs text-slate-400">POD: {{ ucfirst($shipment->proofOfDelivery?->status??'not submitted') }} · Latest update {{ $shipment->events->sortByDesc('created_at')->first()?->created_at?->diffForHumans()??$shipment->updated_at->diffForHumans() }}</p></div>@endforeach</div>
     @endif

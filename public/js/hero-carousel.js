@@ -3,7 +3,7 @@
  const root=document.querySelector('#hero-carousel'); if(!root)return;
  const title=root.querySelector('#hero-title'), description=root.querySelector('#hero-description'), img=root.querySelector('.sp-lifestyle-hero img');
  const slides = [
- ['Find What Fits Your Life.', 'From everyday essentials to your next favorite find, SHOPPICK helps you discover products made for the way you live.', 'Original campaign model in a beige trench coat, straw hat and sunglasses, looking over her shoulder'],
+ ['Find Your Next Favorite Pick.', 'Amazing products from trusted sellers, all in one place.', 'Original campaign model in a beige trench coat, straw hat and sunglasses, looking over her shoulder'],
  ['Better Picks for Everyday Life.', 'Find useful products, fresh finds, and everyday favorites from shops across SHOPPICK.', 'A shopper using a phone beside a tumbler and headphones'],
  ['Little Finds. Better Days.', 'Sometimes the right find can make your everyday routine a little easier, better, and more enjoyable.', 'A shopper holding a delivery parcel in a welcoming home']
  ];

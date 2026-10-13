@@ -4,6 +4,12 @@
     const filters = root.querySelector('#inventory-filters');
     const feedback = root.querySelector('#inventory-feedback');
     let timer, pending, saving = false;
+    // Proxy-rendered HTML may contain HTTP links even on an HTTPS page.
+    // Inventory requests always use the browser's current origin and session.
+    function inventoryUrl(value) {
+        const url = new URL(value, location.href);
+        return new URL(url.pathname + url.search, location.origin);
+    }
     function syncFilters(url) {
         const params = new URL(url, location.href).searchParams;
         for (const field of filters.querySelectorAll('[name]')) field.value = params.get(field.name) || (field.name === 'sort' ? 'updated' : '');
@@ -13,18 +19,18 @@
         const controller = pending = new AbortController();
         root.querySelector('#inventory-results').setAttribute('aria-busy','true');
         try {
-            const response = await fetch(url,{signal:controller.signal,headers:{'X-Requested-With':'XMLHttpRequest'}});
+            const response = await fetch(inventoryUrl(url),{mode:'same-origin',credentials:'same-origin',signal:controller.signal,headers:{'X-Requested-With':'XMLHttpRequest'}});
             if (!response.ok) throw new Error('Could not load inventory. Please try again.');
             const doc = new DOMParser().parseFromString(await response.text(),'text/html');
             if (controller !== pending) return;
             if (!doc.querySelector('#inventory-results')) throw new Error('Your session may have expired. Refresh the page and sign in again.');
             for (const id of ['inventory-results','inventory-summary']) root.querySelector('#'+id).replaceWith(doc.querySelector('#'+id));
-            const next = new URL(response.url);
+            const next = inventoryUrl(response.url);
             if (push) history.pushState({},'',next);
             else if (next.href !== location.href) history.replaceState({},'',next);
             if (sync) syncFilters(next);
         } catch (error) {
-            if (error.name !== 'AbortError') { feedback.textContent = error.message; return false; }
+            if (error.name !== 'AbortError') { feedback.textContent = 'Unable to update inventory. Please try again.'; return false; }
         } finally {
             if (controller === pending) root.querySelector('#inventory-results').removeAttribute('aria-busy');
         }
@@ -33,7 +39,7 @@
     function filter() {
         if (saving) return;
         clearTimeout(timer);
-        const url = new URL(filters.action);
+        const url = inventoryUrl(filters.action);
         for (const [key,value] of new FormData(filters)) if (value.trim()) url.searchParams.set(key,value.trim());
         feedback.textContent = '';
         load(url);
@@ -59,7 +65,7 @@
         const payload=new FormData(form),button=form.querySelector('[type=submit]');button.disabled=true;
         filters.querySelectorAll('input,select').forEach(el=>el.disabled=true);
         try {
-            const response=await fetch(form.action,{method:'POST',body:payload,headers:{Accept:'application/json','X-Requested-With':'XMLHttpRequest'}});
+            const response=await fetch(inventoryUrl(form.action),{method:'POST',mode:'same-origin',credentials:'same-origin',body:payload,headers:{Accept:'application/json','X-Requested-With':'XMLHttpRequest'}});
             const data=await response.json().catch(()=>({}));
             if(response.status===422){
                 let first;
@@ -75,7 +81,7 @@
             const loaded=await load(location.href,false);
             if(loaded)root.querySelector('[data-product="'+id+'"] summary')?.focus({preventScroll:true});
             else feedback.textContent='Stock was saved, but the list could not refresh. Reload the page to see the latest quantities.';
-        }catch(error){form.querySelector('[data-form-error]').textContent=error.message;}
+        }catch(error){form.querySelector('[data-form-error]').textContent='Unable to update inventory. Please try again.';}
         finally{saving=false;button.disabled=false;filters.querySelectorAll('input,select').forEach(el=>el.disabled=false);}
     });
 })();

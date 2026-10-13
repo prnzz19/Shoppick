@@ -1,0 +1,88 @@
+/* Mockup alignment layer for the public SHOPPICK storefront only. */
+.sp-landing .sp-topbar{display:none}
+.sp-landing .sp-discovery-bar{display:none!important}
+.sp-landing .sp-header-search-wrap{position:relative;min-width:0}
+.sp-landing .sp-header-search{display:flex;align-items:center;gap:8px;min-height:38px;border:1px solid #d9e3df;border-radius:999px;background:#fff;padding:4px 8px 4px 13px;color:#7c8b8e;box-shadow:0 3px 12px #102b3508}
+.sp-landing .sp-header-search:focus-within{border-color:var(--sp-teal);box-shadow:0 0 0 3px #087d7414}
+.sp-landing .sp-header-search>svg{width:15px;height:15px;flex:none}
+.sp-landing .sp-header-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:var(--sp-ink);font-size:11px}
+.sp-landing .sp-header-search input::placeholder{color:#879397}
+.sp-landing .sp-header-search button{display:grid;place-items:center;width:28px;height:28px;border:0;border-radius:50%;background:transparent;color:var(--sp-teal);cursor:pointer}
+.sp-landing .sp-header-search button:hover{background:var(--sp-teal-soft)}
+.sp-landing .sp-header-search button svg{width:14px;height:14px}
+.sp-landing .sp-header-search-wrap .sp-search-suggestions{left:0;right:0;top:calc(100% + 8px);border-radius:12px;background:#fff;box-shadow:0 14px 30px #102b3522}
+.sp-landing .sp-nav{grid-template-columns:auto auto minmax(230px,1fr) auto;gap:22px}
+.sp-landing .sp-nav-links{justify-content:flex-start;gap:17px;font-size:12px}
+.sp-landing .sp-nav-actions{gap:10px;font-size:12px}
+.sp-landing .sp-nav-actions .sp-utility-link span{display:none}
+.sp-landing .sp-header-cta{display:none!important}
+.sp-landing .sp-hero{position:relative;display:block;aspect-ratio:16/7.25;min-height:470px;background:#f7f2e9}
+.sp-landing .sp-lifestyle-hero{position:absolute;inset:0;min-height:0;animation:sp-hero-scale .8s .08s both}
+.sp-landing .sp-lifestyle-hero>img{object-position:center 34%}
+.sp-landing .sp-lifestyle-hero::after{background:linear-gradient(90deg,#fbfaf7 0%,#fbfaf7f2 28%,#fbfaf7b8 47%,transparent 67%),linear-gradient(0deg,#102b355c,transparent 45%)}
+.sp-landing .sp-hero-copy{position:relative;z-index:2;width:49%;height:100%;padding:clamp(32px,4.6vw,70px);background:transparent;animation:sp-fade-up .65s both}
+.sp-landing .sp-hero h1{max-width:11ch;font-family:Georgia,'Times New Roman',serif;font-size:clamp(44px,4.4vw,70px);font-weight:700;line-height:.98;letter-spacing:-.045em}
+.sp-landing .sp-hero-intro{max-width:34ch;margin-top:16px;color:#3e5357;font-size:14px;line-height:1.45}
+.sp-landing .sp-hero-note{margin-top:25px;color:#627574;font-size:10px}
+.sp-landing .sp-hero-stamp{font-size:10px}
+.sp-landing .sp-promo-section{padding-top:14px}
+.sp-landing .sp-promo-section>.sp-section-heading{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.sp-landing .sp-promo-grid{gap:10px}
+.sp-landing .sp-promo-card{min-height:145px;height:145px;aspect-ratio:auto;border-radius:10px}
+.sp-landing .sp-promo-media img{transition:transform .3s ease}
+.sp-landing .sp-promo-copy{padding:16px 18px}
+.sp-landing .sp-promo-number{display:none}
+.sp-landing .sp-promo-copy h3{font-family:Georgia,'Times New Roman',serif;font-size:22px;letter-spacing:-.02em}
+.sp-landing .sp-promo-copy p{min-height:0;max-width:24ch;margin-top:3px;font-size:11px;line-height:1.25}
+.sp-landing .sp-promo-link{margin-top:8px;border:1px solid #ffffffaa;border-radius:999px;padding:5px 10px;font-size:10px}
+.sp-landing .sp-section{padding-block:52px}
+.sp-landing .sp-section-heading h2{font-family:Georgia,'Times New Roman',serif;font-size:clamp(30px,3.2vw,46px);letter-spacing:-.045em}
+.sp-landing .sp-products-section .sp-section-heading{display:block;text-align:center;margin-bottom:22px}
+.sp-landing .sp-products-section .sp-section-heading>div>p:last-child{margin:7px auto 0;font-size:12px}
+.sp-landing .sp-products-section .sp-section-heading>.sp-text-link{display:none}
+.sp-landing .sp-products-section .sp-eyebrow{margin-bottom:7px!important}
+.sp-landing .sp-product-grid{gap:10px 14px}
+.sp-landing .sp-product-card{display:grid;grid-template-columns:minmax(90px,.72fr) minmax(0,1.28fr);min-height:136px;overflow:hidden;border:1px solid #e5e8e4;border-radius:9px;background:#fff;box-shadow:0 3px 12px #102b3508;transition:transform .22s,box-shadow .22s,opacity .5s}
+.sp-landing .sp-product-card:hover{box-shadow:0 10px 22px #102b3516}
+.sp-landing .sp-product-media{aspect-ratio:1/1;min-height:0;border-radius:0;background:#f5f4f0}
+.sp-landing .sp-product-media img{transition:transform .3s ease}
+.sp-landing .sp-wishlist{top:7px;right:7px;width:25px;height:25px;border:0;background:#ffffffd9}
+.sp-landing .sp-wishlist svg{width:14px;height:14px}
+.sp-landing .sp-product-badge{top:7px;left:7px;padding:2px 5px;font-size:8px}
+.sp-landing .sp-product-details{min-width:0;padding:10px 9px 8px}
+.sp-landing .sp-product-meta{display:block;overflow:hidden;font-size:8px;line-height:1.2;text-overflow:ellipsis;white-space:nowrap}
+.sp-landing .sp-product-meta a{display:none}
+.sp-landing .sp-product-name{display:block;overflow:hidden;margin-top:4px;font-size:12px;line-height:1.18;text-overflow:ellipsis;white-space:nowrap}
+.sp-landing .sp-product-rating{display:flex;align-items:center;gap:4px;margin-top:4px;color:#ee9b22;font-size:9px;line-height:1}
+.sp-landing .sp-product-rating small{color:#8c9898;font-size:8px}
+.sp-landing .sp-product-price-row{gap:5px;margin-top:5px}
+.sp-landing .sp-product-price-row strong{font-size:15px;line-height:1.1}
+.sp-landing .sp-product-price-row del{font-size:9px}
+.sp-landing .sp-product-actions{gap:4px;margin-top:auto}
+.sp-landing .sp-card-action{min-height:27px;border-radius:5px;padding:3px 4px;font-size:9px;line-height:1}
+.sp-landing .sp-see-more{margin-top:18px}
+.sp-landing .sp-see-more .sp-button{min-height:32px;border-color:#d4c8b4;border-radius:6px;padding:6px 14px;color:#6c5637;font-size:10px}
+.sp-landing .sp-recommended-section{padding-top:50px}
+.sp-landing .sp-centered-heading{margin-bottom:20px}
+.sp-landing .sp-centered-heading h2{max-width:760px;margin-inline:auto}
+.sp-landing .sp-collection-collage{grid-template-columns:1.1fr 1fr;grid-template-rows:150px 150px 100px;gap:8px}
+.sp-landing .sp-collection-tile{border-radius:8px}
+.sp-landing .sp-collection-overlay{right:14px;bottom:12px;left:14px;align-items:end}
+.sp-landing .sp-collection-overlay strong{font-family:Georgia,'Times New Roman',serif;font-size:19px}
+.sp-landing .sp-collection-overlay>span{border-radius:999px;padding:5px 8px;font-size:9px}
+.sp-landing .sp-final-section{padding-top:24px;padding-bottom:52px}
+.sp-landing .sp-final-cta{position:relative;display:block;min-height:250px;overflow:hidden;border-radius:10px;background:#073f43}
+.sp-landing .sp-final-cta::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#062d34e8 0%,#062d34bb 38%,#062d3426 72%,transparent)}
+.sp-landing .sp-final-photo{position:absolute;inset:0;min-height:0}
+.sp-landing .sp-final-photo img{width:100%;height:100%;object-position:center 43%;transition:transform .6s ease}
+.sp-landing .sp-final-copy{position:relative;z-index:1;width:52%;height:100%;min-height:250px;padding:36px 50px;justify-content:center}
+.sp-landing .sp-final-copy h2{font-family:Georgia,'Times New Roman',serif;font-size:clamp(32px,3.5vw,51px);line-height:.98}
+.sp-landing .sp-final-copy>p:not(.sp-final-label){color:#d1e6df;font-size:12px}
+.sp-landing .sp-final-copy .sp-button{margin-top:17px}
+.sp-landing .sp-final-cta:hover .sp-final-photo img{transform:scale(1.025)}
+.sp-landing .sp-footer h2{font-family:Manrope,ui-sans-serif,system-ui,sans-serif;font-size:11px}
+.sp-landing .sp-footer-grid a{min-height:30px;font-size:11px}
+@media(max-width:1220px){.sp-landing .sp-nav{grid-template-columns:auto minmax(180px,1fr) auto;gap:14px}.sp-landing .sp-nav-links{display:none}.sp-landing .sp-header-search-wrap{order:0}.sp-landing .sp-nav-actions{margin-left:auto}}
+@media(max-width:980px){.sp-landing .sp-nav{display:flex;align-items:center;min-height:64px;flex-wrap:wrap}.sp-landing .sp-header-search-wrap{order:5;flex:1 0 100%;padding-bottom:8px}.sp-landing .sp-header-search{min-height:36px}.sp-landing .sp-hero{aspect-ratio:auto;min-height:0}.sp-landing .sp-lifestyle-hero{position:relative;aspect-ratio:16/8}.sp-landing .sp-hero-copy{width:100%;height:auto;padding:28px 34px 30px;background:linear-gradient(135deg,#fbfaf7,#eff7f3);order:2}.sp-landing .sp-hero{display:flex;flex-direction:column}.sp-landing .sp-lifestyle-hero{order:1}.sp-landing .sp-hero h1{max-width:12ch}.sp-landing .sp-promo-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.sp-landing .sp-promo-card:last-child{grid-column:1/-1}.sp-landing .sp-product-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.sp-landing .sp-collection-collage{grid-template-rows:150px 150px 95px}}
+@media(max-width:680px){.sp-landing .sp-topbar-inner{min-height:28px}.sp-landing .sp-nav-actions .sp-account-link{font-size:11px}.sp-landing .sp-hero-copy{padding:27px 22px 30px}.sp-landing .sp-hero h1{font-size:clamp(41px,11vw,56px)}.sp-landing .sp-promo-grid{grid-template-columns:1fr}.sp-landing .sp-promo-card,.sp-landing .sp-promo-card:last-child{grid-column:auto;min-height:130px;height:130px}.sp-landing .sp-product-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.sp-landing .sp-product-card{grid-template-columns:76px minmax(0,1fr);min-height:125px}.sp-landing .sp-product-details{padding:8px 7px}.sp-landing .sp-product-name{font-size:11px}.sp-landing .sp-product-price-row strong{font-size:13px}.sp-landing .sp-product-actions{grid-template-columns:1fr;margin-top:6px}.sp-landing .sp-card-action{font-size:8px}.sp-landing .sp-collection-collage{grid-template-columns:1fr;grid-template-rows:none}.sp-landing .sp-collection-tile,.sp-landing .sp-collection-tile-1,.sp-landing .sp-collection-tile-4{grid-column:auto;grid-row:auto;min-height:190px}.sp-landing .sp-final-copy{width:76%;min-height:250px;padding:30px 23px}.sp-landing .sp-final-copy h2{font-size:36px}.sp-landing .sp-footer-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:460px){.sp-landing .sp-product-grid{grid-template-columns:1fr}.sp-landing .sp-product-card{grid-template-columns:100px minmax(0,1fr);min-height:132px}.sp-landing .sp-product-actions{grid-template-columns:1fr 1fr}.sp-landing .sp-nav-actions .sp-utility-link{padding:5px}.sp-landing .sp-nav-actions .sp-account-link{display:none}}

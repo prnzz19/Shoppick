@@ -64,8 +64,13 @@
             @if($product->brand)<p class="mt-1 text-sm text-slate-500">Brand: <span class="font-semibold text-navy-700">{{ $product->brand }}</span></p>@endif
             @if($product->store)<p class="mt-2 text-sm text-slate-500">Sold by <a class="font-bold text-brand-600 hover:underline" href="{{ route('shops.show',$product->store->slug) }}">{{ $product->store->name }}</a> · {{ $product->store->location }}</p>@endif
             @auth
-                @if(auth()->user()->hasRole('buyer') && $product->store?->user_id !== auth()->id())
+                @if(auth()->user()->isBuyer() && $product->store && (int) $product->store->user_id !== (int) auth()->id())
                     <button type="button" data-chat-open data-store-id="{{ $product->store_id }}" data-product-id="{{ $product->id }}" class="btn-outline btn-sm mt-3">💬 Chat Seller</button>
+                    <form method="POST" action="{{ route('messages.start') }}" class="mt-3">
+                        @csrf
+                        <input type="hidden" name="product_id" value="{{ $product->id }}">
+                        <button class="btn-outline btn-sm" type="submit">Message Seller</button>
+                    </form>
                 @endif
             @endauth
 

@@ -11,10 +11,16 @@
 @php
     $store = auth()->user()->store;
     $sellerUnreadNotifications = auth()->user()->notificationsData()->unread()->count();
+    $sellerUnreadMessages = \App\Models\BuyerSellerConversation::query()
+        ->where('store_id', $store->id)
+        ->whereHas('messages', fn ($messages) => $messages->where('sender_id', '!=', auth()->id())->whereNull('read_at'))
+        ->count();
     $sellerOpenOrders = $store->sellerOrders()->whereIn('status', ['pending','confirmed','processing','packed','ready_to_ship'])->count();
     $nav = [
         ['home','Shop as Buyer','home',0],
         ['seller.dashboard','Dashboard','home',0], ['seller.orders.index','Orders','orders',$sellerOpenOrders],
+        ['seller.waybills.index','Waybills','orders',0],
+        ['seller.messages.index','Messages','chat',$sellerUnreadMessages],
         ['seller.products.index','Products','box',0], ['seller.inventory.index','Inventory','box',0],
         ['seller.marketing.index','Marketing','ticket',0], ['seller.reviews.index','Reviews','star',0],
         ['seller.sales.index','Sales','chart',0], ['seller.store.edit','Store','store',0],

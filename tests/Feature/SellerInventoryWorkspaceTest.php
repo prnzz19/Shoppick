@@ -70,7 +70,7 @@ class SellerInventoryWorkspaceTest extends TestCase
         $this->assertCount(10,$r->viewData('products'));$this->assertSame(14,$r->viewData('products')->total());
         parse_str(parse_url($r->viewData('products')->nextPageUrl(),PHP_URL_QUERY),$params);
         $this->assertSame('wireless',$params['q']);$this->assertSame('stock_desc',$params['sort']);$this->assertEquals($this->category->id,$params['category']);
-        $this->get(route('seller.inventory.index',['q'=>'wireless','page'=>99]))->assertRedirect(route('seller.inventory.index',['q'=>'wireless','sort'=>'updated','page'=>2]));
+        $this->get(route('seller.inventory.index',['q'=>'wireless','page'=>99]))->assertRedirect(route('seller.inventory.index',['q'=>'wireless','sort'=>'updated','page'=>2],false));
     }
     public function test_empty_results_and_empty_inventory_have_distinct_actions(): void
     {
@@ -109,5 +109,25 @@ class SellerInventoryWorkspaceTest extends TestCase
         $variant=$this->in->variants()->first();$variant->update(['stock'=>7.5]);
         $this->listing(['type'=>'variants'])->assertSee('Legacy fractional quantity.')->assertSee('value="7.5"',false);
         $this->assertEquals(7.5,$variant->fresh()->stock);
+    }
+
+    public function test_ajax_inventory_links_stay_relative_behind_https_terminating_proxy(): void
+    {
+        for ($i=0; $i<12; $i++) $this->product('Wireless proxy fixture '.$i,10,'PROXY-'.$i);
+        // Cloudflare terminates HTTPS; Laravel can see HTTP on the origin connection.
+        $response=$this->withHeaders(['X-Requested-With'=>'XMLHttpRequest','X-Forwarded-Proto'=>'https'])
+            ->get('http://shoppickmarket.shop/seller/inventory?sort=stock_asc')->assertOk();
+        $html=new \DOMDocument();
+        @$html->loadHTML($response->getContent());
+        $xpath=new \DOMXPath($html);
+        $links=$xpath->query('//*[@id="inventory-workspace"]//a[contains(@href,"/seller/inventory")] | //*[@id="inventory-workspace"]//form[contains(@action,"/seller/inventory")]');
+        $this->assertGreaterThan(5,$links->length);
+        foreach ($links as $node) {
+            $url=$node->getAttribute($node->tagName==='form'?'action':'href');
+            $this->assertStringStartsWith('/seller/inventory',$url);
+            $this->assertNull(parse_url($url,PHP_URL_HOST));
+        }
+        $this->assertStringStartsWith('/seller/inventory?', $response->viewData('products')->nextPageUrl());
+        $this->get('http://shoppickmarket.shop/seller/inventory?q=wireless&page=99')->assertRedirect('/seller/inventory?q=wireless&sort=updated&page=2');
     }
 }

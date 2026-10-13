@@ -1,1 +1,18 @@
-@extends('layouts.seller') @section('title','Sales') @section('content')<div><p class="text-sm font-semibold text-brand-600">Performance</p><h1 class="text-2xl font-extrabold text-navy-900">Sales</h1></div><div class="mt-6 flex gap-5 border-b"><span class="border-b-2 border-brand-500 pb-3 text-sm font-semibold text-brand-700">Overview</span><span class="pb-3 text-sm text-slate-500">Transactions</span><span class="pb-3 text-sm text-slate-500">Reports</span></div><div class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">@foreach(["Today's Sales"=>$stats['today'],'This Month'=>$stats['month'],'Total Earnings'=>$stats['completed'],'Pending Earnings'=>$stats['pending'],'Commission'=>$stats['commission']] as $label=>$value)<div class="card p-5"><p class="text-sm text-slate-500">{{ $label }}</p><p class="mt-2 text-xl font-black">₱{{ number_format($value,2) }}</p></div>@endforeach</div><div class="card mt-6 overflow-x-auto p-5"><h2 class="font-bold">Recent Transactions</h2><table class="mt-3 w-full min-w-[650px] text-left text-sm"><thead><tr class="border-b"><th class="py-3">Order</th><th>Date</th><th>Status</th><th>Gross</th><th>Commission</th><th>Net</th></tr></thead><tbody>@foreach($orders as $order)<tr class="border-b"><td class="py-4"><a class="text-brand-600" href="{{ route('seller.orders.show',$order) }}">{{ $order->seller_order_number }}</a></td><td>{{ $order->created_at->format('M d, Y') }}</td><td><x-admin.status-badge :status="$order->status"/></td><td>₱{{ number_format($order->subtotal,2) }}</td><td>₱{{ number_format($order->commission_amount,2) }}</td><td class="font-bold">₱{{ number_format($order->seller_total,2) }}</td></tr>@endforeach</tbody></table></div>{{ $orders->links() }}@endsection
+@extends('layouts.seller')
+@section('title','Sales')
+@section('content')
+@include('seller.sales.styles')
+<div class="seller-sales {{ $tab==='overview' ? 'sales-refined' : '' }}" data-sales-workspace>
+<header class="sales-heading"><div class="sales-heading-copy"><p class="sales-eyebrow">Seller Performance</p><h1>Sales</h1>@if(!empty($store->name))<p class="sales-welcome">Welcome back, {{ $store->name }}</p>@endif<p>Track your shop sales, earnings, and order performance.</p></div>@include('seller.sales.toolbar')</header>
+<nav class="sales-tabs" aria-label="Sales sections">@foreach(['overview'=>'Overview','transactions'=>'Transactions'] as $key=>$label)<a href="{{ route('seller.sales.index',($key==='transactions' ? $filters['query'] : array_diff_key($filters['query'],array_flip(['q','status'])))+['tab'=>$key],false) }}" @if($tab===$key) aria-current="page" @endif>{{ $label }}</a>@endforeach</nav>
+
+@if($errors->any())<p role="alert" class="sales-error">{{ $errors->first() }}</p>@endif
+@if($tab==='overview')
+@include('seller.sales.overview')
+@elseif($tab==='transactions')
+<article class="sales-card"><header><div><h2>Transactions</h2><p>{{ $orders->total() }} orders &middot; {{ $period }}</p></div></header>@include('seller.sales.table')</article><div class="sales-pagination">{{ $orders->links() }}</div>
+@endif
+<p class="sales-footnote">Earnings use SHOPPICK's stored net and commission amounts. Pending and cancelled orders are not recognized earnings.</p>
+<script type="application/json" data-sales-data>{!! json_encode($chart,JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT) !!}</script>
+</div>
+@endsection

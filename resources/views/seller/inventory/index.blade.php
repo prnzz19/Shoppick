@@ -7,7 +7,7 @@
     <div id="inventory-summary" class="inventory-summary">
         @foreach(['total'=>'Total products','low'=>'Low stock','out'=>'Out of stock','units'=>'Total units'] as $key=>$label)<div><span>{{ $label }}</span><strong>{{ number_format($summary->$key) }}</strong></div>@endforeach
     </div>
-    <form id="inventory-filters" action="{{ route('seller.inventory.index') }}" method="GET" class="inventory-filters">
+    <form id="inventory-filters" action="{{ route('seller.inventory.index',[],false) }}" method="GET" class="inventory-filters">
         <label class="inventory-search">Search product or SKU<input class="input" name="q" type="search" maxlength="200" value="{{ $filters['q'] }}" placeholder="Search product name or SKU" autocomplete="off"></label>
         <label>Category<select class="input" name="category"><option value="">All Categories</option>@foreach($categories as $category)<option value="{{ $category->id }}" @selected(($filters['category'] ?? '')==$category->id)>{{ $category->name }}</option>@endforeach</select></label>
         <label>Stock status<select class="input" name="status"><option value="">All Stock Statuses</option>@foreach(['in'=>'In Stock','low'=>'Low Stock','out'=>'Out of Stock'] as $key=>$label)<option value="{{ $key }}" @selected(($filters['status'] ?? '')===$key)>{{ $label }}</option>@endforeach</select></label>
@@ -20,10 +20,10 @@
         <div class="inventory-toolbar"><nav aria-label="Quick inventory filters" class="inventory-chips">
             @foreach(['All'=>['status'=>'','type'=>'','count'=>$summary->total],'Low Stock'=>['status'=>'low','count'=>$summary->low],'Out of Stock'=>['status'=>'out','count'=>$summary->out],'With Variants'=>['type'=>'variants','count'=>$summary->with_variants]] as $label=>$chip)
                 @php $count=$chip['count']; unset($chip['count']); $active=collect($chip)->every(fn($value,$key)=>($filters[$key] ?? '')===$value); @endphp
-                <a data-inventory-link href="{{ route('seller.inventory.index',array_merge($filters,$chip,['page'=>1])) }}" @if($active) aria-current="true" @endif>{{ $label }} <span>{{ $count }}</span></a>
+                <a data-inventory-link href="{{ route('seller.inventory.index',array_merge($filters,$chip,['page'=>1]),false) }}" @if($active) aria-current="true" @endif>{{ $label }} <span>{{ $count }}</span></a>
             @endforeach
         </nav><span>{{ $products->total() }} matching {{ Str::plural('product',$products->total()) }}</span>
-        @if($filters['q']!=='' || !empty($filters['category']) || !empty($filters['status']) || !empty($filters['type']) || $filters['sort']!=='updated')<a data-inventory-link href="{{ route('seller.inventory.index') }}" class="inventory-clear">Clear Filters</a>@endif</div>
+        @if($filters['q']!=='' || !empty($filters['category']) || !empty($filters['status']) || !empty($filters['type']) || $filters['sort']!=='updated')<a data-inventory-link href="{{ route('seller.inventory.index',[],false) }}" class="inventory-clear">Clear Filters</a>@endif</div>
         @if($products->isNotEmpty())
         <div class="inventory-list"><div class="inventory-columns" aria-hidden="true"><span>Product / SKU</span><span>Category</span><span>Stock / Alert</span><span>Status</span><span>Action</span></div>
         @foreach($products as $product)
@@ -36,7 +36,7 @@
                     <span><span class="inventory-badge inventory-badge-{{ $status }}">{{ $label }}</span></span>
                     <span class="inventory-manage"><span class="manage-open">Manage</span><span class="manage-close">Close</span> <span aria-hidden="true">&#8964;</span></span>
                 </summary>
-                <form class="inventory-editor" method="POST" action="{{ route('seller.inventory.update',$product) }}" data-stock-form>
+                <form class="inventory-editor" method="POST" action="{{ route('seller.inventory.update',$product,false) }}" data-stock-form>
                     @csrf<input type="hidden" name="inventory_product_id" value="{{ $product->id }}">
                     <div class="inventory-editor-heading"><h2>Stock Management</h2><a href="{{ route('seller.products.edit',$product) }}">Edit product details &rarr;</a></div>
                     <div class="inventory-fields">
@@ -52,7 +52,7 @@
             </details>
         @endforeach</div>
         <div class="inventory-pagination">{{ $products->links() }}</div>
-        @else<div class="inventory-empty"><h2>{{ $summary->total ? 'No products match your filters.' : "You don't have any products yet." }}</h2>@if($summary->total)<a data-inventory-link class="btn-outline" href="{{ route('seller.inventory.index') }}">Clear Filters</a>@else<a class="btn-primary" href="{{ route('seller.products.create') }}">Add Product</a>@endif</div>@endif
+        @else<div class="inventory-empty"><h2>{{ $summary->total ? 'No products match your filters.' : "You don't have any products yet." }}</h2>@if($summary->total)<a data-inventory-link class="btn-outline" href="{{ route('seller.inventory.index',[],false) }}">Clear Filters</a>@else<a class="btn-primary" href="{{ route('seller.products.create') }}">Add Product</a>@endif</div>@endif
     </div>
 </div>
 @include('seller.inventory.script')
