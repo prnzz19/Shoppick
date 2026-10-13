@@ -10,7 +10,7 @@ use Tests\TestCase;
 
 class RiderApplicationWorkflowTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase, \Tests\Support\MocksPhilippineLocations;
 
     protected function setUp(): void
     {
@@ -22,7 +22,7 @@ class RiderApplicationWorkflowTest extends TestCase
 
     private function payload(string $email='rider.applicant@example.test'): array
     {
-        return ['first_name'=>'Juan','middle_initial'=>'D','last_name'=>'Cruz','sex'=>'male','birthday'=>'1995-06-15','email'=>$email,'phone'=>'09171234567','address_line'=>'12 Main Street','region'=>'Region IV-A (CALABARZON)','region_code'=>'0400000000','province'=>'Laguna','province_code'=>'0434000000','city'=>'Cavinti','city_code'=>'0434060000','barangay'=>'Mahipon','barangay_code'=>'0434060150','postal_code'=>'4013','valid_id'=>UploadedFile::fake()->create('valid-id.pdf',20,'application/pdf'),'driver_license_number'=>'N01-23-456789','driver_license_classification'=>'Test classification','driver_license_expires_at'=>now()->addYear()->format('Y-m-d'),'driver_license_front'=>UploadedFile::fake()->create('front.jpg',20,'image/jpeg'),'driver_license_back'=>UploadedFile::fake()->create('back.jpg',20,'image/jpeg'),'preferred_vehicle_type'=>'motorcycle','password'=>'SecurePass123!','password_confirmation'=>'SecurePass123!','terms'=>'1'];
+        return ['first_name'=>'Juan','middle_initial'=>'D','last_name'=>'Cruz','sex'=>'male','birthday'=>'1995-06-15','email'=>$email,'phone'=>'09171234567','address_line'=>'12 Main Street','region'=>'Region IV-A (CALABARZON)','region_code'=>'0400000000','province'=>'Laguna','province_code'=>'0403400000','city'=>'Cavinti','city_code'=>'0403407000','barangay'=>'Mahipon','barangay_code'=>'0403407012','postal_code'=>'4013','valid_id'=>UploadedFile::fake()->create('valid-id.pdf',20,'application/pdf'),'driver_license_number'=>'N01-23-456789','driver_license_classification'=>'Test classification','driver_license_expires_at'=>now()->addYear()->format('Y-m-d'),'driver_license_front'=>UploadedFile::fake()->create('front.jpg',20,'image/jpeg'),'driver_license_back'=>UploadedFile::fake()->create('back.jpg',20,'image/jpeg'),'preferred_vehicle_type'=>'motorcycle','password'=>'SecurePass123!','password_confirmation'=>'SecurePass123!','terms'=>'1'];
     }
 
     public function test_buyer_registration_preserves_rider_application_link(): void
@@ -34,14 +34,14 @@ class RiderApplicationWorkflowTest extends TestCase
     {
         Storage::fake('local');
         $logistics=User::factory()->create(['is_active'=>true]);$logistics->assignRole('logistics');
-        $this->post(route('register.rider.submit'),$this->payload())->assertRedirect(route('login'))->assertSessionHasNoErrors();
+        $this->post(route('register.rider.submit'),$this->payload())->assertRedirect(route('rider.register.submitted'))->assertSessionHasNoErrors();
         $rider=User::where('email','rider.applicant@example.test')->firstOrFail();$profile=$rider->riderProfile;
         $this->assertTrue($rider->hasRole('rider'));$this->assertFalse($rider->is_active);$this->assertSame('pending',$rider->registration_status);$this->assertSame('inactive',$profile->account_status);$this->assertSame('unavailable',$profile->availability);$this->assertSame('pending_review',$profile->driver_license_status);
         Storage::disk('local')->assertExists($rider->valid_id_path);Storage::disk('local')->assertExists($profile->driver_license_front_path);Storage::disk('local')->assertExists($profile->driver_license_back_path);
 
         $this->post(route('login.submit'),['email'=>$rider->email,'password'=>'SecurePass123!'])->assertRedirect(route('rider.application.status'));
         $this->get(route('rider.application.status'))->assertOk()->assertSee('waiting for SHOPPICK Logistics approval');
-        $this->get(route('rider.dashboard'))->assertRedirect(route('login'));
+        $this->get(route('rider.dashboard'))->assertRedirect(route('rider.application.status'));
 
         $this->actingAs($logistics)->get(route('logistics.rider-applications',['status'=>'pending','view'=>$profile->id]))->assertOk()->assertSee($rider->name)->assertSee('Rider Application')->assertSee('Approve');
         $this->post(route('logistics.riders.application.review',$profile),['decision'=>'needs_resubmission','reason'=>'Please upload a clearer license front image.'])->assertSessionHasNoErrors();

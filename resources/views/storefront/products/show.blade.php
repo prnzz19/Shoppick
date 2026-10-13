@@ -63,6 +63,11 @@
 
             @if($product->brand)<p class="mt-1 text-sm text-slate-500">Brand: <span class="font-semibold text-navy-700">{{ $product->brand }}</span></p>@endif
             @if($product->store)<p class="mt-2 text-sm text-slate-500">Sold by <a class="font-bold text-brand-600 hover:underline" href="{{ route('shops.show',$product->store->slug) }}">{{ $product->store->name }}</a> · {{ $product->store->location }}</p>@endif
+            @auth
+                @if(auth()->user()->hasRole('buyer') && $product->store?->user_id !== auth()->id())
+                    <button type="button" data-chat-open data-store-id="{{ $product->store_id }}" data-product-id="{{ $product->id }}" class="btn-outline btn-sm mt-3">💬 Chat Seller</button>
+                @endif
+            @endauth
 
             {{-- Rating & sold --}}
             <div class="mt-2 flex flex-wrap items-center gap-3 text-sm">
@@ -98,7 +103,7 @@
             </div>
 
             {{-- Variants --}}
-            <form method="POST" action="{{ route('cart.add') }}" id="product-form">
+            <form method="POST" action="{{ route('cart.add') }}" id="product-form" data-product-action data-product-name="{{ $product->name }}" data-product-price="₱{{ number_format($product->salePrice(),2) }}" data-requires-variant="{{ $product->variants->isNotEmpty() ? 'true' : 'false' }}">
                 @csrf
                 <input type="hidden" name="product_id" value="{{ $product->id }}">
                 <input type="hidden" name="product_variant_id" id="selected-variant" value="">
@@ -136,7 +141,7 @@
                             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
                             Add to Cart
                         </button>
-                        <button type="submit" formaction="{{ route('buy-now') }}" class="btn-primary flex-1 whitespace-nowrap" @if($product->isOutOfStock()) disabled @endif>Buy Now</button>
+                        <button type="submit" formaction="{{ route('buy-now') }}" class="btn-primary flex-1 whitespace-nowrap" data-confirm-title="Buy this item now?" data-confirm-message="You will continue to checkout before placing your order." data-confirm-action="Continue to Checkout" data-confirm-cancel="Keep Browsing" data-confirm-type="purchase" @if($product->isOutOfStock()) disabled @endif>Buy Now</button>
                     </div>
                 </div>
             </form>

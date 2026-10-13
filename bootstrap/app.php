@@ -37,7 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
             return $request->expectsJson()?response()->json(['message'=>'Unable to complete your request. Please try again.'],503):response()->view('auth.buyer-unavailable',[],503);
         });
         $exceptions->render(function (\Throwable $error, \Illuminate\Http\Request $request) {
-            if (!$request->is('rider', 'rider/*')
+            if (!$request->is('rider', 'rider/*','register/rider')
                 || $error instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface
                 || $error instanceof \Illuminate\Validation\ValidationException
                 || $error instanceof \Illuminate\Auth\AuthenticationException

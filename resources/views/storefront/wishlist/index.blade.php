@@ -48,13 +48,13 @@
                         <div class="mt-auto grid grid-cols-2 gap-2 pt-4">
                             @if($canPurchase && ! $hasVariants)
                                 <form method="POST" action="{{ route('wishlist.move-to-cart', $item->id) }}">@csrf<input type="hidden" name="quantity" value="1"><button type="submit" class="btn-outline btn-sm w-full">Add to Cart</button></form>
-                                <form method="POST" action="{{ route('buy-now') }}">@csrf<input type="hidden" name="product_id" value="{{ $product->id }}"><input type="hidden" name="quantity" value="1"><button type="submit" class="btn-primary btn-sm w-full">Buy Now</button></form>
+                                <form method="POST" action="{{ route('buy-now') }}">@csrf<input type="hidden" name="product_id" value="{{ $product->id }}"><input type="hidden" name="quantity" value="1"><button type="submit" class="btn-primary btn-sm w-full" data-confirm-title="Buy this item now?" data-confirm-message="You will continue to checkout before placing your order." data-confirm-action="Continue to Checkout" data-confirm-cancel="Keep Browsing" data-confirm-type="purchase" data-confirm-summary='@json(["Product"=>$product->name,"Quantity"=>1,"Price"=>"₱".number_format($product->salePrice(),2)])'>Buy Now</button></form>
                             @elseif($canPurchase)
                                 <a href="{{ route('products.show',$product->slug) }}" class="btn-outline btn-sm col-span-2 text-center">Select Options</a>
                             @else
                                 <button type="button" disabled class="btn-outline btn-sm col-span-2 opacity-50">Unavailable</button>
                             @endif
-                            <form method="POST" action="{{ route('wishlist.remove', $item->id) }}" class="col-span-2">@csrf @method('DELETE')<button type="submit" class="w-full rounded-lg px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50">Remove</button></form>
+                            <form method="POST" action="{{ route('wishlist.remove', $item->id) }}" class="col-span-2" data-confirm-title="Remove from wishlist?" data-confirm-message="{{ $product->name }} will be removed from your wishlist." data-confirm-action="Remove" data-confirm-cancel="Keep Item" data-confirm-type="danger">@csrf @method('DELETE')<button type="submit" class="w-full rounded-lg px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50">Remove</button></form>
                         </div>
                     </div>
                 </article>

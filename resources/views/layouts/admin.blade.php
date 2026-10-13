@@ -35,6 +35,7 @@
                     ['admin.logistics.riders.index', 'Riders', 'M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M13 7a4 4 0 11-8 0 4 4 0 018 0z', null],
                     ['admin.promotions.index', 'Promotions', 'M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z', null],
                     ['admin.reports.index', 'Reports', 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v14a2 2 0 01-2 2z', 'reports'],
+                    ['admin.seller-support.index', 'Seller Support', 'M21 15a4 4 0 01-4 4H8l-5 3V7a4 4 0 014-4h10a4 4 0 014 4v8Z', 'seller_support'],
                     ['admin.moderation.index', 'Moderation', 'M9 12l2 2 4-4m5-3a9 9 0 11-16 0', 'moderation'],
                     ['admin.analytics.index', 'Analytics', 'M4 19h16M7 16V8m5 8V4m5 12v-6', null],
                     ['admin.roles.index', 'Roles & Permissions', 'M9 12l2 2 4-4M7.8 4.7a3.4 3.4 0 014.4-.8 3.4 3.4 0 004.4.8', null],

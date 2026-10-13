@@ -24,6 +24,12 @@ class RiderPortal
             && (!$user->registration_status || $user->registration_status === 'approved');
     }
 
+    public static function awaitingReview(User $user): bool
+    {
+        return self::hasRole($user)&&!$user->trashed()&&!$user->getAttribute('archived_at')&&$user->registration_type==='rider'
+            &&in_array($user->registration_status,['pending','rejected','needs_resubmission','incomplete'],true);
+    }
+
     public static function owned(int $id): Builder
     {
         return Shipment::query()->where(fn ($q) => $q->where('pickup_rider_id', $id)->orWhere('rider_id', $id));

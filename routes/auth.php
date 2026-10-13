@@ -20,7 +20,7 @@ Route::middleware('guest')->group(function () {
     Route::get('register/buyer', [RegisterController::class, 'showBuyerRegistrationForm'])->name('register.buyer');
     Route::post('register/buyer', [RegisterController::class, 'register'])->middleware('throttle:10,1')->name('register.submit');
     Route::get('register/rider', [RiderApplicationController::class, 'create'])->name('register.rider');
-    Route::post('register/rider', [RiderApplicationController::class, 'store'])->name('register.rider.submit');
+    Route::post('register/rider', [RiderApplicationController::class, 'store'])->middleware('throttle:10,1')->name('register.rider.submit');
     Route::get('auth/google/redirect', [GoogleAuthController::class, 'redirect'])->name('auth.google.redirect');
     Route::get('auth/google/callback', [GoogleAuthController::class, 'callback'])->name('auth.google.callback');
 

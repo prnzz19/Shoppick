@@ -8,6 +8,8 @@ use App\Models\Report;
 use App\Models\SellerApplication;
 use App\Models\SellerOrder;
 use App\Models\User;
+use App\Models\ChatMessage;
+use App\Models\ChatConversation;
 
 class AdminSidebarCounts
 {
@@ -44,6 +46,11 @@ class AdminSidebarCounts
                 ->whereHas('image')
                 ->distinct('product_id')
                 ->count('product_id'),
+            'seller_support' => ChatMessage::query()
+                ->whereNull('read_at')
+                ->whereHas('conversation', fn ($query) => $query->where('type', ChatConversation::SELLER_ADMIN))
+                ->whereHas('sender.roles', fn ($query) => $query->where('slug', 'seller'))
+                ->count(),
         ];
     }
 }

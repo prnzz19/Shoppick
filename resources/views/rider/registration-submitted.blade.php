@@ -1,0 +1,5 @@
+@extends('layouts.auth')
+@section('title','Rider Registration Submitted')
+@section('auth-card')
+<section class="card w-full max-w-lg p-7 sm:p-10"><p class="text-xs font-bold uppercase tracking-widest text-brand-700">SHOPPICK Rider</p><div class="mt-5 inline-flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-2xl text-brand-700" aria-hidden="true">✓</div><h1 class="mt-5 text-2xl font-black text-navy-900">Registration submitted</h1><p class="mt-3 text-sm leading-7 text-slate-600">Your Rider application has been received and is awaiting review. We'll let you know once your account is approved.</p><div class="mt-5 rounded-xl border border-orange-100 bg-orange-50 p-4 text-sm leading-6 text-navy-800">SHOPPICK Logistics reviews your application and driver’s license before activation. Sign in to check your application status or update requested documents.</div><a href="{{ route('rider.login') }}" class="btn-primary mt-7 min-h-12 w-full">Check Application Status</a><a href="{{ route('rider.login') }}" class="btn-outline mt-3 min-h-11 w-full">Back to Rider Login</a></section>
+@endsection

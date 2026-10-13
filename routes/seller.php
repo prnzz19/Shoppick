@@ -14,6 +14,7 @@ use App\Http\Controllers\Seller\SettingsController;
 use App\Http\Controllers\Seller\CenterController;
 use App\Http\Controllers\SellerApplicationController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\MarketplaceChatController;
 
 Route::middleware(['auth', 'registration.approved', 'role:buyer,seller'])->group(function () {
     Route::get('seller/apply', [SellerApplicationController::class, 'create'])->name('seller.apply');
@@ -21,6 +22,10 @@ Route::middleware(['auth', 'registration.approved', 'role:buyer,seller'])->group
 });
 
 Route::prefix('seller')->name('seller.')->middleware(['auth', 'registration.approved', 'role:seller', \App\Http\Middleware\EnsureApprovedSeller::class])->group(function () {
+    Route::get('chat', [MarketplaceChatController::class,'index'])->name('chat.index');
+    Route::post('chat/support', [MarketplaceChatController::class,'startSupport'])->name('chat.support');
+    Route::get('chat/{conversation}', [MarketplaceChatController::class,'show'])->name('chat.show');
+    Route::post('chat/{conversation}/messages', [MarketplaceChatController::class,'send'])->middleware('throttle:30,1')->name('chat.messages.store');
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::get('products', [CenterController::class, 'products'])->name('products.index');
     Route::get('products/{product}/archived', [ProductController::class, 'showArchived'])->withTrashed()->name('products.archived.show');

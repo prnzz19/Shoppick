@@ -14,7 +14,8 @@ class RiderLoginController extends Controller
 
     public function store(Request $request)
     {
-        $credentials = $request->validate(['email' => 'required|email|max:255', 'password' => 'required|string', 'remember' => 'sometimes|boolean']);
+        if(is_string($request->input('email')))$request->merge(['email'=>mb_strtolower(trim($request->input('email')))]);
+        $credentials = $request->validate(['email' => 'required|string|email|max:255', 'password' => 'required|string', 'remember' => 'sometimes|boolean']);
         $key = 'rider-login:'.hash('sha256', mb_strtolower($credentials['email']).'|'.$request->ip());
         if (RateLimiter::tooManyAttempts($key, 5)) {
             throw ValidationException::withMessages(['email' => 'Too many sign-in attempts. Please try again in '.RateLimiter::availableIn($key).' seconds.']);
@@ -25,8 +26,13 @@ class RiderLoginController extends Controller
             throw ValidationException::withMessages(['email' => 'Unable to sign in with those credentials.']);
         }
         $user = $guard->getLastAttempted();
+        if(RiderPortal::awaitingReview($user)){
+            RateLimiter::clear($key);$guard->login($user,false);$request->session()->regenerate();$request->session()->forget('url.intended');
+            return redirect()->route('rider.application.status');
+        }
         if (!RiderPortal::hasRole($user) || !RiderPortal::active($user)) {
             RateLimiter::hit($key, 60);
+            if(RiderPortal::hasRole($user))return redirect()->route('rider.access-unavailable');
             throw ValidationException::withMessages(['email' => !RiderPortal::hasRole($user)
                 ? 'This account does not have Rider access.'
                 : 'Your Rider account is currently unavailable. Please contact SHOPPICK support.']);

@@ -16,6 +16,10 @@ use App\Http\Controllers\Admin\RoleController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->group(function () {
+    Route::get('seller-support', [\App\Http\Controllers\Admin\SellerSupportController::class,'index'])->name('seller-support.index');
+    Route::get('seller-support/conversations', [\App\Http\Controllers\MarketplaceChatController::class,'index'])->name('seller-support.conversations');
+    Route::get('seller-support/{conversation}', [\App\Http\Controllers\MarketplaceChatController::class,'show'])->name('seller-support.show');
+    Route::post('seller-support/{conversation}/messages', [\App\Http\Controllers\MarketplaceChatController::class,'send'])->middleware('throttle:30,1')->name('seller-support.messages.store');
     Route::middleware('permission:manage_sellers')->group(function () {
         foreach (['shops' => ['shops', 'shops'], 'applications' => ['sellers/applications', 'sellers.applications'], 'sellers' => ['sellers', 'sellers']] as $entity => [$path, $name]) {
             foreach (['archive', 'restore', 'delete'] as $action) {

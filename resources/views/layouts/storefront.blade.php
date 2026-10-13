@@ -36,7 +36,8 @@
 
     <x-storefront.footer />
 
-    <div id="toast-container" class="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 space-y-2"></div>
+    <div id="toast-container" class="fixed bottom-6 left-1/2 z-[90] w-[min(92vw,26rem)] -translate-x-1/2 space-y-2" aria-live="polite" aria-atomic="true"></div>
+    <x-admin.confirm-modal />
 
     <script>
         window.APP_ROUTES = {
@@ -47,6 +48,9 @@
             if (toast) showToast(toast, 'success');
         });
     </script>
+    @auth
+        @if(auth()->user()->hasRole('buyer'))<x-marketplace-chat mode="buyer" />@endif
+    @endauth
     @stack('scripts')
 </body>
 </html>

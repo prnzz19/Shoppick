@@ -71,10 +71,10 @@ class RiderPortalTest extends TestCase
         foreach(['suspended','disabled','archived'] as $status) {
             $rider=$this->rider();$rider->riderProfile->update(['account_status'=>$status]);
             $this->actingAs($rider)->get(route('rider.dashboard'))->assertForbidden();
-            Auth::logout();$this->post(route('rider.login.submit'),['email'=>$rider->email,'password'=>'password'])->assertSessionHasErrors('email');$this->assertGuest();
+            Auth::logout();$this->post(route('rider.login.submit'),['email'=>$rider->email,'password'=>'password'])->assertRedirect(route('rider.access-unavailable'));$this->assertGuest();
         }
         $rider=$this->rider(['is_active'=>false]);$this->actingAs($rider)->get(route('rider.profile'))->assertForbidden();
-        $rider=$this->rider(['registration_status'=>'pending']);$this->actingAs($rider)->get(route('rider.dashboard'))->assertRedirect(route('login'));
+        $rider=$this->rider(['registration_status'=>'pending']);$this->actingAs($rider)->get(route('rider.dashboard'))->assertRedirect(route('rider.application.status'));
         $rider=$this->rider();$rider->delete();Auth::logout();
         $this->post(route('rider.login.submit'),['email'=>$rider->email,'password'=>'password'])->assertSessionHasErrors(['email'=>'Unable to sign in with those credentials.']);
     }
