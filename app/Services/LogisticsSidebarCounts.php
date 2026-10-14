@@ -32,9 +32,9 @@ class LogisticsSidebarCounts
             'sorting' => (int) ($shipmentCounts->sorting ?? 0),
             'delivery_assignment' => (int) ($shipmentCounts->delivery_assignment ?? 0),
             'delivery_monitoring' => (int) ($shipmentCounts->delivery_monitoring ?? 0),
-            'rider_attention' => RiderProfile::whereHas('user',fn($q)=>$q->where(fn($u)=>$u->where('registration_status','approved')->orWhereNull('registration_status')))->where(fn($q)=>$q->whereIn('driver_license_status',['pending_review','rejected'])->orWhereDate('driver_license_expires_at','<=',now()->addDays(config('riders.license_expiry_warning_days',30))))->count(),
-            'rider_applications' => RiderProfile::whereHas('user',fn($q)=>$q->where('registration_type','rider')->whereIn('registration_status',['pending','needs_resubmission']))->count(),
-            'pending_riders' => RiderProfile::whereHas('user',fn($q)=>$q->where('registration_type','rider')->whereIn('registration_status',['pending','needs_resubmission']))->count(),
+            'rider_attention' => RiderProfile::where('logistics_user_id',$user->id)->whereHas('user',fn($q)=>$q->where(fn($u)=>$u->where('registration_status','approved')->orWhereNull('registration_status')))->where(fn($q)=>$q->whereIn('driver_license_status',['pending_review','rejected'])->orWhereDate('driver_license_expires_at','<=',now()->addDays(config('riders.license_expiry_warning_days',30))))->count(),
+            'rider_applications' => 0,
+            'pending_riders' => RiderProfile::where('logistics_user_id',$user->id)->where('account_status','pending_activation')->count(),
             'unread_messages' => $user->notificationsData()->unread()->count(),
         ];
     }

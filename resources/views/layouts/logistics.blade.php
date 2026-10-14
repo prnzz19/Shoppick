@@ -17,7 +17,6 @@
         ],
         'People' => [
             ['logistics.riders', 'Riders / Couriers', 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z', 'rider_attention'],
-            ['logistics.rider-applications', 'Rider Applications', 'M12 3 4 7v11h16V7l-8-4Zm-3 8h6m-6 4h6', 'rider_applications'],
         ],
         'Management' => [
             ['logistics.sorting-reports', 'Reports', 'M4 19V9m6 10V5m6 14v-7m4 7H2', null],
@@ -61,7 +60,7 @@
             <div class="hidden text-right sm:block"><b>{{ auth()->user()->name }}</b><small>Operations Manager</small></div><div class="avatar">{{ strtoupper(substr(auth()->user()->name, 0, 1)) }}</div>
         </div>
     </header>
-    <section class="logistics-content">@if(session('success'))<div class="alert-success mb-4">{{ session('success') }}</div>@endif @if($errors->any())<div class="alert-error mb-4">{{ $errors->first() }}</div>@endif @yield('content')</section>
+    <section class="logistics-content">@if(session('success'))<div class="alert-success mb-4">{{ session('success') }}</div>@endif @if(session('warning'))<div class="alert-error mb-4">{{ session('warning') }}</div>@endif @if($errors->any())<div class="alert-error mb-4">{{ $errors->first() }}</div>@endif @yield('content')</section>
 </main>
 <x-admin.confirm-modal/>@stack('scripts')
 </body>

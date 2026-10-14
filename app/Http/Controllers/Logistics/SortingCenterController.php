@@ -13,7 +13,7 @@ class SortingCenterController extends Controller
     public function pickupRequests(Request $request)
     {
         $shipments = $this->parcels($request, ['ready_for_pickup', 'pickup_assigned', 'pickup_accepted', 'picked_up']);
-        $riders = $this->availableRiders();
+        $riders = $this->availableRiders($request->user());
         return view('logistics.pickup-requests', compact('shipments', 'riders'));
     }
 
@@ -81,7 +81,8 @@ class SortingCenterController extends Controller
     {
         $shipments = $this->parcels($request, ['sorted', 'assigned_to_rider']);
         $areas = DeliveryArea::with(['riders.user'])->where('is_active', true)->orderBy('name')->get();
-        $riderProfiles = RiderProfile::with(['user','deliveryAreas'])->assignmentEligible()->get();
+        $riderProfiles = RiderProfile::with(['user','deliveryAreas'])->where('logistics_user_id',$request->user()->id)->assignmentEligible()->get();
+        $areas->each(fn($area)=>$area->setRelation('riders',$area->riders->where('logistics_user_id',$request->user()->id)->values()));
         return view('logistics.delivery-assignment', compact('shipments', 'areas', 'riderProfiles'));
     }
 
@@ -120,6 +121,7 @@ class SortingCenterController extends Controller
 
     public function syncRiderAreas(Request $request, RiderProfile $rider)
     {
+        abort_unless($rider->logistics_user_id===$request->user()->id,404);
         $data = $request->validate(['delivery_area_ids'=>'nullable|array','delivery_area_ids.*'=>'exists:delivery_areas,id']);
         $rider->deliveryAreas()->sync($data['delivery_area_ids'] ?? []);
         return back()->with('success', 'Rider Delivery Areas updated.');
@@ -137,9 +139,9 @@ class SortingCenterController extends Controller
             })->latest('updated_at')->paginate(20)->withQueryString();
     }
 
-    private function availableRiders()
+    private function availableRiders(User $owner)
     {
         return User::with('riderProfile')->where('is_active', true)->whereHas('roles', fn($q)=>$q->where('slug','rider'))
-            ->whereHas('riderProfile', fn($q)=>$q->assignmentEligible())->orderBy('name')->get();
+            ->whereHas('riderProfile', fn($q)=>$q->where('logistics_user_id',$owner->id)->assignmentEligible())->orderBy('name')->get();
     }
 }

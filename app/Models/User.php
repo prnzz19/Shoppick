@@ -99,6 +99,7 @@ class User extends Authenticatable
     public function sellerProfile() { return $this->hasOne(SellerProfile::class); }
     public function store() { return $this->hasOne(Store::class); }
     public function riderProfile() { return $this->hasOne(RiderProfile::class); }
+    public function managedRiders() { return $this->hasMany(RiderProfile::class, 'logistics_user_id'); }
     public function riderMessages() { return $this->hasMany(RiderMessage::class, 'rider_id'); }
     public function assignedShipments() { return $this->hasMany(Shipment::class, 'rider_id'); }
     public function reportedCases() { return $this->hasMany(Report::class, 'reporter_id'); }

@@ -1,9 +1,11 @@
 <?php
-use App\Http\Controllers\Rider\{RiderController, RiderLoginController};use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Rider\{RiderActivationController, RiderController, RiderLoginController};use Illuminate\Support\Facades\Route;
+Route::get('rider/activate/{token}',[RiderActivationController::class,'show'])->name('rider.activation.show')->middleware('guest');
+Route::post('rider/activate/{token}',[RiderActivationController::class,'activate'])->name('rider.activation.complete')->middleware(['guest','throttle:10,1']);
 Route::prefix('rider')->name('rider.')->middleware('guest')->group(function () {
- Route::get('register',[\App\Http\Controllers\Auth\RiderApplicationController::class,'create'])->name('register');
- Route::post('register',[\App\Http\Controllers\Auth\RiderApplicationController::class,'store'])->middleware('throttle:10,1')->name('register.submit');
- Route::get('register/submitted',[\App\Http\Controllers\Auth\RiderApplicationController::class,'submitted'])->name('register.submitted');
+ Route::get('register',fn()=>redirect()->route('rider.login')->with('info','Rider accounts are created by an approved Logistics provider.'))->name('register');
+ Route::post('register',fn()=>abort(410,'Rider accounts are created by an approved Logistics provider.'))->middleware('throttle:10,1')->name('register.submit');
+ Route::get('register/submitted',fn()=>redirect()->route('rider.login'))->name('register.submitted');
  Route::get('account-unavailable',fn()=>view('rider.account-unavailable'))->name('access-unavailable');
  Route::get('login', [RiderLoginController::class, 'create'])->name('login');
  Route::post('login', [RiderLoginController::class, 'store'])->middleware('throttle:20,1')->name('login.submit');

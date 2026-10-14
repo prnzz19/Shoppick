@@ -107,7 +107,7 @@ class AdminLogisticsMonitoringTest extends TestCase
         $delivery = $this->user('rider');
         foreach ([$pickup, $delivery] as $rider) {
             \App\Models\RiderProfile::create([
-                'user_id' => $rider->id, 'account_status' => 'active', 'availability' => 'available',
+                'user_id' => $rider->id, 'logistics_user_id' => $logistics->id, 'account_status' => 'active', 'availability' => 'available',
                 'driver_license_number' => 'TEST-'.$rider->id, 'driver_license_classification' => 'Test',
                 'driver_license_expires_at' => now()->addYear(), 'driver_license_status' => 'verified',
                 'driver_license_front_path' => 'test/front.jpg', 'driver_license_back_path' => 'test/back.jpg',
