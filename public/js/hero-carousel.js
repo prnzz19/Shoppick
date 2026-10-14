@@ -1,38 +1,47 @@
 (() => {
- window.shoppickHeroCleanup?.();
- const root=document.querySelector('#hero-carousel'); if(!root)return;
- const title=root.querySelector('#hero-title'), description=root.querySelector('#hero-description'), img=root.querySelector('.sp-lifestyle-hero img');
- const slides = [
- ['Find Your Next Favorite Pick.', 'Amazing products from trusted sellers, all in one place.', 'Original campaign model in a beige trench coat, straw hat and sunglasses, looking over her shoulder'],
- ['Better Picks for Everyday Life.', 'Find useful products, fresh finds, and everyday favorites from shops across SHOPPICK.', 'A shopper using a phone beside a tumbler and headphones'],
- ['Little Finds. Better Days.', 'Sometimes the right find can make your everyday routine a little easier, better, and more enjoyable.', 'A shopper holding a delivery parcel in a welcoming home']
- ];
+    const root = document.querySelector('[data-hero-carousel]');
+    if (!root) return;
+    window.shoppickHeroCleanup?.();
 
- const urls=slides.map((_,i)=>new URL(i===0?'campaign-model-original.jpg':'lifestyle-slide-'+(i+1)+'.jpg',img.src).href);
- const motion=matchMedia('(prefers-reduced-motion: reduce)'), events=new AbortController();
- let index=0, timer, disposed=false, pressed=false, changing=false;
- const animated=[title,description,img];
- function update(next){index=(next+3)%3;title.textContent=slides[index][0];description.textContent=slides[index][1];img.src=urls[index];img.alt=slides[index][2];root.dataset.slide=index;}
- async function rotate(){
-  if(disposed||changing||pressed||document.hidden)return;
-  if(!root.isConnected){cleanup();return;}
-  changing=true;
-  if(!motion.matches){await Promise.all(animated.map(e=>e.animate([{opacity:1},{opacity:0}],{duration:300,fill:'forwards'}).finished.catch(()=>{})));}
-  if(disposed)return;
-  update(index+1);
-  animated.forEach(e=>{e.getAnimations().forEach(a=>a.cancel());if(!motion.matches)e.animate([{opacity:0},{opacity:1}],{duration:300});});
-  changing=false;
- }
- function start(){clearInterval(timer);if(!disposed&&!document.hidden)timer=setInterval(rotate,10000);}
- function cleanup(){disposed=true;clearInterval(timer);events.abort();animated.forEach(e=>e.getAnimations().forEach(a=>a.cancel()));}
- window.shoppickHeroCleanup=cleanup;
- root.addEventListener('pointerdown',()=>pressed=true,{signal:events.signal});
- window.addEventListener('pointerup',()=>pressed=false,{signal:events.signal});
- window.addEventListener('pointercancel',()=>pressed=false,{signal:events.signal});
- document.addEventListener('visibilitychange',start,{signal:events.signal});
- window.addEventListener('pagehide',()=>clearInterval(timer),{signal:events.signal});
- window.addEventListener('pageshow',start,{signal:events.signal});
- update(0);start();
- const preload=()=>urls.forEach(url=>{if(url!==img.src){const photo=new Image();photo.src=url;}});
- if(document.readyState==='complete')preload();else window.addEventListener('load',preload,{once:true,signal:events.signal});
+    const slides = [...root.querySelectorAll('[data-hero-slide]')];
+    const dots = [...root.querySelectorAll('[data-hero-dot]')];
+    if (slides.length !== 3) return;
+
+    let index = 0;
+    let timer = null;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    const render = (nextIndex) => {
+        index = (nextIndex + slides.length) % slides.length;
+        slides.forEach((slide, i) => {
+            const active = i === index;
+            slide.classList.toggle('is-active', active);
+            slide.setAttribute('aria-hidden', active ? 'false' : 'true');
+        });
+        dots.forEach((dot, i) => {
+            const active = i === index;
+            dot.classList.toggle('is-active', active);
+            dot.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+    };
+
+    const stop = () => { if (timer) { window.clearInterval(timer); timer = null; } };
+    const start = () => {
+        stop();
+        if (reducedMotion.matches) return;
+        timer = window.setInterval(() => render(index + 1), 6000);
+    };
+    const restart = () => { start(); };
+
+    dots.forEach((dot) => dot.addEventListener('click', () => { render(Number(dot.dataset.heroDot)); restart(); }));
+    const visibilityHandler = () => { document.hidden ? stop() : start(); };
+    document.addEventListener('visibilitychange', visibilityHandler);
+    reducedMotion.addEventListener?.('change', () => { render(0); start(); });
+
+    window.shoppickHeroCleanup = () => {
+        stop();
+        document.removeEventListener('visibilitychange', visibilityHandler);
+    };
+    render(0);
+    start();
 })();

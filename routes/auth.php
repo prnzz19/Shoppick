@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
     Route::get('login', [LoginController::class, 'showLoginForm'])->name('login');
+    Route::get('seller/login', fn () => redirect()->route('login', ['role' => 'seller']))->name('seller.login');
+    Route::get('logistics/login', fn () => redirect()->route('login', ['role' => 'logistics']))->name('logistics.login');
     Route::post('login', [LoginController::class, 'login'])->name('login.submit');
 
     Route::get('register', [RegisterController::class, 'showRegistrationForm'])->name('register');

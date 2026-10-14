@@ -1,10 +1,20 @@
-<footer class="sp-footer"><div class="sp-wrap">
-<div class="sp-footer-intro"><div><a class="sp-brand" href="{{ route('landing') }}" aria-label="SHOPPICK home"><x-shoppick.logo/><span><span class="sp-word-shop">SHOP</span><span class="sp-word-pick">PICK</span></span></a><p class="sp-footer-tagline">Shop Easy. Pick Smart.<br>Find products from different shops in one easy place.</p></div><a class="sp-button sp-button-light" href="{{ route('home') }}">Shop the Marketplace &rarr;</a></div>
-<div class="sp-footer-grid">
-<div><h2>Shop</h2><a href="{{ route('home') }}">Shop Now</a><a href="#categories">Categories</a><a href="{{ route('cart.index') }}">View Cart</a></div>
-<div><h2>Account</h2><a href="{{ route('login') }}">Log In</a><a href="{{ route('register') }}">Create Account</a><a href="{{ route('orders.index') }}">My Orders</a></div>
-<div><h2>Sell with Us</h2><a href="{{ (auth()->check() ? auth()->user()->sellerAction()['url'] : route('seller.apply')) }}">{{ auth()->check() ? auth()->user()->sellerAction()['label'] : 'Become a Seller' }}</a></div>
-<div><h2>Delivery</h2><a href="{{ route('register.rider') }}">Apply as Rider</a></div>
-<div><h2>Help &amp; About</h2><a href="#contact">Contact</a><a href="#why">About SHOPPICK</a></div>
-</div><div id="contact" class="sp-contact-note"><strong>Contact information</strong><p>A public SHOPPICK support contact has not been provided yet. Visit individual shop pages for any available business information.</p></div><div class="sp-footer-bottom">&copy; {{ date('Y') }} SHOPPICK. All rights reserved.</div>
-</div></footer>
+<footer class="sp-footer">
+    <div class="sp-frame">
+        <div class="sp-footer-intro">
+            <a class="sp-brand" href="{{ route('landing') }}" aria-label="SHOPPICK home">
+                <x-shoppick.logo class="sp-brand-mark"/>
+                <span><span class="sp-word-shop">SHOP</span><span class="sp-word-pick">PICK</span></span>
+            </a>
+            <p class="sp-footer-tagline">Shop easy. Pick smart.<br>Great products from trusted sellers, all for you.</p>
+            <a class="sp-button sp-button-outline" href="{{ route('home') }}">Start shopping <span aria-hidden="true">&rarr;</span></a>
+        </div>
+        <div class="sp-footer-grid">
+            <div><h2>Shop</h2><a href="{{ route('home') }}">All Products</a><a href="#categories">Categories</a><a href="#recommended">Collections</a><a href="{{ route('products.index', ['sort' => 'latest']) }}">New arrivals</a></div>
+            <div><h2>Help</h2><a href="{{ route('orders.index') }}">How to Order</a><a href="{{ route('login') }}">My Account</a><a href="#contact">Contact SHOPPICK</a></div>
+            <div><h2>Company</h2><a href="{{ route('landing') }}">About SHOPPICK</a><a href="{{ route('seller.apply') }}">Become a Seller</a><a href="{{ route('register.rider') }}">Deliver with Us</a></div>
+            <div><h2>Follow</h2><a href="{{ route('login') }}">Wishlist</a><a href="{{ route('login') }}">Sign in</a><a href="{{ route('register') }}">Create account</a></div>
+        </div>
+        <div id="contact" class="sp-contact-note">Questions about an order? Sign in to reach the right SHOPPICK support team.</div>
+        <div class="sp-footer-bottom">&copy; {{ date('Y') }} SHOPPICK. All rights reserved.</div>
+    </div>
+</footer>

@@ -5,7 +5,7 @@
     $imagePath = $product->main_image;
 @endphp
 
-<article class="sp-product-card">
+<article class="sp-product-card sp-reveal">
     <div class="sp-product-media">
         <a class="sp-product-image-link" href="{{ route('products.show', $product->slug) }}" aria-label="View {{ $product->name }}">
             @if($imagePath)
@@ -27,15 +27,15 @@
             <span>{{ $product->category?->name ?? 'SHOPPICK pick' }}</span>
             @if($product->store)<a href="{{ route('shops.show', $product->store->slug) }}">{{ $product->store->name }}</a>@endif
         </div>
-        <a class="sp-product-name" href="{{ route('products.show', $product->slug) }}">{{ $product->name }}</a>
+        <a class="sp-product-name" href="{{ route('products.show', $product->slug) }}" title="{{ $product->name }}">{{ $product->name }}</a>
         @if($product->rating_count > 0)
             <div class="sp-product-rating" aria-label="{{ number_format($product->rating_avg, 1) }} out of 5 from {{ number_format($product->rating_count) }} ratings">
-                <span aria-hidden="true">★★★★★</span><small>{{ number_format($product->rating_avg, 1) }} ({{ number_format($product->rating_count) }})</small>
+                <span aria-hidden="true">&#9733;&#9733;&#9733;&#9733;&#9733;</span><small>{{ number_format($product->rating_avg, 1) }} ({{ number_format($product->rating_count) }})</small>
             </div>
         @endif
         <div class="sp-product-price-row">
-            <strong>₱{{ number_format($product->salePrice(), 2) }}</strong>
-            @if($product->hasDiscount())<del>₱{{ number_format($product->originalPrice(), 2) }}</del>@endif
+            <strong>&#8369;{{ number_format($product->salePrice(), 2) }}</strong>
+            @if($product->hasDiscount())<del>&#8369;{{ number_format($product->originalPrice(), 2) }}</del>@endif
         </div>
         <div class="sp-product-actions">
             <button type="button" class="sp-card-action sp-card-action-cart" onclick="quickAdd(event)" data-product-id="{{ $product->id }}" @disabled($product->isOutOfStock())>Add to Cart</button>
