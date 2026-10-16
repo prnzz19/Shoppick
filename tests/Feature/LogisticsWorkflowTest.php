@@ -51,7 +51,10 @@ class LogisticsWorkflowTest extends TestCase
         $logistics=User::factory()->create(['is_active'=>true]);$logistics->assignRole('logistics');
         $rider=User::factory()->create(['is_active'=>true]);$rider->assignRole('rider');$this->licensedProfile($rider);
         $vehicle=Vehicle::create(['code'=>'MOTO-001','type'=>'motorcycle','status'=>'available']);
+        $rider->riderProfile->update(['logistics_user_id'=>$logistics->id]);
         app(ShipmentService::class)->assign($shipment,$logistics,$rider,$vehicle);
+        $otherLogistics=User::factory()->create(['is_active'=>true]);$otherLogistics->assignRole('logistics');
+        try{app(ShipmentService::class)->assign($shipment->fresh(),$otherLogistics,$rider);$this->fail('A different Logistics provider assigned an unowned Rider.');}catch(\Illuminate\Validation\ValidationException $exception){$this->assertArrayHasKey('rider_id',$exception->errors());}
         $assignment=$shipment->fresh()->assignments()->firstOrFail();
         $this->assertSame($rider->id,$shipment->fresh()->rider_id);$this->assertSame('in_use',$vehicle->fresh()->status);
         $this->assertSame('ready_to_ship',$order->fresh()->status,'Assignment must not appear shipped to the Buyer.');
@@ -102,17 +105,17 @@ class LogisticsWorkflowTest extends TestCase
         $buyer=User::factory()->create(['is_active'=>true]);$buyer->assignRole('buyer');$this->actingAs($buyer)->get(route('logistics.dashboard'))->assertForbidden();
     }
 
-    public function test_logistics_creates_a_structured_active_rider_without_public_registration():void
+    public function test_logistics_creates_a_structured_pending_rider_without_public_registration():void
     {
         Storage::fake('local');
         $logistics=User::factory()->create(['is_active'=>true]);$logistics->assignRole('logistics');
-        $payload=['first_name'=>'Juan','middle_initial'=>'D','last_name'=>'Rider','sex'=>'male','birthday'=>'1995-06-15','email'=>'juan.rider@example.test','phone'=>'09171234567','password'=>'SecurePass123!','password_confirmation'=>'SecurePass123!','address_line'=>'12 Rider Street','region'=>'Region IV-A (CALABARZON)','region_code'=>'0400000000','province'=>'Laguna','province_code'=>'0434000000','city'=>'Cavinti','city_code'=>'0434060000','barangay'=>'Mahipon','barangay_code'=>'0434060150','postal_code'=>'4013','driver_license_number'=>'N01-23-456789','driver_license_classification'=>'Verified test classification','driver_license_expires_at'=>now()->addYear()->format('Y-m-d'),'driver_license_front'=>UploadedFile::fake()->create('license-front.pdf',20,'application/pdf'),'driver_license_back'=>UploadedFile::fake()->create('license-back.pdf',20,'application/pdf'),'age'=>'99'];
+        $payload=['first_name'=>'Juan','middle_initial'=>'D','last_name'=>'Rider','birthday'=>'1995-06-15','email'=>'juan.rider@example.test','phone'=>'09171234567','driver_license_number'=>'N01-23-456789','driver_license_expires_at'=>now()->addYear()->format('Y-m-d'),'vehicle_type'=>'Motorcycle','plate_number'=>'ABC1234','driver_license'=>UploadedFile::fake()->create('license.pdf',20,'application/pdf'),'or_cr'=>UploadedFile::fake()->create('or-cr.pdf',20,'application/pdf')];
         $this->actingAs($logistics)->post(route('logistics.riders.store'),$payload)->assertSessionHasNoErrors();
         $rider=User::where('email',$payload['email'])->firstOrFail();
-        $this->assertTrue($rider->hasRole('rider'));$this->assertSame(31,$rider->age);$this->assertSame('active',$rider->riderProfile->account_status);$this->assertSame('unavailable',$rider->riderProfile->availability);$this->assertSame('pending_review',$rider->riderProfile->driver_license_status);$this->assertSame('Mahipon',$rider->defaultAddress()->barangay);
+        $this->assertTrue($rider->hasRole('rider'));$this->assertSame(31,$rider->age);$this->assertFalse($rider->is_active);$this->assertSame('pending_activation',$rider->riderProfile->account_status);$this->assertSame($logistics->id,$rider->riderProfile->logistics_user_id);$this->assertSame('unavailable',$rider->riderProfile->availability);$this->assertSame('pending_review',$rider->riderProfile->driver_license_status);$this->assertNull($rider->defaultAddress());
         $this->post(route('logout'))->assertRedirect();
-        $this->post(route('login'),['email'=>$payload['email'],'password'=>$payload['password']])->assertRedirect(route('rider.dashboard'));
-        $this->get(route('logistics.dashboard'))->assertForbidden();$this->get(route('admin.dashboard'))->assertForbidden();$this->get(route('seller.dashboard'))->assertForbidden();
+        $this->post(route('rider.login.submit'),['email'=>$payload['email'],'password'=>'unconfigured'])->assertSessionHasErrors('email');
+        $this->assertGuest();
         $this->post(route('logout'))->assertRedirect();$this->get(route('register'))->assertOk()->assertDontSee('Register as Rider');
     }
 
@@ -129,8 +132,8 @@ class LogisticsWorkflowTest extends TestCase
         OrderItem::create(['order_id'=>$order->id,'seller_order_id'=>$sellerOrder->id,'product_id'=>$product->id,'product_name'=>$product->name,'price'=>100,'quantity'=>1,'subtotal'=>100,'total'=>100]);
         $shipment=app(ShipmentService::class)->createForSellerOrder($sellerOrder,$seller);
         $logistics=User::factory()->create(['is_active'=>true]);$logistics->assignRole('logistics');
-        $pickup=User::factory()->create(['is_active'=>true]);$pickup->assignRole('rider');$this->licensedProfile($pickup);
-        $delivery=User::factory()->create(['is_active'=>true]);$delivery->assignRole('rider');$deliveryProfile=$this->licensedProfile($delivery);
+        $pickup=User::factory()->create(['is_active'=>true]);$pickup->assignRole('rider');$this->licensedProfile($pickup)->update(['logistics_user_id'=>$logistics->id]);
+        $delivery=User::factory()->create(['is_active'=>true]);$delivery->assignRole('rider');$deliveryProfile=$this->licensedProfile($delivery);$deliveryProfile->update(['logistics_user_id'=>$logistics->id]);
         $area=\App\Models\DeliveryArea::create(['code'=>'CAL-REAL','name'=>'Calamba - Real','province'=>'Laguna','municipality'=>'Calamba','barangays'=>['Real']]);$deliveryProfile->deliveryAreas()->attach($area);
         $flow=app(\App\Services\ParcelWorkflowService::class);
         $sidebar=app(\App\Services\LogisticsSidebarCounts::class);
@@ -155,7 +158,7 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertSame(0,$sidebar->for($logistics)['delivery_monitoring']);
         $pendingRider=User::factory()->create(['is_active'=>false,'registration_type'=>'rider','registration_status'=>'pending']);$pendingRider->assignRole('rider');RiderProfile::create(['user_id'=>$pendingRider->id,'account_status'=>'inactive','availability'=>'unavailable']);
         \App\Services\NotificationService::send($logistics->id,'Unread logistics message','A new operational message is waiting.');
-        $this->assertSame(1,$sidebar->for($logistics)['pending_riders']);$this->assertSame(1,$sidebar->for($logistics)['unread_messages']);
+        $this->assertSame(0,$sidebar->for($logistics)['pending_riders']);$this->assertSame(1,$sidebar->for($logistics)['unread_messages']);
         $shipment->refresh();$this->assertSame('delivered',$shipment->status);$this->assertSame($pickup->id,$shipment->pickup_rider_id);$this->assertSame($delivery->id,$shipment->rider_id);$this->assertSame($area->id,$shipment->delivery_area_id);$this->assertNotNull($shipment->received_at);$this->assertNotNull($shipment->sorted_at);$this->assertSame('delivered',$order->fresh()->status);
         $this->actingAs($logistics)->get(route('logistics.tracking',['shipment'=>$shipment->id]))->assertOk()->assertSee('✓ Pickup Accepted')->assertSee($pickup->name)->assertSee($delivery->name)->assertSee('View Parcel')->assertSee('Completed')->assertDontSee('Current Hub')->assertDontSee('POD Status');
         $this->actingAs($buyer)->post(route('orders.confirm',$order->order_number))->assertSessionHasNoErrors();
@@ -215,7 +218,7 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertSame(1,Shipment::where('seller_order_id',$sellerOrder->id)->count());
         $juan=User::where('email','rider.juan@shoppick.test')->firstOrFail();$vehicle=Vehicle::where('code','MOTO-001')->firstOrFail();
         $this->post(route('logistics.shipments.assign',$created),['rider_id'=>$juan->id,'vehicle_id'=>$vehicle->id])->assertSessionHasErrors('rider_id');
-        $backup=User::factory()->create(['is_active'=>true]);$backup->assignRole('rider');$this->licensedProfile($backup);
+        $backup=User::factory()->create(['is_active'=>true]);$backup->assignRole('rider');$this->licensedProfile($backup)->update(['logistics_user_id'=>$logistics->id]);
         $this->post(route('logistics.shipments.assign',$created),['rider_id'=>$backup->id])->assertSessionHasNoErrors();
         $this->assertSame($backup->id,$created->fresh()->rider_id);
         $this->post(route('logistics.quick.invoice'),['shipment_id'=>$created->id])->assertRedirect();

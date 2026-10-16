@@ -19,6 +19,9 @@ class EnsureRegistrationApproved
             return $next($request);
         }
 
+        if (! $user->trashed() && \App\Support\BuyerIdentity::needsVerification($user)) {
+            return redirect()->route('buyer.verification');
+        }
         if ($user->trashed() || (! $user->is_active && $user->registration_status !== 'incomplete')) {
             Auth::logout();
             $request->session()->invalidate();

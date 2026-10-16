@@ -43,9 +43,9 @@ class LogisticsDemoSeeder extends Seeder
                 'maintenance' => LogisticsHub::updateOrCreate(['code' => 'DEMO-MAINTENANCE'], ['name' => 'Maintenance Hub', 'address' => 'Laguna Operations Area', 'capacity' => 40, 'status' => 'maintenance', 'notes' => 'DEMO ONLY — temporarily under maintenance']),
             ];
             $riders = [
-                'juan' => $this->rider('Rider Juan', 'rider.juan@shoppick.test', $hubs['santa_cruz'], 'available', 4.80),
-                'maria' => $this->rider('Rider Maria', 'rider.maria@shoppick.test', $hubs['cavinti'], 'on_delivery', 4.70),
-                'carlo' => $this->rider('Rider Carlo', 'rider.carlo@shoppick.test', $hubs['cavinti'], 'assigned', 4.50),
+                'juan' => $this->rider('Rider Juan', 'rider.juan@shoppick.test', $hubs['santa_cruz'], 'available', 4.80, $logistics),
+                'maria' => $this->rider('Rider Maria', 'rider.maria@shoppick.test', $hubs['cavinti'], 'on_delivery', 4.70, $logistics),
+                'carlo' => $this->rider('Rider Carlo', 'rider.carlo@shoppick.test', $hubs['cavinti'], 'assigned', 4.50, $logistics),
             ];
             $vehicles = [
                 'moto1' => Vehicle::updateOrCreate(['code' => 'MOTO-001'], ['plate_number' => 'DEMO-M001', 'type' => 'motorcycle', 'make' => 'SHOPPICK Demo', 'model' => 'Courier Moto', 'year' => 2025, 'hub_id' => $hubs['santa_cruz']->id, 'status' => 'available', 'maintenance_due_at' => now()->addMonths(3), 'notes' => 'DEMO ONLY — maintenance good']),
@@ -106,10 +106,10 @@ class LogisticsDemoSeeder extends Seeder
         return $user;
     }
 
-    private function rider(string $name, string $email, LogisticsHub $hub, string $availability, float $rating): User
+    private function rider(string $name, string $email, LogisticsHub $hub, string $availability, float $rating, User $owner): User
     {
         $user = $this->user($name, $email, 'rider');
-        RiderProfile::updateOrCreate(['user_id' => $user->id], ['hub_id' => $hub->id, 'account_status' => 'active', 'availability' => $availability, 'rating' => $rating, 'notes' => 'DEMO ONLY', 'driver_license_number' => 'DEMO-LIC-'.$user->id, 'driver_license_classification' => 'Demo verified classification', 'driver_license_expires_at' => now()->addYears(2), 'driver_license_front_path' => 'rider-documents/licenses/demo-front-'.$user->id.'.txt', 'driver_license_back_path' => 'rider-documents/licenses/demo-back-'.$user->id.'.txt', 'driver_license_status' => 'verified', 'driver_license_reviewed_at' => now()]);
+        RiderProfile::updateOrCreate(['user_id' => $user->id], ['logistics_user_id' => $owner->id, 'hub_id' => $hub->id, 'account_status' => 'active', 'availability' => $availability, 'rating' => $rating, 'notes' => 'DEMO ONLY', 'driver_license_number' => 'DEMO-LIC-'.$user->id, 'driver_license_classification' => 'Demo verified classification', 'driver_license_expires_at' => now()->addYears(2), 'driver_license_front_path' => 'rider-documents/licenses/demo-front-'.$user->id.'.txt', 'driver_license_back_path' => 'rider-documents/licenses/demo-back-'.$user->id.'.txt', 'driver_license_status' => 'verified', 'driver_license_reviewed_at' => now()]);
         Storage::disk('local')->put('rider-documents/licenses/demo-front-'.$user->id.'.txt', 'DEMO ONLY');
         Storage::disk('local')->put('rider-documents/licenses/demo-back-'.$user->id.'.txt', 'DEMO ONLY');
 

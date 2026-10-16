@@ -160,11 +160,11 @@ class PhilippineLocationResilienceTest extends TestCase
     public function test_registration_normalizes_names_and_keeps_personal_validation(): void
     {
         $this->provider();
-        Storage::fake('local');
+        Storage::fake('local'); \Illuminate\Support\Facades\Mail::fake();
         Role::create(['name' => 'Buyer', 'slug' => 'buyer', 'guard_name' => 'web']);
-        $payload = $this->address() + ['first_name' => 'Yuan', 'last_name' => 'Test', 'sex' => 'male', 'birthday' => '2000-01-01', 'email' => 'yuan-address@example.test', 'phone' => '09171234567', 'country' => 'PH', 'terms' => '1', 'password' => 'password', 'password_confirmation' => 'password', 'valid_id' => UploadedFile::fake()->create('id.pdf', 10, 'application/pdf')];
+        $payload = $this->address() + ['first_name' => 'Yuan', 'last_name' => 'Test', 'sex' => 'male', 'birthday' => '2000-01-01', 'email' => 'yuan-address@example.test', 'phone' => '09171234567', 'country' => 'PH', 'terms' => '1', 'password' => 'Buyer@2026', 'password_confirmation' => 'Buyer@2026', 'valid_id' => UploadedFile::fake()->create('id.pdf', 10, 'application/pdf')];
         $this->post(route('register.submit'), array_replace($payload, ['phone' => 'invalid']))->assertSessionHasErrors('phone');
-        $this->post(route('register.submit'), $payload)->assertRedirect(route('login'))->assertSessionHasNoErrors();
+        $this->post(route('register.submit'), $payload)->assertRedirect(route('buyer.verification'))->assertSessionHasNoErrors();
         $this->assertDatabaseHas('addresses', ['province' => 'Laguna', 'barangay' => 'Bubukal', 'postal_code' => '4009']);
     }
 

@@ -6,6 +6,10 @@ import './philippine-locations';
 import './birthday-age';
 import './admin-sellers';
 import './admin-sales-reports';
+import './rider-portal';
+import './rider-registration';
+import './marketplace-chat';
+import './buyer-auth';
 import './admin-analytics';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -24,16 +28,19 @@ function setupConfirmModal() {
     const icon = modal.querySelector('[data-confirm-icon]');
     const cancel = modal.querySelector('[data-confirm-cancel]');
     const submit = modal.querySelector('[data-confirm-submit]');
+    const summary = modal.querySelector('[data-confirm-summary]');
     const reasonWrap = modal.querySelector('[data-confirm-reason-wrap]');
     const reason = modal.querySelector('#shoppick-confirm-reason');
     const reasonError = modal.querySelector('[data-confirm-reason-error]');
     let targetForm = null;
     let trigger = null;
+    let confirmLabel = 'Confirm';
 
     const styles = {
         success: ['bg-brand-600 hover:bg-brand-700', 'border-brand-400 bg-brand-50 text-brand-600', '✓'],
         warning: ['bg-accent-500 hover:bg-accent-600', 'border-accent-400 bg-accent-50 text-accent-500', '!'],
         danger: ['bg-rose-600 hover:bg-rose-700', 'border-rose-400 bg-rose-50 text-rose-600', '!'],
+        purchase: ['bg-brand-600 hover:bg-brand-700', 'border-accent-400 bg-accent-50 text-accent-600', '✓'],
     };
 
     function closeModal() {
@@ -41,21 +48,41 @@ function setupConfirmModal() {
         panel.classList.remove('scale-100', 'opacity-100');
         setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('flex'); }, 180);
         document.body.style.overflow = '';
+        summary.innerHTML = '';
+        summary.classList.add('hidden');
+        submit.disabled = false;
         targetForm = null;
         trigger?.focus();
     }
 
     document.addEventListener('submit', (event) => {
-        const form = event.target.closest('form[data-confirm-title]');
+        const form = event.target.closest('form');
+        const submitter = event.submitter;
         if (!form || form.dataset.confirmed === 'true') return;
+        if (form.matches('[data-product-action]') && form.dataset.requiresVariant === 'true' && !form.elements.product_variant_id?.value) {
+            event.preventDefault();
+            const types = [...form.querySelectorAll('.label')].map(label => label.textContent.trim().toLowerCase()).filter(Boolean).join(' and ');
+            window.showToast(`Please select ${types || 'a product option'} first.`, 'error');
+            form.querySelector('[data-variant-id]')?.focus();
+            return;
+        }
+        if (form.matches('[data-checkout-confirm]')) {
+            if (!form.elements.address_id?.value) { event.preventDefault(); window.showToast('Please select a delivery address before placing your order.', 'error'); return; }
+            if (!form.elements.payment_method?.value) { event.preventDefault(); window.showToast('Please select a payment method.', 'error'); return; }
+        }
+        const confirmTitle = submitter?.dataset.confirmTitle || form.dataset.confirmTitle;
+        if (!confirmTitle) return;
         event.preventDefault();
         targetForm = form;
-        trigger = event.submitter || document.activeElement;
-        const type = form.dataset.confirmType || 'warning';
+        trigger = submitter || document.activeElement;
+        const source = submitter?.dataset.confirmTitle ? submitter : form;
+        const type = source.dataset.confirmType || form.dataset.confirmType || 'warning';
         const style = styles[type] || styles.warning;
-        title.textContent = form.dataset.confirmTitle;
-        message.textContent = form.dataset.confirmMessage || '';
-        submit.textContent = form.dataset.confirmAction || 'Confirm';
+        title.textContent = confirmTitle;
+        message.textContent = source.dataset.confirmMessage || form.dataset.confirmMessage || '';
+        confirmLabel = source.dataset.confirmAction || form.dataset.confirmAction || 'Confirm';
+        submit.textContent = confirmLabel;
+        cancel.textContent = source.dataset.confirmCancel || form.dataset.confirmCancel || 'Cancel';
         submit.className = `min-w-32 rounded-xl px-5 py-2.5 text-sm font-bold text-white shadow-sm transition ${style[0]}`;
         icon.className = `mx-auto flex h-20 w-20 items-center justify-center rounded-full border-2 text-3xl font-black ${style[1]}`;
         icon.textContent = style[2];
@@ -63,6 +90,19 @@ function setupConfirmModal() {
         reasonWrap.classList.toggle('hidden', !needsReason);
         reason.value = '';
         reasonError.classList.add('hidden');
+        let details = {};
+        try { details = JSON.parse(source.dataset.confirmSummary || form.dataset.confirmSummary || '{}'); } catch { details = {}; }
+        if (form.matches('[data-product-action]')) {
+            details = { Product: form.dataset.productName, Variant: form.querySelector('[data-variant-id].border-brand-400')?.textContent.trim() || 'Standard', Quantity: form.elements.quantity?.value || '1', Price: form.dataset.productPrice };
+        }
+        if (form.matches('[data-checkout-confirm]')) {
+            const address = form.querySelector('input[name="address-radio"]:checked')?.closest('label')?.querySelector('[data-address-summary]')?.dataset.addressSummary;
+            const payment = form.querySelector('input[name="payment-radio"]:checked')?.closest('label')?.querySelector('[data-payment-label]')?.textContent.trim();
+            details = { ...details, Payment: payment || form.elements.payment_method.value, 'Deliver to': address || 'Selected delivery address' };
+        }
+        summary.innerHTML = '';
+        Object.entries(details).forEach(([key, value]) => { const row=document.createElement('div');row.className='flex justify-between gap-4 border-b border-slate-200 py-2 last:border-0';const dt=document.createElement('dt');dt.className='text-slate-500';dt.textContent=key;const dd=document.createElement('dd');dd.className='max-w-[65%] text-right font-semibold text-navy-800';dd.textContent=String(value);row.append(dt,dd);summary.appendChild(row); });
+        summary.classList.toggle('hidden', !Object.keys(details).length);
         modal.classList.remove('hidden');
         modal.classList.add('flex');
         document.body.style.overflow = 'hidden';
@@ -85,12 +125,22 @@ function setupConfirmModal() {
             if (!input) { input = document.createElement('input'); input.type = 'hidden'; input.name = 'reason'; targetForm.appendChild(input); }
             input.value = reason.value.trim();
         }
+        submit.disabled = true;
+        submit.textContent = targetForm.matches('[data-checkout-confirm]') ? 'Placing Order…' : 'Processing…';
         targetForm.dataset.confirmed = 'true';
         targetForm.requestSubmit();
     });
     cancel.addEventListener('click', closeModal);
     modal.addEventListener('click', (event) => { if (event.target === modal && targetForm?.dataset.confirmReason !== 'true') closeModal(); });
     document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !modal.classList.contains('hidden')) closeModal(); });
+    modal.addEventListener('keydown', (event) => {
+        if (event.key !== 'Tab') return;
+        const focusable=[...modal.querySelectorAll('button:not([disabled]),textarea:not([disabled])')].filter(el=>!el.closest('.hidden'));
+        if (!focusable.length) return;
+        const first=focusable[0],last=focusable.at(-1);
+        if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+        else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+    });
 }
 
 function setupGlobalState() {

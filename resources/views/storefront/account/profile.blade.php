@@ -44,10 +44,13 @@
             <div>
                 <label class="label">Email</label>
                 <input type="email" name="email" value="{{ old('email', auth()->user()->email) }}" class="input">
+                @if($user->buyer_web_email)<p class="mt-1 text-xs text-slate-500">Changing your email requires verification with a new code.</p>@endif
+                @error('email')<p class="mt-1 text-xs text-rose-700">{{ $message }}</p>@enderror
             </div>
             <div>
                 <label class="label">Phone</label>
                 <input type="text" name="phone" value="{{ old('phone', auth()->user()->phone) }}" class="input">
+                @error('phone')<p class="mt-1 text-xs text-rose-700">{{ $message }}</p>@enderror
             </div>
             <div>
                 <label class="label">Member Since</label>

@@ -21,7 +21,7 @@ class AdminModerationDynamicSellerWorkflowTest extends TestCase
     {
         Storage::fake('public');
         Storage::fake('local');
-        Queue::fake();
+        Queue::fake(); \Illuminate\Support\Facades\Mail::fake();
         config(['services.image_moderation.queued' => true]);
         $this->seed(RolesAndPermissionsSeeder::class);
         $admin = User::factory()->create(['is_active' => true]);
@@ -69,13 +69,15 @@ class AdminModerationDynamicSellerWorkflowTest extends TestCase
         $this->post(route('register.submit'), [
             'first_name' => 'Dynamic', 'last_name' => "Seller {$label}", 'sex' => 'male', 'birthday' => '1995-01-01',
             'email' => $email, 'phone' => $suffix === 'one' ? '09171234561' : '09171234562',
-            'password' => 'password', 'password_confirmation' => 'password', 'address_line' => '1 Seller Street',
+            'password' => 'Buyer@2026', 'password_confirmation' => 'Buyer@2026', 'address_line' => '1 Seller Street',
             'region' => 'Region IV-A (CALABARZON)', 'barangay' => 'Bubukal', 'city' => 'Santa Cruz', 'province' => 'Laguna', 'postal_code' => '1000',
             'country' => 'PH', 'store_name' => "Dynamic Shop {$label}", 'store_description' => 'A legitimate test marketplace shop.',
             'category_id' => $category->id, 'valid_id' => UploadedFile::fake()->create("seller-{$suffix}-id.jpg", 100, 'image/jpeg'),
             'business_permit' => UploadedFile::fake()->create("seller-{$suffix}-permit.pdf", 100, 'application/pdf'),
             'same_address' => '1', 'seller_terms' => '1', 'terms'=>'1',
-        ])->assertSessionHasNoErrors()->assertRedirect(route('login'));
+        ])->assertSessionHasNoErrors()->assertRedirect(route('buyer.verification'));
+
+        $this->post(route('buyer.verification.verify'), ['code'=>\Illuminate\Support\Facades\Mail::sent(\App\Mail\BuyerVerificationCode::class)->last()->code])->assertRedirect(route('home'));
 
         $seller = User::where('email', $email)->firstOrFail();
         $this->assertTrue($seller->is_active);$this->assertSame('approved',$seller->registration_status);

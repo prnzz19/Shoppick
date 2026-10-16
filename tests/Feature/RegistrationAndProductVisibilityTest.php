@@ -33,24 +33,25 @@ class RegistrationAndProductVisibilityTest extends TestCase
             Role::create(['name'=>$name,'slug'=>$slug,'guard_name'=>'web']);
         }
         Storage::fake('local');
+        Mail::fake();
     }
 
     public function test_registration_requires_mobile_and_address_then_creates_default_address(): void
     {
-        $base = ['first_name'=>'New','last_name'=>'Buyer','sex'=>'female','birthday'=>'2004-08-15','email'=>'new@buyer.test','password'=>'password','password_confirmation'=>'password','terms'=>'1'];
+        $base = ['first_name'=>'New','last_name'=>'Buyer','sex'=>'female','birthday'=>'2004-08-15','email'=>'new@buyer.test','password'=>'Buyer@2026','password_confirmation'=>'Buyer@2026','terms'=>'1'];
         $this->post(route('register.submit'), $base)
             ->assertSessionHasErrors(['phone','address_line','barangay','city','province','postal_code']);
 
         $this->post(route('register.submit'), $base + [
-            'phone'=>'0917 123 4567','address_line'=>'12 Market Street',
+            'phone'=>'09171234567','address_line'=>'12 Market Street',
             'region'=>'Region IV-A (CALABARZON)','city'=>'Santa Cruz','province'=>'Laguna','barangay'=>'Bubukal','postal_code'=>'1000','country'=>'PH',
             'valid_id'=>UploadedFile::fake()->create('buyer-id.jpg',100,'image/jpeg'),
-        ])->assertRedirect(route('login'));
+        ])->assertRedirect(route('buyer.verification'));
 
         $user = User::where('email', 'new@buyer.test')->firstOrFail();
         $this->assertSame('+639171234567', $user->phone);
         $this->assertTrue($user->isBuyer());
-        $this->assertSame('approved',$user->registration_status);$this->assertTrue($user->is_active);
+        $this->assertSame('unverified',$user->registration_status);$this->assertFalse($user->is_active);
         $this->assertDatabaseHas('addresses', ['user_id'=>$user->id,'is_default'=>true,'country'=>'PH']);
     }
 
@@ -217,9 +218,9 @@ class RegistrationAndProductVisibilityTest extends TestCase
 
         $this->post(route('profile.complete.update'), [
             'first_name'=>'Google','last_name'=>'Buyer','sex'=>'female','birthday'=>'2004-08-15','valid_id'=>UploadedFile::fake()->create('google-id.jpg',100,'image/jpeg'),
-            'phone'=>'09171234567','address_line'=>'1 Google Street',
+            'terms'=>'1','phone'=>'09171234567','address_line'=>'1 Google Street',
             'region'=>'Region IV-A (CALABARZON)','city'=>'Santa Cruz','province'=>'Laguna','barangay'=>'Bubukal','postal_code'=>'1000','country'=>'PH',
-        ])->assertRedirect(route('login'));
+        ])->assertRedirect(route('home'));
         $this->assertTrue($user->fresh()->hasCompleteBuyerProfile());
         $this->assertSame('approved',$user->fresh()->registration_status);$this->assertTrue($user->fresh()->is_active);
     }

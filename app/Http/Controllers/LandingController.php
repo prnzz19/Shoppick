@@ -30,10 +30,26 @@ class LandingController extends Controller
             ->get();
 
         $categories = Category::active()
+            ->whereNull('parent_id')
             ->withCount(['products' => fn ($query) => $query->active()->inStock()])
             ->orderBy('sort_order')
             ->orderBy('name')
+            ->limit(12)
             ->get();
+
+        // One eager-loaded image-bearing product gives category cards a real
+        // storefront visual without adding a homepage-specific image table.
+        $categoryProducts = Product::active()
+            ->inStock()
+            ->whereIn('category_id', $categories->modelKeys())
+            ->with('images')
+            ->latest()
+            ->get()
+            ->groupBy('category_id');
+
+        $categories->each(function (Category $category) use ($categoryProducts): void {
+            $category->setRelation('landingProduct', $categoryProducts->get($category->id)?->first());
+        });
 
         $featuredCategories = $categories
             ->filter(fn (Category $category) => $category->products_count > 0)
@@ -48,6 +64,18 @@ class LandingController extends Controller
             ->orderBy('name')
             ->limit(4)
             ->get();
+
+        $collectionProducts = Product::active()
+            ->inStock()
+            ->whereIn('category_id', $collectionCategories->modelKeys())
+            ->with('images')
+            ->latest()
+            ->get()
+            ->groupBy('category_id');
+
+        $collectionCategories->each(function (Category $category) use ($collectionProducts): void {
+            $category->setRelation('landingProduct', $collectionProducts->get($category->id)?->first());
+        });
 
         return view('landing', [
             'picks' => $picks,

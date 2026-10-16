@@ -48,12 +48,13 @@ class ShipmentService
 
     public function assign(Shipment $shipment,User $actor,User $rider,?Vehicle $vehicle=null,?string $reason=null): Shipment
     {
-        abort_unless($actor->hasRole('logistics')&&$actor->hasPermissionTo('assign_shipments'),403);
+        abort_unless($actor->hasRole('logistics')&&$actor->is_active&&in_array($actor->registration_status,['approved',null],true)&&$actor->hasPermissionTo('assign_shipments'),403);
         return DB::transaction(function()use($shipment,$actor,$rider,$vehicle,$reason){
             $shipment=Shipment::whereKey($shipment->id)->lockForUpdate()->firstOrFail();
             $profile=$rider->riderProfile()->lockForUpdate()->first();
             if(!$rider->hasRole('rider')||!$rider->is_active||!$profile||!$profile->isAssignmentEligible())
                 throw ValidationException::withMessages(['rider_id'=>'This Rider is not assignment-eligible. Check account, availability, and verified Driver license validity.']);
+            if($profile->logistics_user_id!==$actor->id)throw ValidationException::withMessages(['rider_id'=>'You can only assign a Rider managed by your Logistics account.']);
             $conflict=Shipment::whereKeyNot($shipment->id)->where(fn($q)=>$q->where('pickup_rider_id',$rider->id)->orWhere('rider_id',$rider->id))->whereNotIn('status',['delivered','returned','completed'])->exists();
             if($conflict)throw ValidationException::withMessages(['rider_id'=>'This Rider already has an active assignment.']);
             if($vehicle){$vehicle=Vehicle::whereKey($vehicle->id)->lockForUpdate()->firstOrFail();if($vehicle->status!=='available')throw ValidationException::withMessages(['vehicle_id'=>'This Vehicle is not available.']);}

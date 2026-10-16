@@ -3,44 +3,32 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Models\{RiderProfile, User};
-use App\Services\NotificationService;
-use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\{DB, Hash};
-use Illuminate\Validation\Rules\Password;
+use Illuminate\Support\Facades\DB;
 
 class RiderApplicationController extends Controller
 {
     public function create() { return view('auth.register-rider'); }
 
-    public function store(Request $request)
+    public function store(\App\Http\Requests\RiderWebsiteRegistrationRequest $request, \App\Services\RiderWebsiteRegistration $service)
     {
-        $request->request->remove('age');
-        $request->merge(['driver_license_number'=>strtoupper(trim((string)$request->driver_license_number))]);
-        $max=config('riders.document_max_kilobytes',5120);
-        $data=$request->validate($this->rules($max)+[
-            'password'=>['required','confirmed',Password::defaults()],
-            'valid_id'=>"required|file|mimes:pdf,jpg,jpeg,png|max:$max",
-            'driver_license_front'=>"required|file|mimes:pdf,jpg,jpeg,png|max:$max",
-            'driver_license_back'=>"required|file|mimes:pdf,jpg,jpeg,png|max:$max",
-            'terms'=>'accepted',
-        ]);
-
-        $user=DB::transaction(function()use($request,$data){
-            $name=trim($data['first_name'].' '.(($data['middle_initial']??null)?$data['middle_initial'].'. ':'').$data['last_name']);
-            $user=User::create(['name'=>$name,'first_name'=>$data['first_name'],'middle_initial'=>$data['middle_initial']??null,'last_name'=>$data['last_name'],'sex'=>$data['sex'],'birthday'=>$data['birthday'],'email'=>strtolower($data['email']),'phone'=>$data['phone'],'valid_id_path'=>$request->file('valid_id')->store('rider-documents/valid-ids','local'),'registration_type'=>'rider','registration_status'=>'pending','password'=>Hash::make($data['password']),'is_active'=>false]);
-            $user->assignRole('rider');
-            $user->addresses()->create(['full_name'=>$name,'phone'=>$data['phone'],'address_line'=>$data['address_line'],'region'=>$data['region']??null,'region_code'=>$data['region_code']??null,'province'=>$data['province']??'','province_code'=>$data['province_code']??null,'city'=>$data['city'],'city_code'=>$data['city_code']??null,'barangay'=>$data['barangay'],'barangay_code'=>$data['barangay_code']??null,'postal_code'=>$data['postal_code']??'','country'=>'PH','label'=>'Home','is_default'=>true]);
-            $profile=RiderProfile::create(['user_id'=>$user->id,'account_status'=>'inactive','availability'=>'unavailable','vehicle_type'=>$data['preferred_vehicle_type']??null,'emergency_contact_name'=>$data['emergency_contact_name']??null,'emergency_contact_phone'=>$data['emergency_contact_phone']??null,'driver_license_number'=>$data['driver_license_number'],'driver_license_classification'=>$data['driver_license_classification'],'driver_license_expires_at'=>$data['driver_license_expires_at'],'driver_license_front_path'=>$request->file('driver_license_front')->store('rider-documents/licenses','local'),'driver_license_back_path'=>$request->file('driver_license_back')->store('rider-documents/licenses','local'),'driver_license_status'=>'pending_review']);
-            $profile->licenseAudits()->create(['actor_id'=>$user->id,'event'=>'uploaded','status'=>'pending_review','metadata'=>['source'=>'public_application']]);
-            return $user;
-        });
-        event(new Registered($user));
-        User::where('is_active',true)->whereHas('roles',fn($q)=>$q->where('slug','logistics'))->each(fn($manager)=>NotificationService::send($manager->id,'New Rider application received',"{$user->name} is waiting for Logistics review.",'rider_application',route('logistics.rider-applications',['status'=>'pending','view'=>$user->riderProfile->id]),['rider_profile_id'=>$user->riderProfile->id],'user'));
-        return redirect()->route('login')->with('success','Your Rider application has been submitted and is waiting for SHOPPICK Logistics review.');
+        try {
+            $data=app(\App\Services\PhilippineGeographyService::class)->normalizeAddress($request->validated());
+            $service->register($data,$request->only(['valid_id','driver_license_front','driver_license_back']));
+        }
+        catch(\Illuminate\Validation\ValidationException $error){throw $error;}
+        catch(\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $error){return back()->withInput($request->except('password','password_confirmation','valid_id','driver_license_front','driver_license_back'))->withErrors(['region'=>'We could not verify your address right now. Please try again.']);}
+        catch(\Illuminate\Database\UniqueConstraintViolationException $error){throw \Illuminate\Validation\ValidationException::withMessages(['email'=>'An account or Rider application already uses these details. Please sign in or contact SHOPPICK support.']);}
+        catch(\Throwable $error){report($error);return back()->withInput($request->except('password','password_confirmation','valid_id','driver_license_front','driver_license_back'))->withErrors(['email'=>'We could not submit your Rider registration. Please try again.']);}
+        $request->session()->put('rider_registration_submitted',true);
+        return redirect()->route('rider.register.submitted');
     }
 
+    public function submitted(Request $request)
+    {
+        if(!$request->session()->get('rider_registration_submitted'))return redirect()->route('rider.register');
+        return view('rider.registration-submitted');
+    }
     public function status(Request $request)
     {
         abort_unless($request->user()?->registration_type==='rider'&&$request->user()->hasRole('rider'),403);
@@ -58,8 +46,4 @@ class RiderApplicationController extends Controller
         return back()->with('success','Your updated documents were submitted for Logistics review.');
     }
 
-    private function rules(int $max): array
-    {
-        return ['first_name'=>'required|string|max:100','middle_initial'=>'nullable|string|max:5','last_name'=>'required|string|max:100','sex'=>'required|in:male,female','birthday'=>'required|date|before_or_equal:today','email'=>'required|email|unique:users,email','phone'=>'required|string|max:30','address_line'=>'required|string|max:255','region'=>'required|string|max:100','region_code'=>'nullable|string|max:20','province'=>'nullable|string|max:100','province_code'=>'nullable|string|max:20','city'=>'required|string|max:100','city_code'=>'nullable|string|max:20','barangay'=>'required|string|max:100','barangay_code'=>'nullable|string|max:20','postal_code'=>'nullable|string|max:20','emergency_contact_name'=>'nullable|string|max:100','emergency_contact_phone'=>'nullable|string|max:30','preferred_vehicle_type'=>'nullable|in:motorcycle,scooter,car,van','driver_license_number'=>['required','string','min:5','max:80','regex:/^[A-Za-z0-9 .\/-]+$/','unique:rider_profiles,driver_license_number'],'driver_license_classification'=>'required|string|max:100','driver_license_expires_at'=>'required|date'];
-    }
 }

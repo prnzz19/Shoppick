@@ -41,7 +41,7 @@ class ReadyToShipLogisticsTest extends TestCase
         $progress->syncOrder($order);
 
         Role::create(['name'=>'Rider','slug'=>'rider','guard_name'=>'web']);
-        $rider=User::factory()->create(['is_active'=>true]);$rider->assignRole('rider');$this->licensedProfile($rider);
+        $rider=User::factory()->create(['is_active'=>true]);$rider->assignRole('rider');$this->licensedProfile($rider)->update(['logistics_user_id'=>$logistics->id]);
         $workflow=app(\App\Services\ParcelWorkflowService::class);
         $workflow->assignPickup($shipment,$logistics,$rider);
         $this->assertSame('ready_to_ship',$order->fresh()->status);

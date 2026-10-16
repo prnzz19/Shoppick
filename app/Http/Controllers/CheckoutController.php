@@ -9,6 +9,7 @@ use App\Services\OrderService;
 use App\Services\Payment\PaymentService;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class CheckoutController extends Controller
 {
@@ -55,7 +56,9 @@ class CheckoutController extends Controller
             return ['voucher'=>$voucher,'eligible'=>$eligible,'message'=>$message,'applied'=>in_array($voucher->code,$appliedCodes,true),'quote'=>$quote];
         });
 
-        return view('storefront.checkout.index', compact('items', 'totals', 'shipping', 'addresses', 'paymentMethods', 'checkoutMode','computed','voucherOptions','appliedCodes'));
+        $checkoutToken = Str::random(48);
+        session(['checkout_submission_token' => $checkoutToken]);
+        return view('storefront.checkout.index', compact('items', 'totals', 'shipping', 'addresses', 'paymentMethods', 'checkoutMode','computed','voucherOptions','appliedCodes','checkoutToken'));
     }
 
     public function applyVoucher(Request $request)
@@ -105,13 +108,20 @@ class CheckoutController extends Controller
             'voucher_codes.*' => ['string','max:50'],
             'note' => ['nullable', 'string', 'max:500'],
             'checkout_mode' => ['nullable', 'in:cart,buy_now'],
+            'checkout_token' => ['nullable', 'string', 'size:48'],
         ]);
+
+        $sessionToken = (string) $request->session()->get('checkout_submission_token', '');
+        if (isset($validated['checkout_token']) && ($sessionToken === '' || ! hash_equals($sessionToken, $validated['checkout_token']))) {
+            return back()->with('error', 'This checkout was already submitted or has expired. Please review your cart before trying again.');
+        }
 
         // Ensure the address belongs to the authenticated user.
         if (! Address::where('id', $validated['address_id'])->where('user_id', auth()->id())->exists()) {
             return back()->with('error', 'Invalid shipping address.');
         }
 
+        if ($sessionToken !== '') $request->session()->forget('checkout_submission_token');
         try {
             $buyNow = ($validated['checkout_mode'] ?? 'cart') === 'buy_now';
             $items = $buyNow ? collect([$this->buyNowItem(auth()->id())]) : null;
@@ -121,6 +131,7 @@ class CheckoutController extends Controller
             }
             session()->forget('checkout_voucher_codes.'.($buyNow?'buy_now':'cart'));
         } catch (Exception $e) {
+            if ($sessionToken !== '') $request->session()->put('checkout_submission_token', $sessionToken);
             return back()->with('error', $e->getMessage());
         }
 

@@ -3,6 +3,7 @@
         <div data-confirm-icon class="mx-auto flex h-20 w-20 items-center justify-center rounded-full border-2 border-accent-400 bg-accent-50 text-3xl font-black text-accent-500" aria-hidden="true">!</div>
         <h2 id="shoppick-confirm-title" class="mt-5 text-xl font-extrabold text-navy-900 sm:text-2xl"></h2>
         <p id="shoppick-confirm-message" class="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500"></p>
+        <dl data-confirm-summary class="mt-5 hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left text-sm"></dl>
         <div data-confirm-reason-wrap class="mt-5 hidden text-left">
             <label for="shoppick-confirm-reason" class="text-sm font-semibold text-navy-800">Reason <span class="text-rose-500">*</span></label>
             <textarea id="shoppick-confirm-reason" class="input mt-2 min-h-24 w-full" maxlength="1000" placeholder="Enter a clear reason"></textarea>

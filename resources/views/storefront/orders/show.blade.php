@@ -4,6 +4,9 @@
 
 @section('content')
 <div class="mx-auto max-w-4xl px-4 py-6">
+    @foreach($order->sellerOrders as $sellerOrder)
+        <div class="mb-3 flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3 text-sm"><span><b>{{ $sellerOrder->store?->name }}</b> · {{ $sellerOrder->seller_order_number }}</span><button type="button" data-chat-open data-store-id="{{ $sellerOrder->store_id }}" data-seller-order-id="{{ $sellerOrder->id }}" class="btn-outline btn-sm">Message Seller</button></div>
+    @endforeach
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
             <h1 class="text-xl font-bold text-navy-800">Order {{ $order->order_number }}</h1>
@@ -78,7 +81,7 @@
     @if($order->canBeCancelled())
         <div class="card mb-6 flex flex-wrap items-center gap-3 border-rose-100 bg-rose-50/50 p-4">
             <p class="text-sm text-slate-600">You can still cancel this order.</p>
-            <form method="POST" action="{{ route('orders.cancel', $order->order_number) }}" class="ml-auto" onsubmit="return confirm('Cancel this order?')">
+            <form method="POST" action="{{ route('orders.cancel', $order->order_number) }}" class="ml-auto" data-confirm-title="Cancel this order?" data-confirm-message="Order {{ $order->order_number }} will be cancelled. This action may not be reversible." data-confirm-action="Cancel Order" data-confirm-cancel="Keep Order" data-confirm-type="danger">
                 @csrf
                 <input type="hidden" name="reason" value="Cancelled by buyer">
                 <button type="submit" class="btn-danger btn-sm">Cancel Order</button>
@@ -86,7 +89,7 @@
         </div>
     @endif
     @if(in_array($order->status, ['shipped', 'delivered']))
-        <form method="POST" action="{{ route('orders.confirm', $order->order_number) }}" class="card mb-6 flex items-center justify-between gap-3 border-brand-100 bg-brand-50/50 p-4">
+        <form method="POST" action="{{ route('orders.confirm', $order->order_number) }}" class="card mb-6 flex items-center justify-between gap-3 border-brand-100 bg-brand-50/50 p-4" data-confirm-title="Confirm order received?" data-confirm-message="Confirm only after you have received and checked order {{ $order->order_number }}." data-confirm-action="Confirm Received" data-confirm-cancel="Not Yet" data-confirm-type="success">
             @csrf
             <p class="text-sm text-slate-700">Did you receive your order?</p>
             <button type="submit" class="btn-primary btn-sm">Confirm Received</button>

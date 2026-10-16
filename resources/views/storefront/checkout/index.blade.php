@@ -12,8 +12,14 @@
             <a href="{{ route('products.index') }}" class="btn-primary mt-4">Shop Now</a>
         </div>
     @else
-    <form method="POST" action="{{ route('checkout.store') }}" id="checkout-form">
+    @php
+        $shopGroups=$items->groupBy(fn($item)=>$item->product->store_id);
+        $itemCount=$items->sum('quantity');
+        $discountTotal=(float)$computed['voucher_discount']+(float)$computed['shipping_discount'];
+    @endphp
+    <form method="POST" action="{{ route('checkout.store') }}" id="checkout-form" data-checkout-confirm data-confirm-title="Confirm Your Order" data-confirm-message="Please review your order before placing it." data-confirm-action="Place Order" data-confirm-cancel="Review Order" data-confirm-type="purchase" data-confirm-summary='@json(["Items"=>$itemCount,"Shops"=>$shopGroups->count(),"Subtotal"=>"₱".number_format($totals,2),"Shipping"=>$shipping>0?"₱".number_format($shipping,2):"Free","Discount"=>$discountTotal>0?"−₱".number_format($discountTotal,2):"None","Total"=>"₱".number_format($computed["total"],2)])'>
         @csrf
+        <input type="hidden" name="checkout_token" value="{{ $checkoutToken }}">
         <input type="hidden" name="checkout_mode" value="{{ $checkoutMode }}">
         <input type="hidden" name="address_id" id="selected-address" value="{{ $addresses->firstWhere('is_default', true)?->id ?? $addresses->first()?->id ?? '' }}">
         <input type="hidden" name="payment_method" id="selected-payment" value="cod">
@@ -35,7 +41,7 @@
                             @foreach($addresses as $addr)
                                 <label class="relative flex cursor-pointer items-start gap-3 rounded-xl border-2 p-3 {{ $addr->is_default ? 'border-brand-400 bg-brand-50' : 'border-slate-200 hover:border-brand-200' }}" onclick="selectAddress({{ $addr->id }}, this)">
                                     <input type="radio" name="address-radio" class="mt-1 h-4 w-4 text-brand-500" @checked($addr->is_default)>
-                                    <div>
+                                    <div data-address-summary="{{ $addr->full_name }} · {{ $addr->phone }} · {{ $addr->address_line }}, {{ $addr->barangay }}, {{ $addr->city }}, {{ $addr->province }} {{ $addr->postal_code }}">
                                         <p class="text-sm font-semibold text-navy-800">{{ $addr->full_name }} @if($addr->label)<span class="badge bg-brand-100 text-brand-600 ml-1">{{ $addr->label }}</span>@endif</p>
                                         <p class="text-xs text-slate-500">{{ $addr->phone }}</p>
                                         <p class="mt-1 text-xs text-slate-600">{{ $addr->address_line }}, {{ $addr->barangay }}, {{ $addr->city }}, {{ $addr->province }} {{ $addr->postal_code }}</p>
@@ -54,7 +60,7 @@
                         @foreach($paymentMethods as $key => $label)
                             <label class="flex cursor-pointer items-center gap-3 rounded-xl border-2 p-3 border-slate-200 hover:border-brand-200 payment-option" data-method="{{ $key }}" onclick="selectPayment('{{ $key }}', this)">
                                 <input type="radio" name="payment-radio" class="h-4 w-4 text-brand-500" @checked($key === 'cod')>
-                                <span class="text-sm font-semibold text-navy-800">{{ $label }}</span>
+                                <span class="text-sm font-semibold text-navy-800" data-payment-label>{{ $label }}</span>
                             </label>
                         @endforeach
                     </div>

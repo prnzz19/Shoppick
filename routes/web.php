@@ -19,6 +19,7 @@ require __DIR__.'/storefront.php';
 
 // Authenticated buyer routes
 require __DIR__.'/account.php';
+require __DIR__.'/chat.php';
 
 // Authenticated admin panel
 require __DIR__.'/admin.php';
