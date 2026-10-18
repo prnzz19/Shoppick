@@ -31,6 +31,7 @@
                     ['admin.inventory.index', 'Inventory', 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z', 'inventory'],
                     ['admin.orders.index', 'Orders', 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', 'orders'],
                     ['admin.logistics.overview', 'Logistics Overview', 'M4 19h16M7 16V8m5 8V4m5 12v-6', null],
+                    ['admin.logistics.providers.index', 'Logistics Applications', 'M5 13l4 4L19 7', null],
                     ['admin.logistics.deliveries.index', 'Deliveries', 'M3 6h12v11H3zM15 10h4l3 4v3h-7M7 20a2 2 0 100-4 2 2 0 000 4zm11 0a2 2 0 100-4 2 2 0 000 4z', null],
                     ['admin.logistics.riders.index', 'Riders', 'M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M13 7a4 4 0 11-8 0 4 4 0 018 0z', null],
                     ['admin.promotions.index', 'Promotions', 'M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z', null],
