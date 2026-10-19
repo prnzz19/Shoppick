@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 
 class SortingCenterController extends Controller
 {
+    private function providerId(Request $request): int { return $request->attributes->get('logistics_provider')->id; }
+    private function assertOwnedShipment(Request $request, Shipment $shipment): void { abort_unless($shipment->logistics_provider_id === $this->providerId($request), 404); }
     public function account(){return view('logistics.account');}
     public function pickupRequests(Request $request)
     {
@@ -19,6 +21,7 @@ class SortingCenterController extends Controller
 
     public function assignPickup(Request $request, Shipment $shipment, ParcelWorkflowService $workflow)
     {
+        $this->assertOwnedShipment($request, $shipment);
         $data = $request->validate(['rider_id' => 'required|exists:users,id']);
         $workflow->assignPickup($shipment, $request->user(), User::findOrFail($data['rider_id']));
         return back()->with('success', 'Pickup Rider assigned.');
@@ -32,12 +35,14 @@ class SortingCenterController extends Controller
 
     public function receive(Request $request, Shipment $shipment, ParcelWorkflowService $workflow)
     {
+        $this->assertOwnedShipment($request, $shipment);
         $workflow->receive($shipment, $request->user());
         return back()->with('success', 'Parcel received at the Sorting Center.');
     }
 
     public function scan(Request $request, Shipment $shipment, ParcelWorkflowService $workflow)
     {
+        $this->assertOwnedShipment($request, $shipment);
         $data = $request->validate(['parcel_code' => 'required|string|max:100']);
         $workflow->confirmScan($shipment, $request->user(), $data['parcel_code']);
         return back()->with('success', 'Parcel code confirmed.');
@@ -46,7 +51,7 @@ class SortingCenterController extends Controller
     public function sorting(Request $request)
     {
         $shipments = $this->parcels($request, ['at_sorting_center', 'sorted']);
-        $areas = DeliveryArea::orderByDesc('is_active')->orderBy('name')->get();
+        $areas = DeliveryArea::forProvider($this->providerId($request))->orderByDesc('is_active')->orderBy('name')->get();
         $detectedAreas = $shipments->getCollection()->mapWithKeys(function($shipment) use ($areas) {
             $province = strtolower((string)data_get($shipment->delivery_address,'province'));
             $municipality = strtolower((string)(data_get($shipment->delivery_address,'municipality') ?: data_get($shipment->delivery_address,'city')));
@@ -66,23 +71,25 @@ class SortingCenterController extends Controller
     {
         $data = $request->validate(['code'=>'required|string|max:30|unique:delivery_areas,code','name'=>'required|string|max:100','province'=>'required|string|max:100','municipality'=>'nullable|string|max:100','barangays'=>'nullable|string|max:1000']);
         $data['barangays'] = collect(explode(',', $data['barangays'] ?? ''))->map(fn($v)=>trim($v))->filter()->values()->all();
-        DeliveryArea::create($data);
+        DeliveryArea::create(['logistics_provider_id'=>$this->providerId($request)]+$data);
         return back()->with('success', 'Delivery Area created.');
     }
 
     public function sort(Request $request, Shipment $shipment, ParcelWorkflowService $workflow)
     {
+        $this->assertOwnedShipment($request, $shipment);
         $data = $request->validate(['delivery_area_id' => 'required|exists:delivery_areas,id']);
-        $workflow->sort($shipment, $request->user(), DeliveryArea::findOrFail($data['delivery_area_id']));
+        $workflow->sort($shipment, $request->user(), DeliveryArea::forProvider($this->providerId($request))->findOrFail($data['delivery_area_id']));
         return back()->with('success', 'Parcel sorted into its Delivery Area.');
     }
 
     public function assignments(Request $request)
     {
         $shipments = $this->parcels($request, ['sorted', 'assigned_to_rider']);
-        $areas = DeliveryArea::with(['riders.user'])->where('is_active', true)->orderBy('name')->get();
-        $riderProfiles = RiderProfile::with(['user','deliveryAreas'])->where('logistics_user_id',$request->user()->id)->assignmentEligible()->get();
-        $areas->each(fn($area)=>$area->setRelation('riders',$area->riders->where('logistics_user_id',$request->user()->id)->values()));
+        $providerId=$this->providerId($request);
+        $areas = DeliveryArea::forProvider($providerId)->with(['riders.user'])->where('is_active', true)->orderBy('name')->get();
+        $riderProfiles = RiderProfile::forProvider($providerId)->with(['user','deliveryAreas'])->assignmentEligible()->get();
+        $areas->each(fn($area)=>$area->setRelation('riders',$area->riders->where('logistics_provider_id',$providerId)->values()));
         return view('logistics.delivery-assignment', compact('shipments', 'areas', 'riderProfiles'));
     }
 
@@ -91,7 +98,7 @@ class SortingCenterController extends Controller
         $data = $request->validate(['from'=>'nullable|date','to'=>'nullable|date|after_or_equal:from']);
         $from = isset($data['from']) ? now()->parse($data['from'])->startOfDay() : now()->subDays(29)->startOfDay();
         $to = isset($data['to']) ? now()->parse($data['to'])->endOfDay() : now()->endOfDay();
-        $query = Shipment::with(['deliveryArea','rider'])->whereBetween('updated_at',[$from,$to]);
+        $query = Shipment::forProvider($this->providerId($request))->with(['deliveryArea','rider'])->whereBetween('updated_at',[$from,$to]);
         $parcels = $query->get();
         $metrics = ['Received'=>$parcels->whereNotNull('received_at')->count(),'Sorted'=>$parcels->whereNotNull('sorted_at')->count(),'Assigned'=>$parcels->whereNotNull('delivery_assigned_at')->count(),'Delivered'=>$parcels->whereIn('status',['delivered','completed'])->count(),'Failed'=>$parcels->where('status','delivery_failed')->count(),'Returned'=>$parcels->where('status','returned')->count()];
         $byArea = $parcels->whereNotNull('delivery_area_id')->groupBy('delivery_area_id')->map(fn($set)=>['name'=>$set->first()->deliveryArea?->name,'total'=>$set->count(),'delivered'=>$set->whereIn('status',['delivered','completed'])->count(),'failed'=>$set->whereIn('status',['delivery_failed','returned'])->count()])->values();
@@ -101,6 +108,7 @@ class SortingCenterController extends Controller
 
     public function assignDelivery(Request $request, Shipment $shipment, ParcelWorkflowService $workflow)
     {
+        $this->assertOwnedShipment($request, $shipment);
         $data = $request->validate(['rider_id' => 'required|exists:users,id']);
         $workflow->assignDelivery($shipment, $request->user(), User::findOrFail($data['rider_id']));
         return back()->with('success', 'Delivery Rider assigned.');
@@ -108,12 +116,14 @@ class SortingCenterController extends Controller
 
     public function reschedule(Request $request, Shipment $shipment, ParcelWorkflowService $workflow)
     {
+        $this->assertOwnedShipment($request, $shipment);
         $workflow->reschedule($shipment, $request->user());
         return back()->with('success', 'Delivery rescheduled to the assigned Rider.');
     }
 
     public function markReturned(Request $request, Shipment $shipment, ParcelWorkflowService $workflow)
     {
+        $this->assertOwnedShipment($request, $shipment);
         $data = $request->validate(['reason'=>'required|string|max:500']);
         $workflow->return($shipment, $request->user(), $data['reason']);
         return back()->with('success', 'Parcel marked as returned.');
@@ -121,15 +131,18 @@ class SortingCenterController extends Controller
 
     public function syncRiderAreas(Request $request, RiderProfile $rider)
     {
-        abort_unless($rider->logistics_user_id===$request->user()->id,404);
+        $providerId=$this->providerId($request);
+        abort_unless($rider->logistics_provider_id===$providerId,404);
         $data = $request->validate(['delivery_area_ids'=>'nullable|array','delivery_area_ids.*'=>'exists:delivery_areas,id']);
+        $areaIds=collect($data['delivery_area_ids'] ?? [])->map(fn($id)=>(int)$id)->unique();
+        abort_unless(DeliveryArea::forProvider($providerId)->whereIn('id',$areaIds)->count()===$areaIds->count(),404);
         $rider->deliveryAreas()->sync($data['delivery_area_ids'] ?? []);
         return back()->with('success', 'Rider Delivery Areas updated.');
     }
 
     private function parcels(Request $request, array $statuses)
     {
-        return Shipment::with(['store','order.user','sellerOrder.items','pickupRider.riderProfile','rider.riderProfile','deliveryArea'])
+        return Shipment::forProvider($this->providerId($request))->with(['store','order.user','sellerOrder.items','pickupRider.riderProfile','rider.riderProfile','deliveryArea'])
             ->whereIn('status', $statuses)
             ->when($request->q, function($query, $value) {
                 $query->where(function($query) use ($value) {
@@ -142,6 +155,6 @@ class SortingCenterController extends Controller
     private function availableRiders(User $owner)
     {
         return User::with('riderProfile')->where('is_active', true)->whereHas('roles', fn($q)=>$q->where('slug','rider'))
-            ->whereHas('riderProfile', fn($q)=>$q->where('logistics_user_id',$owner->id)->assignmentEligible())->orderBy('name')->get();
+            ->whereHas('riderProfile', fn($q)=>$q->where('logistics_provider_id',$owner->logisticsProviders()->wherePivot('is_active',true)->value('logistics_providers.id'))->assignmentEligible())->orderBy('name')->get();
     }
 }
