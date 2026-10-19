@@ -16,8 +16,16 @@
         $shopGroups=$items->groupBy(fn($item)=>$item->product->store_id);
         $itemCount=$items->sum('quantity');
         $discountTotal=(float)$computed['voucher_discount']+(float)$computed['shipping_discount'];
+        $checkoutSummary=[
+            'Items'=>$itemCount,
+            'Shops'=>$shopGroups->count(),
+            'Subtotal'=>'₱'.number_format($totals,2),
+            'Shipping'=>$shipping>0?'₱'.number_format($shipping,2):'Free',
+            'Discount'=>$discountTotal>0?'−₱'.number_format($discountTotal,2):'None',
+            'Total'=>'₱'.number_format($computed['total'],2),
+        ];
     @endphp
-    <form method="POST" action="{{ route('checkout.store') }}" id="checkout-form" data-checkout-confirm data-confirm-title="Confirm Your Order" data-confirm-message="Please review your order before placing it." data-confirm-action="Place Order" data-confirm-cancel="Review Order" data-confirm-type="purchase" data-confirm-summary='@json(["Items"=>$itemCount,"Shops"=>$shopGroups->count(),"Subtotal"=>"₱".number_format($totals,2),"Shipping"=>$shipping>0?"₱".number_format($shipping,2):"Free","Discount"=>$discountTotal>0?"−₱".number_format($discountTotal,2):"None","Total"=>"₱".number_format($computed["total"],2)])'>
+    <form method="POST" action="{{ route('checkout.store') }}" id="checkout-form" data-checkout-confirm data-confirm-title="Confirm Your Order" data-confirm-message="Please review your order before placing it." data-confirm-action="Place Order" data-confirm-cancel="Review Order" data-confirm-type="purchase" data-confirm-summary='@json($checkoutSummary)'>
         @csrf
         <input type="hidden" name="checkout_token" value="{{ $checkoutToken }}">
         <input type="hidden" name="checkout_mode" value="{{ $checkoutMode }}">
