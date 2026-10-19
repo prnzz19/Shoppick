@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Address;
 use App\Models\Category;
+use App\Models\LogisticsProvider;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\RiderProfile;
@@ -11,6 +12,7 @@ use App\Models\Role;
 use App\Models\SellerOrder;
 use App\Models\SellerProfile;
 use App\Models\Store;
+use App\Models\SystemSetting;
 use App\Models\User;
 use App\Services\CodCollectionService;
 use App\Services\SellerOrderStatusService;
@@ -27,6 +29,8 @@ class BuyerShoppingWorkflowTest extends TestCase
 
     protected User $seller;
 
+    protected LogisticsProvider $defaultProvider;
+
     protected Store $store;
 
     protected Category $category;
@@ -35,7 +39,7 @@ class BuyerShoppingWorkflowTest extends TestCase
     {
         parent::setUp();
 
-        foreach (['buyer' => 'Buyer', 'seller' => 'Seller'] as $slug => $name) {
+        foreach (['buyer' => 'Buyer', 'seller' => 'Seller', 'logistics' => 'Logistics'] as $slug => $name) {
             Role::create(['name' => $name, 'slug' => $slug, 'guard_name' => 'web']);
         }
 
@@ -43,6 +47,28 @@ class BuyerShoppingWorkflowTest extends TestCase
         $this->buyer->assignRole('buyer');
         $this->seller = User::factory()->create(['is_active' => true]);
         $this->seller->assignRole('seller');
+        $logistics = User::factory()->create([
+            'is_active' => true,
+            'registration_type' => 'logistics',
+            'registration_status' => 'approved',
+        ]);
+        $logistics->assignRole('logistics');
+        $this->defaultProvider = LogisticsProvider::create([
+            'owner_user_id' => $logistics->id,
+            'company_name' => 'SHOPPICK Test Logistics',
+            'status' => 'approved',
+            'is_active' => true,
+        ]);
+        $this->defaultProvider->users()->attach($logistics->id, [
+            'membership_role' => 'owner',
+            'is_active' => true,
+        ]);
+        SystemSetting::create([
+            'key' => 'logistics.default_marketplace_provider_id',
+            'value' => $this->defaultProvider->id,
+            'type' => 'number',
+            'group' => 'logistics',
+        ]);
         $profile = SellerProfile::create(['user_id' => $this->seller->id, 'status' => 'approved']);
         $this->store = Store::create([
             'user_id' => $this->seller->id,
@@ -238,6 +264,10 @@ class BuyerShoppingWorkflowTest extends TestCase
             $sellerOrder->refresh();
             $this->assertSame($status, $sellerOrder->status);
         }
+        $this->assertDatabaseHas('shipments', [
+            'seller_order_id' => $sellerOrder->id,
+            'logistics_provider_id' => $this->defaultProvider->id,
+        ]);
         $this->post(route('seller.orders.status', $sellerOrder), ['status' => 'shipped'])
             ->assertSessionHasErrors('status');
         $this->assertDatabaseHas('order_status_history', [
@@ -337,6 +367,12 @@ class BuyerShoppingWorkflowTest extends TestCase
         $statusService->transition($firstSellerOrder->fresh(), $this->seller, 'packed');
         $statusService->transition($firstSellerOrder->fresh(), $this->seller, 'ready_to_ship');
         $this->assertSame('confirmed', $order->fresh()->status);
+        $this->assertSame($this->defaultProvider->id, $firstSellerOrder->fresh()->shipment->logistics_provider_id);
+        $this->assertNull($secondSellerOrder->fresh()->shipment);
+        foreach (['processing', 'packed', 'ready_to_ship'] as $status) {
+            $statusService->transition($secondSellerOrder->fresh(), $secondSeller, $status);
+        }
+        $this->assertSame($this->defaultProvider->id, $secondSellerOrder->fresh()->shipment->logistics_provider_id);
     }
 
     public function test_cod_stays_pending_until_rider_collection_while_online_payment_settles_at_checkout(): void
@@ -358,10 +394,9 @@ class BuyerShoppingWorkflowTest extends TestCase
         }
         $this->assertSame('pending', $payment->fresh()->status);
         $shipment = $sellerOrder->fresh()->shipment;
+        $this->assertSame($this->defaultProvider->id, $shipment->logistics_provider_id);
         $shipment->update(['status' => 'assigned']);
-        Role::create(['name' => 'Logistics', 'slug' => 'logistics', 'guard_name' => 'web']);
-        $logistics = User::factory()->create(['is_active' => true]);
-        $logistics->assignRole('logistics');
+        $logistics = User::where('registration_type', 'logistics')->firstOrFail();
         app(ShipmentService::class)->transition($shipment->fresh(), $logistics, 'picked_up');
         app(ShipmentService::class)->transition($shipment->fresh(), $logistics, 'in_transit');
         $this->assertSame('pending', $payment->fresh()->status);
@@ -411,5 +446,78 @@ class BuyerShoppingWorkflowTest extends TestCase
             'is_active' => true,
             'moderation_status' => 'clean',
         ]);
+    }
+
+    protected function readySellerOrder(): SellerOrder
+    {
+        $order = Order::create([
+            'user_id' => $this->buyer->id,
+            'order_number' => 'PROVIDER-'.strtoupper(str()->random(8)),
+            'status' => 'ready_to_ship',
+            'payment_method' => 'cod',
+            'payment_status' => 'cod',
+            'subtotal' => 100,
+            'total' => 100,
+            'buyer_name' => $this->buyer->name,
+            'buyer_phone' => '09171234567',
+            'shipping_address' => ['city' => 'Manila'],
+        ]);
+
+        return SellerOrder::create([
+            'order_id' => $order->id,
+            'store_id' => $this->store->id,
+            'seller_order_number' => $order->order_number.'-S1',
+            'status' => 'ready_to_ship',
+            'subtotal' => 100,
+            'seller_total' => 100,
+        ]);
+    }
+
+    protected function assertShipmentBlocked(SellerOrder $sellerOrder): void
+    {
+        try {
+            app(ShipmentService::class)->createForSellerOrder($sellerOrder, $this->seller);
+            $this->fail('Shipment creation should be blocked for an unavailable default provider.');
+        } catch (ValidationException $exception) {
+            $this->assertSame(['LOGISTICS PROVIDER UNAVAILABLE'], $exception->errors()['status']);
+        }
+
+        $this->assertDatabaseCount('shipments', 0);
+        $this->assertSame('ready_to_ship', $sellerOrder->fresh()->status);
+    }
+
+    public function test_missing_default_provider_blocks_shipment_without_partial_records(): void
+    {
+        SystemSetting::where('key', 'logistics.default_marketplace_provider_id')->delete();
+
+        $this->assertShipmentBlocked($this->readySellerOrder());
+    }
+
+    public function test_suspended_default_provider_is_not_replaced_by_another_provider(): void
+    {
+        $this->defaultProvider->update(['status' => 'suspended', 'is_active' => false]);
+        $replacement = LogisticsProvider::create([
+            'owner_user_id' => $this->seller->id,
+            'company_name' => 'Unselected Replacement Provider',
+            'status' => 'approved',
+            'is_active' => true,
+        ]);
+
+        $this->assertShipmentBlocked($this->readySellerOrder());
+        $this->assertDatabaseMissing('shipments', ['logistics_provider_id' => $replacement->id]);
+    }
+
+    public function test_inactive_default_provider_is_not_used(): void
+    {
+        $this->defaultProvider->update(['is_active' => false]);
+
+        $this->assertShipmentBlocked($this->readySellerOrder());
+    }
+
+    public function test_unapproved_default_provider_is_not_used(): void
+    {
+        $this->defaultProvider->update(['status' => 'pending']);
+
+        $this->assertShipmentBlocked($this->readySellerOrder());
     }
 }
