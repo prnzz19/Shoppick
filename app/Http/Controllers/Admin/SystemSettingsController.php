@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AdminActivityLog;
 use App\Services\SystemSettings;
+use App\Models\LogisticsProvider;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{Artisan, Storage};
 use Illuminate\Validation\ValidationException;
@@ -36,6 +37,9 @@ class SystemSettingsController extends Controller
             throw (new ValidationException($validator))->redirectTo(route('admin.settings.index', ['group' => $group]));
         }
         $data = $validator->validated();
+        if ($group === 'logistics' && array_key_exists('default_marketplace_provider_id', $data) && $data['default_marketplace_provider_id'] !== null) {
+            abort_unless(LogisticsProvider::approvedActive()->whereKey((int) $data['default_marketplace_provider_id'])->exists(), 422, 'Select an approved active Logistics Provider.');
+        }
         $newFiles = [];
         $previousFiles = [];
         try {

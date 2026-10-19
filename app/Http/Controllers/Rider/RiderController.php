@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Rider;
 
 use App\Http\Controllers\Controller;
 use App\Models\{NotificationModel, Payment, ProofOfDelivery, RiderMessage, Shipment};
-use App\Services\{CodCollectionService, NotificationService};
+use App\Services\{CodCollectionService, NotificationService, RiderAssignmentDecisionService};
 use App\Services\RiderPortalActionService;
 use App\Support\RiderPortal;
 use Illuminate\Http\Request;
@@ -76,10 +76,10 @@ class RiderController extends Controller
         $profile->update($data);return back()->with('success','Availability updated.');
     }
 
-    public function decline(Request $request,Shipment $shipment)
+    public function decline(Request $request,Shipment $shipment, RiderAssignmentDecisionService $decision)
     {
         $this->authorizeShipment($request,$shipment);$data=$request->validate(['version'=>'nullable|string|size:64','reason'=>'required|in:vehicle_issue,unavailable,emergency,other','details'=>'nullable|required_if:reason,other|string|max:500']);
-        app(RiderPortalActionService::class)->locked($shipment,$request->user(),$request->input('version'),function()use($request,$shipment,$data){$shipment=Shipment::whereKey($shipment->id)->lockForUpdate()->firstOrFail();$pickup=$shipment->pickup_rider_id===$request->user()->id&&$shipment->status==='pickup_assigned';$delivery=$shipment->rider_id===$request->user()->id&&$shipment->status==='assigned_to_rider'&&!$shipment->delivery_accepted_at;if(!$pickup&&!$delivery)throw ValidationException::withMessages(['reason'=>'This assignment can no longer be declined.']);$reason=str($data['reason'])->replace('_',' ')->headline().(isset($data['details'])?': '.$data['details']:'');$shipment->update($pickup?['pickup_rider_id'=>null,'pickup_assigned_by'=>null,'assigned_at'=>null,'status'=>'ready_for_pickup']:['rider_id'=>null,'delivery_assigned_by'=>null,'delivery_assigned_at'=>null,'assigned_at'=>null,'status'=>'sorted']);$shipment->events()->create(['actor_id'=>$request->user()->id,'status'=>'assignment_declined','note'=>$reason]);$request->user()->riderProfile->update(['availability'=>'available']);foreach(\App\Models\User::where('is_active',true)->whereHas('roles',fn($q)=>$q->where('slug','logistics'))->get() as $manager)NotificationService::send($manager->id,'Rider declined assignment',"{$shipment->parcel_code}: {$reason}",'logistics',route($pickup?'logistics.pickup-requests':'logistics.delivery-assignment'),['shipment_id'=>$shipment->id],'package');});
+        $decision->decline($shipment, $request->user(), $data);
         return redirect()->route('rider.jobs')->with('success','Logistics was notified and the Parcel was returned for reassignment.');
     }
 

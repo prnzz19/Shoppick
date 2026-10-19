@@ -202,6 +202,13 @@ return [
 'label' => 'Logistics',
 'description' => 'Account application controls preserve existing Logistics and Rider roles and workflows.',
 'fields' => [
+'default_marketplace_provider_id' => [
+'label' => 'Default Marketplace Logistics Provider ID',
+'type' => 'number',
+'default' => null,
+'rules' => ['nullable', 'integer', 'min:1'],
+'note' => 'Set this to an approved active Provider ID. Seller shipments are blocked safely when it is missing or unavailable; no random fallback is used.'
+],
 'rider_applications' => [
 'label' => 'Rider Applications Enabled',
 'type' => 'boolean',

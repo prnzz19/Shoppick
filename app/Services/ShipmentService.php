@@ -1,9 +1,10 @@
 <?php
 namespace App\Services;
 
-use App\Models\{LogisticsInvoice,SellerOrder,Shipment,User,Vehicle};
+use App\Models\{LogisticsInvoice,LogisticsProvider,SellerOrder,Shipment,User,Vehicle};
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Log;
 
 class ShipmentService
 {
@@ -12,11 +13,14 @@ class ShipmentService
         return DB::transaction(function() use($sellerOrder,$actor){
             $sellerOrder=SellerOrder::with(['order','store'])->whereKey($sellerOrder->id)->lockForUpdate()->firstOrFail();
             if($sellerOrder->status!=='ready_to_ship') throw ValidationException::withMessages(['status'=>'Shipment requires a ready-to-ship Seller Order.']);
+            $provider=$this->defaultMarketplaceProvider();
             $shipment=Shipment::firstOrCreate(['seller_order_id'=>$sellerOrder->id],[
                 'shipment_number'=>Shipment::number(),'parcel_code'=>'PCL-'.strtoupper(substr(uniqid(),-8)),'order_id'=>$sellerOrder->order_id,'store_id'=>$sellerOrder->store_id,
                 'status'=>'ready_for_pickup','pickup_address'=>['address'=>$sellerOrder->store?->location],
                 'delivery_address'=>$sellerOrder->order->shipping_address,'ready_at'=>now(),
+                'logistics_provider_id'=>$provider->id,
             ]);
+            if(!$shipment->logistics_provider_id)$shipment->update(['logistics_provider_id'=>$provider->id]);
 
             $shipment->events()->firstOrCreate(['status'=>'ready_for_pickup'],[
                 'actor_id'=>$actor?->id,'note'=>'Seller Order is ready for Logistics pickup.',
@@ -25,14 +29,29 @@ class ShipmentService
                 'order_id'=>$sellerOrder->order_id,'changed_by'=>$actor?->id,
                 'note'=>'Seller Order entered Logistics as ready for pickup.',
             ]);
-            $this->notifyLogistics($shipment,$sellerOrder);
+            // Dispatch is idempotent: the shipment row lock and assignment type
+            // prevent repeated Seller status hooks from creating duplicates.
+            app(AutomaticRiderAssignmentService::class)->assignPickup($shipment, $provider->id);
+            $this->notifyLogistics($shipment,$sellerOrder,$shipment->logistics_provider_id);
             return $shipment;
         });
     }
 
-    protected function notifyLogistics(Shipment $shipment,SellerOrder $sellerOrder): void
+    protected function defaultMarketplaceProvider(): LogisticsProvider
     {
-        $recipients=User::where('is_active',true)->whereHas('roles',fn($q)=>$q->where('slug','logistics'))->get();
+        $id = app(SystemSettings::class)->get('logistics.default_marketplace_provider_id');
+        $provider = $id ? LogisticsProvider::query()->whereKey((int) $id)->lockForUpdate()->first() : null;
+        if (!$provider || !$provider->isOperational()) {
+            Log::warning('Marketplace shipment blocked because the configured Logistics Provider is unavailable.');
+            throw ValidationException::withMessages(['status' => 'LOGISTICS PROVIDER UNAVAILABLE']);
+        }
+        return $provider;
+    }
+
+    protected function notifyLogistics(Shipment $shipment,SellerOrder $sellerOrder,?int $providerId=null): void
+    {
+        if(!$providerId)return;
+        $recipients=User::where('is_active',true)->whereHas('logisticsProviders',fn($q)=>$q->where('logistics_providers.id',$providerId)->where('logistics_provider_user.is_active',true))->get();
         foreach($recipients as $user){
             if(!$user->hasPermissionTo('view_shipments')) continue;
             $exists=$user->notificationsData()->where('type','logistics_ready_for_pickup')
