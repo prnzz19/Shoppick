@@ -56,9 +56,8 @@ class SellerAuthenticationRequirementsTest extends TestCase
             ->assertSessionHasErrors('store_name');
     }
 
-    public function test_role_specific_login_entry_points_are_available(): void
+    public function test_shared_login_entry_point_is_available(): void
     {
-        $this->get(route('seller.login'))->assertRedirect(route('login', ['role' => 'seller']));
-        $this->get(route('logistics.login'))->assertRedirect(route('login', ['role' => 'logistics']));
+        $this->get(route('login'))->assertOk()->assertSee('Welcome Back!');
     }
 }
