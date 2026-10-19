@@ -64,6 +64,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     // Admin monitoring only: no operational mutations are exposed here.
     Route::prefix('logistics')->name('logistics.')->group(function () {
         Route::get('overview', [\App\Http\Controllers\Admin\LogisticsMonitoringController::class, 'overview'])->name('overview');
+        Route::get('centers', [\App\Http\Controllers\Admin\LogisticsMonitoringController::class, 'centers'])->name('centers.index');
         Route::get('deliveries', [\App\Http\Controllers\Admin\LogisticsMonitoringController::class, 'deliveries'])->name('deliveries.index');
         Route::get('deliveries/{shipment}/proof', [\App\Http\Controllers\Admin\LogisticsMonitoringController::class, 'proof'])->name('deliveries.proof');
         Route::get('deliveries/{shipment}', [\App\Http\Controllers\Admin\LogisticsMonitoringController::class, 'delivery'])->name('deliveries.show');

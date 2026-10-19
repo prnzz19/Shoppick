@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\MobileApiController;
+use App\Http\Controllers\Api\SortingCenterScannerController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->middleware('throttle:120,1')->group(function () {
@@ -13,6 +14,11 @@ Route::prefix('v1')->middleware('throttle:120,1')->group(function () {
     Route::get('home', [MobileApiController::class, 'home']);
     Route::middleware(App\Http\Middleware\AuthenticateMobileToken::class)->group(function () {
         Route::post('logout', [MobileApiController::class, 'logout']);
+        Route::prefix('logistics/sorting-center')->group(function () {
+            Route::get('context', [SortingCenterScannerController::class, 'context'])->name('api.logistics.sorting-center.context');
+            Route::post('scan', [SortingCenterScannerController::class, 'scan'])->name('api.logistics.sorting-center.scan');
+            Route::get('scans', [SortingCenterScannerController::class, 'recent'])->name('api.logistics.sorting-center.scans');
+        });
         Route::get('profile', [MobileApiController::class, 'profile']);
         Route::get('cart', [MobileApiController::class, 'cart']);
         Route::post('cart', [MobileApiController::class, 'addCart']);
