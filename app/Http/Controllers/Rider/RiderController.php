@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Rider;
 
 use App\Http\Controllers\Controller;
 use App\Models\{NotificationModel, Payment, ProofOfDelivery, RiderMessage, Shipment};
-use App\Services\{CodCollectionService, NotificationService, RiderAssignmentDecisionService};
+use App\Services\{CodCollectionService, NotificationService, RiderAssignmentDecisionService, RiderProofOfDeliveryService};
 use App\Services\RiderPortalActionService;
 use App\Support\RiderPortal;
 use Illuminate\Http\Request;
@@ -100,29 +100,11 @@ class RiderController extends Controller
         return back()->with('success','COD collection recorded for Logistics remittance confirmation.');
     }
 
-    public function pod(Request $request,Shipment $shipment,RiderPortalActionService $portal)
+    public function pod(Request $request,Shipment $shipment,RiderPortalActionService $portal, RiderProofOfDeliveryService $proof)
     {
         $this->authorizeShipment($request,$shipment);
         $request->validate(['version'=>'nullable|string|size:64']);
-        $path=null;
-        try {
-            $portal->locked($shipment,$request->user(),$request->input('version'),function($fresh,$user)use($request,$portal,&$path){
-                abort_unless($fresh->rider_id===$user->id,403);
-                if($fresh->status!=='out_for_delivery')$portal->stale();
-                $existing=$fresh->proofOfDelivery;
-                $data=$request->validate(['version'=>'nullable|string|size:64','recipient_name'=>'required|string|max:100','photo'=>[$existing?'nullable':'required','image','mimes:jpg,jpeg,png,webp','max:5120'],'notes'=>'nullable|string|max:1000']);
-                $photo=$request->file('photo');
-                $samePhoto=!$photo||($existing?->photo_path&&Storage::disk('local')->exists($existing->photo_path)
-                    &&hash_file('sha256',$photo->getRealPath())===hash_file('sha256',Storage::disk('local')->path($existing->photo_path)));
-                if($existing&&$samePhoto&&$existing->recipient_name===$data['recipient_name']&&$existing->notes===($data['notes']??null))return;
-                if($photo)$path=$photo->store('pod','local');
-                $pod=ProofOfDelivery::updateOrCreate(['shipment_id'=>$fresh->id],['submitted_by'=>$user->id,'recipient_name'=>$data['recipient_name'],'photo_path'=>$path??$existing?->photo_path,'notes'=>$data['notes']??null,'status'=>'pending','submitted_at'=>now(),'reviewed_by'=>null,'review_notes'=>null,'reviewed_at'=>null]);
-                foreach(\App\Models\User::where('is_active',true)->whereHas('roles',fn($q)=>$q->where('slug','logistics'))->get() as $manager)NotificationService::send($manager->id,'Proof of Delivery submitted.',"{$fresh->shipment_number} requires POD review.",'logistics',route('logistics.pod',['view'=>$pod->id]),['pod_id'=>$pod->id],'package');
-            });
-        } catch (\Throwable $error) {
-            if($path)Storage::disk('local')->delete($path);
-            throw $error;
-        }
+        $proof->submit($request, $shipment, $request->user(), $request->input('version'));
         return back()->with('success','Proof of Delivery submitted. You can now complete the delivery.');
     }
     public function podFile(Request $request,ProofOfDelivery $pod){abort_unless($pod->shipment()->where('rider_id',$request->user()->id)->exists(),403);abort_unless($pod->photo_path&&Storage::disk('local')->exists($pod->photo_path),404);return Storage::disk('local')->download($pod->photo_path);}
