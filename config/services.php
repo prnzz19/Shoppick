@@ -21,6 +21,8 @@ return [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect' => env('GOOGLE_REDIRECT_URI', rtrim(env('APP_URL', 'http://127.0.0.1:8000'), '/').'/auth/google/callback'),
+        'redirect_local' => env('GOOGLE_REDIRECT_URI_LOCAL', rtrim(env('APP_URL', 'http://127.0.0.1:8000'), '/').'/auth/google/callback'),
+        'redirect_production' => env('GOOGLE_REDIRECT_URI_PRODUCTION', env('GOOGLE_REDIRECT_URI')),
     ],
 
     /*

@@ -20,6 +20,10 @@ class GoogleAuthController extends Controller
 {
     public function redirect(Request $request)
     {
+        if (! $this->useTrustedRedirectUri($request)) {
+            return $this->authenticationError('Google sign-in is unavailable for this host.');
+        }
+
         if (! GoogleOAuth::isAvailable()) {
             return redirect()->route('login')->with('google_unavailable', true);
         }
@@ -33,8 +37,12 @@ class GoogleAuthController extends Controller
         }
     }
 
-    public function callback()
+    public function callback(Request $request)
     {
+        if (! $this->useTrustedRedirectUri($request)) {
+            return $this->authenticationError('Google sign-in is unavailable for this host.');
+        }
+
         if (request()->input('error') === 'access_denied') {
             return $this->authenticationError('Google sign-in was cancelled.');
         }
@@ -155,6 +163,23 @@ class GoogleAuthController extends Controller
             Log::warning('Google account sign-in failed.', ['exception_class'=>$error::class]);
             return $this->authenticationError("We couldn't complete Google sign-in. Please try again.");
         }
+    }
+
+    private function useTrustedRedirectUri(Request $request): bool
+    {
+        $redirect = match (strtolower($request->getHost())) {
+            '127.0.0.1', 'localhost' => config('services.google.redirect_local'),
+            'shoppickmarket.shop' => config('services.google.redirect_production'),
+            default => null,
+        };
+
+        if (! is_string($redirect) || trim($redirect) === '') {
+            return false;
+        }
+
+        config(['services.google.redirect' => $redirect]);
+
+        return true;
     }
 
     private function authenticationError(string $message)

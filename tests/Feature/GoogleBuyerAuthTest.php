@@ -18,11 +18,17 @@ class GoogleBuyerAuthTest extends TestCase
     protected function setUp(): void {
         parent::setUp();Storage::fake('local');Mail::fake();
         foreach(['buyer','seller','admin','logistics','rider'] as $role)Role::create(['name'=>$role,'slug'=>$role,'guard_name'=>'web']);
-        config(['services.google.client_id'=>'fake-client','services.google.client_secret'=>'fake-secret','services.google.redirect'=>'http://127.0.0.1:8000/auth/google/callback']);
+        config([
+            'services.google.client_id'=>'fake-client',
+            'services.google.client_secret'=>'fake-secret',
+            'services.google.redirect'=>'http://127.0.0.1:8000/auth/google/callback',
+            'services.google.redirect_local'=>'http://127.0.0.1:8000/auth/google/callback',
+            'services.google.redirect_production'=>'https://shoppickmarket.shop/auth/google/callback',
+        ]);
     }
-    private function provider(string $email='googlebuyer@gmail.com',string $id='google-subject',array $raw=[]): void {
+    private function provider(string $email='googlebuyer@gmail.com',string $id='google-subject',array $raw=[],?string $expectedRedirect=null): void {
         $user=(new GoogleUser)->setRaw(array_replace(['email_verified'=>true,'given_name'=>'Google','family_name'=>'Buyer'],$raw))->map(['id'=>$id,'email'=>$email,'name'=>'Google Buyer']);
-        $provider=Mockery::mock(ProviderInterface::class);$provider->shouldReceive('user')->once()->andReturn($user);Socialite::shouldReceive('driver')->with('google')->once()->andReturn($provider);
+        $provider=Mockery::mock(ProviderInterface::class);$provider->shouldReceive('user')->once()->andReturn($user);Socialite::shouldReceive('driver')->with('google')->once()->andReturnUsing(function () use ($provider,$expectedRedirect) {if($expectedRedirect!==null)$this->assertSame($expectedRedirect,config('services.google.redirect'));return $provider;});
     }
     private function buyer(array $attributes=[]): User {
         $user=User::factory()->create($attributes+['email'=>'googlebuyer@gmail.com','phone'=>'+639171234567','is_active'=>true,'registration_type'=>'buyer','registration_status'=>'approved']);$user->assignRole('buyer');
@@ -30,8 +36,32 @@ class GoogleBuyerAuthTest extends TestCase
     }
     private function profile(): array {return ['first_name'=>'Google','last_name'=>'Buyer','sex'=>'female','birthday'=>'1998-05-14','phone'=>'09171234567','address_line'=>'1 Test Street','region'=>'Region IV-A (CALABARZON)','province'=>'Laguna','city'=>'Santa Cruz','barangay'=>'Bubukal','postal_code'=>'4009','country'=>'PH','terms'=>'1','valid_id'=>UploadedFile::fake()->create('id.pdf',10,'application/pdf')];}
     public function test_real_socialite_redirect_contains_state_and_only_identity_scopes(): void {
-        $response=$this->get(route('auth.google.redirect',['role'=>'admin']))->assertRedirect();parse_str(parse_url($response->headers->get('Location'),PHP_URL_QUERY),$query);
+        $response=$this->get('http://127.0.0.1:8000/auth/google/redirect?role=admin')->assertRedirect();parse_str(parse_url($response->headers->get('Location'),PHP_URL_QUERY),$query);
         $this->assertNotEmpty($query['state']);$this->assertSame(session('state'),$query['state']);$this->assertSame('http://127.0.0.1:8000/auth/google/callback',$query['redirect_uri']);$this->assertEqualsCanonicalizing(['openid','email','profile'],explode(' ',$query['scope']));
+    }
+    public function test_real_socialite_redirect_uses_production_callback_for_production_host(): void {
+        $response=$this->get('https://shoppickmarket.shop/auth/google/redirect')->assertRedirect();parse_str(parse_url($response->headers->get('Location'),PHP_URL_QUERY),$query);
+        $this->assertSame('https://shoppickmarket.shop/auth/google/callback',$query['redirect_uri']);
+    }
+    public function test_callback_uses_local_callback_for_local_host(): void {
+        $user=$this->buyer();$this->provider(expectedRedirect:'http://127.0.0.1:8000/auth/google/callback');
+        $this->get('http://127.0.0.1:8000/auth/google/callback')->assertRedirect('http://127.0.0.1:8000/shop');
+        $this->assertAuthenticatedAs($user);
+    }
+    public function test_callback_uses_local_callback_for_localhost_host(): void {
+        $user=$this->buyer();$this->provider(expectedRedirect:'http://127.0.0.1:8000/auth/google/callback');
+        $this->get('http://localhost/auth/google/callback')->assertRedirect('http://localhost/shop');
+        $this->assertAuthenticatedAs($user);
+    }
+    public function test_callback_uses_production_callback_for_production_host(): void {
+        $user=$this->buyer();$this->provider(expectedRedirect:'https://shoppickmarket.shop/auth/google/callback');
+        $this->get('https://shoppickmarket.shop/auth/google/callback')->assertRedirect('https://shoppickmarket.shop/shop');
+        $this->assertAuthenticatedAs($user);
+    }
+    public function test_google_redirect_rejects_untrusted_host(): void {
+        $this->get('http://attacker.example/auth/google/redirect')
+            ->assertRedirect()
+            ->assertSessionHas('authentication_error','Google sign-in is unavailable for this host.');
     }
     public function test_real_socialite_rejects_mismatched_state_without_http_call(): void {
         Http::preventStrayRequests();$this->withSession(['state'=>'expected'])->get(route('auth.google.callback',['state'=>'wrong','code'=>'fake']))->assertRedirect(route('login'))->assertSessionHas('authentication_error','Your Google sign-in session expired. Please try again.');$this->assertDatabaseCount('users',0);$this->assertGuest();
