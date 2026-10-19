@@ -13,21 +13,32 @@
 <x-rider.registration-field name="email" label="Email Address" type="email" maxlength="255" autocomplete="email" />
 <x-rider.registration-field name="phone" label="Mobile Number" type="tel" autocomplete="tel" help="Use 09XXXXXXXXX or +639XXXXXXXXX." />
 <x-birthday-age-fields :birthday="old('birthday')" />
+<x-rider.registration-field name="profile_photo" label="Profile Photo" type="file" accept="image/jpeg,image/png,image/webp" />
 </div>@if($errors->has('email')||$errors->has('phone'))<p class="mt-3 text-xs leading-5 text-slate-600">Already have a SHOPPICK account? <a href="{{ route('rider.login') }}" class="font-semibold text-brand-700 underline">Sign in if you have Rider access</a>, or contact SHOPPICK support. Existing accounts cannot be converted through this form.</p>@endif
 <h3 class="mt-7 border-t border-slate-100 pt-6 text-sm font-bold text-navy-900">Your address</h3><div class="mt-4 space-y-5"><x-rider.registration-field name="address_line" label="House No. / Street" maxlength="255" autocomplete="street-address" />
 <x-philippine-location-fields :region="old('region')" :region-code="old('region_code')" :province="old('province')" :province-code="old('province_code')" :city="old('city')" :city-code="old('city_code')" :barangay="old('barangay')" :barangay-code="old('barangay_code')" />
 <x-rider.registration-field name="postal_code" label="Postal Code" :required="false" maxlength="4" pattern="[0-9]{4}" inputmode="numeric" autocomplete="postal-code" />
 </div></section>
-<section data-registration-panel="1"><h2 tabindex="-1" class="text-lg font-bold text-navy-900">Rider details</h2><p class="mt-1 text-xs leading-5 text-slate-500">Documents are stored privately for Logistics review. JPG, PNG or PDF, up to {{ round(config('riders.document_max_kilobytes',5120)/1024,1) }} MB each.</p><div class="mt-5 grid gap-5 sm:grid-cols-2">
+<section data-registration-panel="1"><h2 tabindex="-1" class="text-lg font-bold text-navy-900">Rider details</h2><div class="mt-5"><label for="rider-logistics-provider" class="label">Choose Logistics Company *</label><select id="rider-logistics-provider" name="logistics_provider_id" required class="input min-h-11"><option value="">Select an approved provider</option>@foreach($providers as $provider)<option value="{{ $provider->id }}" @selected((string) old("logistics_provider_id") === (string) $provider->id)>{{ $provider->company_name }}</option>@endforeach</select><p class="mt-2 text-xs leading-5 text-slate-500">Only approved and active logistics providers are listed.</p>@error("logistics_provider_id")<p class="mt-1 text-xs text-rose-700">{{ $message }}</p>@enderror</div><p class="mt-1 text-xs leading-5 text-slate-500">Documents are stored privately for Logistics review. JPG, PNG or PDF, up to {{ round(config('riders.document_max_kilobytes',5120)/1024,1) }} MB each.</p><div class="mt-5 grid gap-5 sm:grid-cols-2">
 <x-rider.registration-field name="driver_license_number" label="Driver’s License Number" minlength="5" maxlength="80" />
 <x-rider.registration-field name="driver_license_classification" label="License Classification / Type" maxlength="100" />
 <x-rider.registration-field name="driver_license_expires_at" label="License Expiration Date" type="date" :min="today()->format('Y-m-d')" />
-<x-rider.registration-field name="valid_id" label="Valid ID" type="file" accept="image/jpeg,image/png,application/pdf" />
+<x-rider.registration-field name="valid_id" label="Government-issued ID" type="file" accept="image/jpeg,image/png,application/pdf" />
 <x-rider.registration-field name="driver_license_front" label="License Front" type="file" accept="image/jpeg,image/png,application/pdf" />
 <x-rider.registration-field name="driver_license_back" label="License Back" type="file" accept="image/jpeg,image/png,application/pdf" />
-<div><label for="rider-register-vehicle" class="label">Preferred Vehicle Type <span class="font-normal text-slate-400">(optional)</span></label><select id="rider-register-vehicle" name="preferred_vehicle_type" class="input min-h-11"><option value="">No preference</option>@foreach(['motorcycle'=>'Motorcycle','scooter'=>'Scooter','car'=>'Car','van'=>'Van'] as $value=>$label)<option value="{{ $value }}" @selected(old('preferred_vehicle_type')===$value)>{{ $label }}</option>@endforeach</select><p class="mt-2 text-xs leading-5 text-slate-500">Logistics assigns official vehicles after approval.</p>@error('preferred_vehicle_type')<p class="text-xs text-rose-700">{{ $message }}</p>@enderror</div>
-<x-rider.registration-field name="emergency_contact_name" label="Emergency Contact Name" :required="false" maxlength="100" />
-<x-rider.registration-field name="emergency_contact_phone" label="Emergency Contact Phone" type="tel" :required="false" maxlength="30" />
+<x-rider.registration-field name="requested_service_area" label="Preferred Service Area" maxlength="160" />
+<div><label class="label">Preferred Sorting Center</label><select class="input" name="requested_hub_id"><option value="">No preference / not available</option>@foreach($providers as $provider)@foreach($provider->hubs as $hub)<option value="{{ $hub->id }}" @selected((string)old('requested_hub_id')===(string)$hub->id)>{{ $provider->company_name }} — {{ $hub->name }}</option>@endforeach @endforeach</select></div>
+<div><label class="label">Rider Type *</label><select class="input" name="requested_rider_type" required>@foreach(['pickup'=>'Pickup','delivery'=>'Delivery','both'=>'Both'] as $value=>$label)<option value="{{ $value }}" @selected(old('requested_rider_type')===$value)>{{ $label }}</option>@endforeach</select></div>
+<div><label class="label">Vehicle Type *</label><select class="input" name="vehicle_type" required>@foreach(['motorcycle','scooter','tricycle','car','van','delivery_truck','other'] as $value)<option value="{{ $value }}" @selected(old('vehicle_type')===$value)>{{ str($value)->headline() }}</option>@endforeach</select></div>
+<x-rider.registration-field name="vehicle_make_model" label="Vehicle Make / Model" maxlength="160" />
+<x-rider.registration-field name="plate_number" label="Plate Number" maxlength="40" />
+<x-rider.registration-field name="vehicle_color" label="Vehicle Color" maxlength="60" />
+<x-rider.registration-field name="vehicle_registration_number" label="Vehicle Registration Number" maxlength="100" />
+<x-rider.registration-field name="vehicle_registration_document" label="Vehicle Registration Document" type="file" accept="image/jpeg,image/png,application/pdf" />
+<x-rider.registration-field name="proof_of_address" label="Proof of Address" type="file" accept="image/jpeg,image/png,application/pdf" />
+<x-rider.registration-field name="emergency_contact_name" label="Emergency Contact Name" maxlength="100" />
+<x-rider.registration-field name="emergency_contact_relationship" label="Emergency Contact Relationship" maxlength="80" />
+<x-rider.registration-field name="emergency_contact_phone" label="Emergency Contact Phone" type="tel" maxlength="30" />
 </div></section>
 <section data-registration-panel="2"><h2 tabindex="-1" class="text-lg font-bold text-navy-900">Secure your account</h2><p class="mt-1 text-xs text-slate-500">Use these credentials for Rider sign-in and application updates.</p><div class="mt-5 grid gap-5 sm:grid-cols-2">
 <x-rider.registration-field name="password" label="Password" type="password" minlength="8" autocomplete="new-password" />

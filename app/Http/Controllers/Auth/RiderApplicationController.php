@@ -5,23 +5,27 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 class RiderApplicationController extends Controller
 {
-    public function create() { return view('auth.register-rider'); }
+    public function create() { return view('auth.register-rider', ['providers' => \App\Models\LogisticsProvider::approvedActive()->with(['hubs' => fn($q) => $q->where('status','active')->orderBy('name')])->orderBy('company_name')->get()]); }
 
     public function store(\App\Http\Requests\RiderWebsiteRegistrationRequest $request, \App\Services\RiderWebsiteRegistration $service)
     {
         try {
             $data=app(\App\Services\PhilippineGeographyService::class)->normalizeAddress($request->validated());
-            $service->register($data,$request->only(['valid_id','driver_license_front','driver_license_back']));
+            $user=$service->register($data,$request->only(['profile_photo','valid_id','proof_of_address','driver_license_front','driver_license_back','vehicle_registration_document']));
         }
         catch(\Illuminate\Validation\ValidationException $error){throw $error;}
         catch(\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $error){return back()->withInput($request->except('password','password_confirmation','valid_id','driver_license_front','driver_license_back'))->withErrors(['region'=>'We could not verify your address right now. Please try again.']);}
         catch(\Illuminate\Database\UniqueConstraintViolationException $error){throw \Illuminate\Validation\ValidationException::withMessages(['email'=>'An account or Rider application already uses these details. Please sign in or contact SHOPPICK support.']);}
         catch(\Throwable $error){report($error);return back()->withInput($request->except('password','password_confirmation','valid_id','driver_license_front','driver_license_back'))->withErrors(['email'=>'We could not submit your Rider registration. Please try again.']);}
+        Auth::login($user);
+        try { app(\App\Services\RegistrationVerification::class)->send($user, 'rider'); }
+        catch (\Throwable $error) { report($error); return redirect()->route('registration.verification')->withErrors(['code'=>'We could not send your verification code. Please use Resend code to try again.']); }
         $request->session()->put('rider_registration_submitted',true);
-        return redirect()->route('rider.register.submitted');
+        return redirect()->route('registration.verification')->with('status','Check your email for the verification code. Your Rider application remains pending provider approval.');
     }
 
     public function submitted(Request $request)

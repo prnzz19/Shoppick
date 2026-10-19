@@ -1,5 +1,9 @@
 @extends('layouts.auth')
-@section('title','Become a Seller')
-@section('content')
-<h1 class="text-2xl font-bold">Start with your Buyer account</h1><p class="mt-3">Create a Buyer account, then submit your seller application from the same account.</p><a class="btn-primary mt-5" href="{{ auth()->check()?route('seller.apply'):route('register') }}">{{ auth()->check()?'Become a Seller':'Create Buyer Account' }}</a>
+@section('title','Register')
+@section('auth-card')
+<div class="w-full max-w-3xl"><section class="card p-6 sm:p-8"><p class="text-xs font-bold uppercase tracking-widest text-brand-700">SHOPPICK</p><h1 class="mt-2 text-2xl font-black text-navy-900">Create an account</h1><p class="mt-2 text-sm leading-6 text-slate-500">Choose the account that matches how you want to use SHOPPICK.</p><div class="mt-7 grid gap-4 sm:grid-cols-3">
+<a href="{{ route('register.buyer') }}" class="group rounded-2xl border border-slate-200 p-5 transition hover:border-brand-500 hover:bg-brand-50"><span class="text-xs font-bold uppercase tracking-widest text-brand-700">Buyer</span><h2 class="mt-3 text-lg font-black text-navy-900">Shop and place orders</h2><p class="mt-2 text-sm leading-6 text-slate-500">Shop and place orders on SHOPPICK.</p><span class="mt-5 inline-block text-sm font-bold text-brand-700">Continue as Buyer →</span></a>
+<a href="{{ route('rider.register') }}" class="group rounded-2xl border border-slate-200 p-5 transition hover:border-brand-500 hover:bg-brand-50"><span class="text-xs font-bold uppercase tracking-widest text-brand-700">Rider</span><h2 class="mt-3 text-lg font-black text-navy-900">Deliver with SHOPPICK</h2><p class="mt-2 text-sm leading-6 text-slate-500">Apply to deliver for an approved logistics company.</p><span class="mt-5 inline-block text-sm font-bold text-brand-700">Apply as Rider →</span></a>
+<a href="{{ route('register.logistics') }}" class="group rounded-2xl border border-slate-200 p-5 transition hover:border-brand-500 hover:bg-brand-50"><span class="text-xs font-bold uppercase tracking-widest text-brand-700">Logistics Company</span><h2 class="mt-3 text-lg font-black text-navy-900">Join the delivery network</h2><p class="mt-2 text-sm leading-6 text-slate-500">Apply to become a logistics provider on SHOPPICK.</p><span class="mt-5 inline-block text-sm font-bold text-brand-700">Apply as Logistics →</span></a>
+</div><p class="mt-7 text-center text-sm text-slate-600">Already have an account? <a href="{{ route('login') }}" class="font-semibold text-brand-700">Login</a></p></section></div>
 @endsection

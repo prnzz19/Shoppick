@@ -69,7 +69,11 @@ class RegistrationAndProductVisibilityTest extends TestCase
     }
     public function test_public_seller_signup_is_disabled_and_registration_is_buyer_only(): void
     {
-        $this->get(route('register'))->assertOk()->assertSee('Register as Buyer')->assertDontSee('Register as Seller');
+        $this->get(route('register'))->assertOk()
+            ->assertSee('Buyer')
+            ->assertSee('Rider')
+            ->assertSee('Logistics Company')
+            ->assertDontSee('Register as Seller');
         $this->get(route('register.seller'))->assertRedirect(route('seller.apply'));
         $this->post(route('register.seller.submit'),['email'=>'blocked@example.test'])->assertStatus(410);
         $this->assertDatabaseCount('users',0);

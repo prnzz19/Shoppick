@@ -59,7 +59,7 @@ class BuyerWorkbookTest extends TestCase
         try {DB::transaction(fn()=>User::factory()->create()->forceFill(['buyer_web_phone'=>$user->phone])->save());$this->fail('Unique phone key missing.');}catch(\Illuminate\Database\UniqueConstraintViolationException $error){$this->assertDatabaseCount('users',1);}
     }
     public function test_tc_buy_022_same_browser_registration_token_retries_are_idempotent(): void {
-        $this->get(route('register'))->assertOk();$token=session('buyer_signup_token');
+        $this->get(route('register.buyer'))->assertOk();$token=session('buyer_signup_token');
         $payload=array_replace($this->payload(),['registration_token'=>$token,'email'=>'anamarie.reyes@example.com','phone'=>'09173456789','first_name'=>'Ana Marie','last_name'=>'Reyes','birthday'=>'2001-11-02','password'=>'Suki#2026Ana','password_confirmation'=>'Suki#2026Ana']);
         foreach(range(1,3) as $i){Auth::logout();$this->post(route('register.submit'),$payload)->assertRedirect(route('buyer.verification'))->assertSessionHasNoErrors();}
         $this->assertDatabaseCount('users',1);$this->assertDatabaseCount('buyer_email_verifications',1);Mail::assertSent(BuyerVerificationCode::class,1);$this->assertCount(1,Storage::disk('local')->files('registration-documents'));

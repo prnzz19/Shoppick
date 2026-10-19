@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Mail\RegistrationVerificationCode;
 use App\Models\{LogisticsProvider, Order, Role, SellerOrder, SellerProfile, Shipment, Store, User};
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class PhaseOneReconciliationTest extends TestCase
@@ -13,7 +15,8 @@ class PhaseOneReconciliationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        foreach (['admin', 'logistics', 'buyer', 'seller'] as $role) Role::create(['name' => ucfirst($role), 'slug' => $role, 'guard_name' => 'web']);
+        foreach (['admin', 'logistics', 'rider', 'buyer', 'seller'] as $role) Role::create(['name' => ucfirst($role), 'slug' => $role, 'guard_name' => 'web']);
+        Mail::fake();
     }
 
     public function test_admin_can_approve_suspend_and_reactivate_a_verified_provider_without_deleting_it(): void
@@ -45,6 +48,20 @@ class PhaseOneReconciliationTest extends TestCase
         $shipment->update(['status' => 'delivered']);
         $this->actingAs($admin)->post(route('admin.logistics.providers.status', $provider), ['status' => 'deactivated'])->assertRedirect();
         $this->assertDatabaseHas('logistics_providers', ['id' => $provider->id, 'status' => 'deactivated', 'is_active' => false]);
+    }
+
+    public function test_shared_registration_verification_verifies_rider_without_activating_the_application(): void
+    {
+        $rider = User::factory()->create(['is_active' => false, 'registration_type' => 'rider', 'registration_status' => 'pending', 'email_verified_at' => null]); $rider->assignRole('rider');
+        $service = app(\App\Services\RegistrationVerification::class);
+        $service->send($rider, 'rider');
+        $code = null;
+        Mail::assertSent(RegistrationVerificationCode::class, function ($mail) use (&$code) { $code = $mail->code; return $mail->role === 'Rider'; });
+        $this->assertNotNull($code);
+        $service->verify($rider, $code, 'rider');
+        $this->assertNotNull($rider->fresh()->email_verified_at);
+        $this->assertFalse($rider->fresh()->is_active);
+        $this->assertSame('pending', $rider->fresh()->registration_status);
     }
 
     private function shipment(LogisticsProvider $provider): Shipment
