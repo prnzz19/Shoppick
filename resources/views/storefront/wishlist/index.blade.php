@@ -25,6 +25,7 @@
                     $canPurchase = $publiclyAvailable && ! $product->isOutOfStock();
                     $hasVariants = $product->variants->isNotEmpty();
                     $status = $product->trashed() ? 'Archived' : (! $publiclyAvailable ? 'Unavailable' : ($product->isOutOfStock() ? 'Out of Stock' : 'In Stock'));
+                    $purchaseSummary = ['Product' => $product->name, 'Quantity' => 1, 'Price' => '₱'.number_format($product->salePrice(), 2)];
                 @endphp
                 <article class="card flex overflow-hidden sm:flex-col">
                     @if($publiclyAvailable)
@@ -48,7 +49,7 @@
                         <div class="mt-auto grid grid-cols-2 gap-2 pt-4">
                             @if($canPurchase && ! $hasVariants)
                                 <form method="POST" action="{{ route('wishlist.move-to-cart', $item->id) }}">@csrf<input type="hidden" name="quantity" value="1"><button type="submit" class="btn-outline btn-sm w-full">Add to Cart</button></form>
-                                <form method="POST" action="{{ route('buy-now') }}">@csrf<input type="hidden" name="product_id" value="{{ $product->id }}"><input type="hidden" name="quantity" value="1"><button type="submit" class="btn-primary btn-sm w-full" data-confirm-title="Buy this item now?" data-confirm-message="You will continue to checkout before placing your order." data-confirm-action="Continue to Checkout" data-confirm-cancel="Keep Browsing" data-confirm-type="purchase" data-confirm-summary='@json(["Product"=>$product->name,"Quantity"=>1,"Price"=>"₱".number_format($product->salePrice(),2)])'>Buy Now</button></form>
+                                <form method="POST" action="{{ route('buy-now') }}">@csrf<input type="hidden" name="product_id" value="{{ $product->id }}"><input type="hidden" name="quantity" value="1"><button type="submit" class="btn-primary btn-sm w-full" data-confirm-title="Buy this item now?" data-confirm-message="You will continue to checkout before placing your order." data-confirm-action="Continue to Checkout" data-confirm-cancel="Keep Browsing" data-confirm-type="purchase" data-confirm-summary='@json($purchaseSummary)'>Buy Now</button></form>
                             @elseif($canPurchase)
                                 <a href="{{ route('products.show',$product->slug) }}" class="btn-outline btn-sm col-span-2 text-center">Select Options</a>
                             @else
