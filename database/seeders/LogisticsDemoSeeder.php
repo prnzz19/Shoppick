@@ -6,7 +6,9 @@ use App\Models\Category;
 use App\Models\LogisticsHub;
 use App\Models\LogisticsInsight;
 use App\Models\LogisticsInvoice;
+use App\Models\LogisticsProvider;
 use App\Models\LogisticsSetting;
+use App\Models\SystemSetting;
 use App\Models\NotificationModel;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -37,21 +39,38 @@ class LogisticsDemoSeeder extends Seeder
 
         DB::transaction(function () {
             $logistics = $this->user('SHOPPICK Logistics', 'logistics@shoppick.test', 'logistics');
+            $provider = LogisticsProvider::firstOrCreate(
+                ['owner_user_id' => $logistics->id],
+                ['company_name' => 'SHOPPICK Logistics Demo', 'contact_name' => $logistics->name, 'email' => $logistics->email, 'phone' => $logistics->phone, 'status' => 'approved', 'is_active' => true, 'reviewed_at' => now()]
+            );
+            $provider->users()->syncWithoutDetaching([$logistics->id => ['membership_role' => 'owner', 'is_active' => true]]);
+            if (! SystemSetting::where('key', 'logistics.default_marketplace_provider_id')->exists()) {
+                SystemSetting::create(['key' => 'logistics.default_marketplace_provider_id', 'value' => $provider->id, 'type' => 'number', 'group' => 'logistics']);
+            }
             $hubs = [
                 'cavinti' => LogisticsHub::updateOrCreate(['code' => 'DEMO-CAVINTI'], ['name' => 'Cavinti Hub', 'address' => 'Cavinti, Laguna', 'capacity' => 100, 'status' => 'active', 'notes' => 'DEMO ONLY']),
                 'santa_cruz' => LogisticsHub::updateOrCreate(['code' => 'DEMO-SANTA-CRUZ'], ['name' => 'Santa Cruz Hub', 'address' => 'Santa Cruz, Laguna', 'capacity' => 80, 'status' => 'active', 'notes' => 'DEMO ONLY']),
                 'maintenance' => LogisticsHub::updateOrCreate(['code' => 'DEMO-MAINTENANCE'], ['name' => 'Maintenance Hub', 'address' => 'Laguna Operations Area', 'capacity' => 40, 'status' => 'maintenance', 'notes' => 'DEMO ONLY — temporarily under maintenance']),
             ];
+            foreach ($hubs as $hub) {
+                $hub->update(['logistics_provider_id' => $provider->id]);
+            }
             $riders = [
                 'juan' => $this->rider('Rider Juan', 'rider.juan@shoppick.test', $hubs['santa_cruz'], 'available', 4.80, $logistics),
                 'maria' => $this->rider('Rider Maria', 'rider.maria@shoppick.test', $hubs['cavinti'], 'on_delivery', 4.70, $logistics),
                 'carlo' => $this->rider('Rider Carlo', 'rider.carlo@shoppick.test', $hubs['cavinti'], 'assigned', 4.50, $logistics),
             ];
+            foreach ($riders as $rider) {
+                $rider->riderProfile()->update(['logistics_provider_id' => $provider->id]);
+            }
             $vehicles = [
                 'moto1' => Vehicle::updateOrCreate(['code' => 'MOTO-001'], ['plate_number' => 'DEMO-M001', 'type' => 'motorcycle', 'make' => 'SHOPPICK Demo', 'model' => 'Courier Moto', 'year' => 2025, 'hub_id' => $hubs['santa_cruz']->id, 'status' => 'available', 'maintenance_due_at' => now()->addMonths(3), 'notes' => 'DEMO ONLY — maintenance good']),
                 'van1' => Vehicle::updateOrCreate(['code' => 'VAN-001'], ['plate_number' => 'DEMO-V001', 'type' => 'van', 'make' => 'SHOPPICK Demo', 'model' => 'Delivery Van', 'year' => 2025, 'hub_id' => $hubs['cavinti']->id, 'status' => 'in_use', 'maintenance_due_at' => now()->addMonth(), 'notes' => 'DEMO ONLY — assigned to LOAD-1002']),
                 'moto2' => Vehicle::updateOrCreate(['code' => 'MOTO-002'], ['plate_number' => 'DEMO-M002', 'type' => 'motorcycle', 'make' => 'SHOPPICK Demo', 'model' => 'Courier Moto', 'year' => 2024, 'hub_id' => $hubs['maintenance']->id, 'status' => 'maintenance', 'maintenance_due_at' => now()->subDay(), 'notes' => 'DEMO ONLY — maintenance due']),
             ];
+            foreach ($vehicles as $vehicle) {
+                $vehicle->update(['logistics_provider_id' => $provider->id]);
+            }
 
             $flows = [
                 ['n' => 1, 'order' => 'ORD-1001', 'load' => 'LOAD-1001', 'shop' => 'Panda Picks', 'buyer' => 'Demo Buyer One', 'qty' => 2, 'method' => 'card', 'payment' => 'paid', 'fee' => 60, 'rider' => $riders['juan'], 'vehicle' => $vehicles['moto1'], 'hub' => null, 'status' => 'delivered', 'eta' => now()->subMinutes(15), 'delivered' => now()->subMinutes(30), 'note' => 'Direct delivery completed; POD approved.'],
@@ -61,6 +80,7 @@ class LogisticsDemoSeeder extends Seeder
             $created = [];
             foreach ($flows as $flow) {
                 $created[$flow['n']] = $this->flow($flow, $logistics);
+                $created[$flow['n']]->update(['logistics_provider_id' => $provider->id]);
             }
             $created[1]->update(['ready_at' => now()->subHours(7), 'assigned_at' => now()->subHours(6), 'picked_up_at' => now()->subHours(5)]);
             $created[2]->update(['ready_at' => now()->subHours(6), 'assigned_at' => now()->subHours(5), 'picked_up_at' => now()->subHours(4)]);
@@ -85,11 +105,14 @@ class LogisticsDemoSeeder extends Seeder
 
             $this->historicalReports($logistics, $riders, $vehicles, $hubs);
             $this->insights($created, $riders, $vehicles);
+            Shipment::whereNull('logistics_provider_id')->where('shipment_number', 'like', 'LOAD-HIST-%')->update(['logistics_provider_id' => $provider->id]);
+            LogisticsInvoice::whereNull('logistics_provider_id')->whereIn('shipment_id', Shipment::where('logistics_provider_id', $provider->id)->pluck('id'))->update(['logistics_provider_id' => $provider->id]);
+            LogisticsInsight::whereNull('logistics_provider_id')->where('explanation', 'like', 'DEMO ONLY%')->update(['logistics_provider_id' => $provider->id]);
             $this->notification($logistics, 'demo-load-ready-1002', 'New order/load ready for pickup.', 'LOAD-1002 is ready for Logistics handling.', route('logistics.shipments.show', $created[2]));
             $this->notification($riders['maria'], 'demo-assignment-1002', 'New delivery assignment: LOAD-1002.', 'VAN-001 has been assigned.', route('rider.shipments.show', $created[2]));
             $this->notification($logistics, 'demo-exception-1003', 'Delivery exception reported for LOAD-1003.', 'Recipient unavailable.', route('logistics.shipments.show', $created[3]));
             foreach (['notify_pickup_delay' => true, 'notify_pod' => true, 'notify_vehicle_maintenance' => false, 'delivery_status_notifications' => true, 'buyer_tracking_visibility' => true, 'pickup_wait_hours' => 4, 'hub_dwell_hours' => 8, 'delivery_delay_hours' => 24] as $key => $value) {
-                LogisticsSetting::updateOrCreate(['key' => $key], ['value' => ['value' => $value], 'updated_by' => $logistics->id]);
+                LogisticsSetting::updateOrCreate(['key' => $provider->id.':'.$key], ['logistics_provider_id' => $provider->id, 'value' => ['value' => $value], 'updated_by' => $logistics->id]);
             }
         });
         $this->call(SortingCenterDemoSeeder::class);

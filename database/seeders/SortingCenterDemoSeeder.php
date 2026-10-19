@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\Product;
+use App\Models\LogisticsProvider;
 use App\Models\SellerOrder;
 use App\Models\Shipment;
 use App\Models\ShipmentEvent;
@@ -25,8 +26,12 @@ class SortingCenterDemoSeeder extends Seeder
         }
         DB::transaction(function () {
             $logistics = User::where('email', 'logistics@shoppick.test')->firstOrFail();
+            $providerId = LogisticsProvider::where('owner_user_id', $logistics->id)->firstOrFail()->id;
             $riders = ['juan' => User::where('email', 'rider.juan@shoppick.test')->firstOrFail(), 'maria' => User::where('email', 'rider.maria@shoppick.test')->firstOrFail(), 'carlo' => User::where('email', 'rider.carlo@shoppick.test')->firstOrFail()];
             $areas = ['a' => DeliveryArea::updateOrCreate(['code' => 'DEMO-AREA-A'], ['name' => 'Area A — Santa Cruz', 'province' => 'Laguna', 'municipality' => 'Santa Cruz', 'barangays' => [], 'is_active' => true]), 'b' => DeliveryArea::updateOrCreate(['code' => 'DEMO-AREA-B'], ['name' => 'Area B — Pagsanjan', 'province' => 'Laguna', 'municipality' => 'Pagsanjan', 'barangays' => [], 'is_active' => true]), 'c' => DeliveryArea::updateOrCreate(['code' => 'DEMO-AREA-C'], ['name' => 'Area C — Los Baños', 'province' => 'Laguna', 'municipality' => 'Los Baños', 'barangays' => [], 'is_active' => true])];
+            foreach ($areas as $area) {
+                $area->update(['logistics_provider_id' => $providerId]);
+            }
             foreach (['juan' => ['Motorcycle', 'ABC-1234', 'a'], 'maria' => ['Motorcycle', 'XYZ-5678', 'b'], 'carlo' => ['Tricycle', 'AAA-1111', 'c']] as $key => $data) {
                 $profile = $riders[$key]->riderProfile;
                 $profile->update(['vehicle_type' => $data[0], 'plate_number' => $data[1]]);
@@ -41,6 +46,7 @@ class SortingCenterDemoSeeder extends Seeder
 
     private function parcel(array $x, User $logistics, array $riders, array $areas): void
     {
+        $providerId = LogisticsProvider::where('owner_user_id', $logistics->id)->firstOrFail()->id;
         $store = Store::where('slug', 'demo-shop-'.$x['shop'])->firstOrFail();
         $product = Product::where('slug', 'logistics-demo-item-'.$x['shop'])->firstOrFail();
         $buyer = User::where('email', 'demo.buyer'.$x['shop'].'@shoppick.test')->firstOrFail();
@@ -58,7 +64,7 @@ class SortingCenterDemoSeeder extends Seeder
         $receivedAt = $advanced ? $readyAt->copy()->addHour() : null;
         $sortedAt = $sorted ? $readyAt->copy()->addHour()->addMinutes(44) : null;
         $shipment = Shipment::updateOrCreate(['shipment_number' => 'DEMO-'.$x['parcel']], ['parcel_code' => $x['parcel'], 'seller_order_id' => $sellerOrder->id, 'order_id' => $order->id, 'store_id' => $store->id, 'pickup_rider_id' => $x['pickup'] ? $riders[$x['pickup']]->id : null, 'rider_id' => $x['delivery'] ? $riders[$x['delivery']]->id : null, 'delivery_area_id' => $sorted ? $areas[$x['area']]->id : null, 'status' => $x['status'], 'pickup_address' => ['address' => $store->location], 'delivery_address' => $order->shipping_address, 'ready_at' => now()->subHours(4), 'picked_up_at' => $x['pickup'] ? now()->subHours(3) : null, 'pickup_arrived_at' => $advanced ? now()->subHours(2) : null, 'received_at' => $advanced ? now()->subHours(2) : null, 'received_by' => $advanced ? $logistics->id : null, 'parcel_scanned_at' => $advanced ? now()->subMinutes(110) : null, 'sorted_at' => $sorted ? now()->subMinutes(90) : null, 'sorted_by' => $sorted ? $logistics->id : null, 'delivery_assigned_at' => $assigned ? now()->subHour() : null, 'delivery_assigned_by' => $assigned ? $logistics->id : null, 'delivery_accepted_at' => in_array($x['status'], ['out_for_delivery', 'delivery_failed', 'returned'], true) ? now()->subMinutes(50) : null, 'failure_reason' => in_array($x['status'], ['delivery_failed', 'returned'], true) ? 'Recipient unavailable' : null, 'returned_at' => $x['status'] === 'returned' ? now()->subMinutes(10) : null, 'internal_notes' => 'DEMO ONLY — database-backed Sorting Center example.']);
-        $shipment->update(['ready_at'=>$readyAt,'assigned_at'=>$assignedAt,'pickup_accepted_at'=>$acceptedAt,'picked_up_at'=>$pickedUpAt,'pickup_arrived_at'=>$advanced ? $receivedAt->copy()->subMinutes(5) : null,'received_at'=>$receivedAt,'parcel_scanned_at'=>$advanced ? $receivedAt->copy()->addMinutes(10) : null,'sorted_at'=>$sortedAt]);
+        $shipment->update(['logistics_provider_id'=>$providerId,'ready_at'=>$readyAt,'assigned_at'=>$assignedAt,'pickup_accepted_at'=>$acceptedAt,'picked_up_at'=>$pickedUpAt,'pickup_arrived_at'=>$advanced ? $receivedAt->copy()->subMinutes(5) : null,'received_at'=>$receivedAt,'parcel_scanned_at'=>$advanced ? $receivedAt->copy()->addMinutes(10) : null,'sorted_at'=>$sortedAt]);
         $statuses = array_values(array_filter(['ready_for_pickup', $x['pickup'] ? 'pickup_assigned' : null, $x['pickup'] ? 'pickup_accepted' : null, $x['pickup'] ? 'picked_up' : null, $advanced ? 'at_sorting_center' : null, $sorted ? 'sorted' : null, $assigned ? 'assigned_to_rider' : null, in_array($x['status'], ['out_for_delivery', 'delivery_failed', 'returned'], true) ? 'out_for_delivery' : null, $x['status'] === 'delivery_failed' ? 'delivery_failed' : null, $x['status'] === 'returned' ? 'returned' : null]));
         $eventTimes = ['ready_for_pickup'=>$readyAt,'pickup_assigned'=>$assignedAt,'pickup_accepted'=>$acceptedAt,'picked_up'=>$pickedUpAt,'at_sorting_center'=>$receivedAt,'sorted'=>$sortedAt];
         foreach ($statuses as $i => $status) {
