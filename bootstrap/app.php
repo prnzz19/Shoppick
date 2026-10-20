@@ -18,7 +18,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->redirectGuestsTo(fn (\Illuminate\Http\Request $request) => route($request->is('rider', 'rider/*') ? 'rider.login' : 'login'));
-        $middleware->web(append: [\App\Http\Middleware\MarketplacePreferences::class]);
+        $middleware->web(append: [
+            \App\Http\Middleware\MarketplacePreferences::class,
+            \App\Http\Middleware\PreventAuthenticatedPageCaching::class,
+        ]);
         $middleware->alias([
             'role' => EnsureRole::class,
             'permission' => EnsurePermission::class,
