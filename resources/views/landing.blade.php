@@ -28,8 +28,7 @@
 <header class="sp-header">
     <nav class="sp-frame sp-nav" aria-label="Main navigation">
         <a class="sp-brand" href="{{ route('landing') }}" aria-label="SHOPPICK home">
-            <x-shoppick.logo class="sp-brand-mark"/>
-            <span><span class="sp-word-shop">SHOP</span><span class="sp-word-pick">PICK</span></span>
+            <x-shoppick.wordmark class="sp-brand-wordmark"/>
         </a>
         <div class="sp-nav-links">
             <a href="{{ route('landing') }}" aria-current="page">Home</a>

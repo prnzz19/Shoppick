@@ -2,8 +2,7 @@
     <div class="sp-frame">
         <div class="sp-footer-intro">
             <a class="sp-brand" href="{{ route('landing') }}" aria-label="SHOPPICK home">
-                <x-shoppick.logo class="sp-brand-mark"/>
-                <span><span class="sp-word-shop">SHOP</span><span class="sp-word-pick">PICK</span></span>
+                <x-shoppick.wordmark class="sp-brand-wordmark"/>
             </a>
             <p class="sp-footer-tagline">Shop easy. Pick smart.<br>Great products from trusted sellers, all for you.</p>
             <a class="sp-button sp-button-outline" href="{{ route('home') }}">Start shopping <span aria-hidden="true">&rarr;</span></a>

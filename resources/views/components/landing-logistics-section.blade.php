@@ -9,8 +9,8 @@
     <div class="sp-logistics-shell">
         <header class="sp-logistics-hero">
             <div class="sp-logistics-wordmark">
-                <x-shoppick.logo class="sp-logistics-logo"/>
-                <span>SHOPPICK <small>LOGISTICS</small></span>
+                <x-shoppick.wordmark class="sp-logistics-wordmark-logo"/>
+                <span><small>LOGISTICS</small></span>
             </div>
             <div class="sp-logistics-hero-copy">
                 <p class="sp-logistics-eyebrow">Connected marketplace operations</p>
