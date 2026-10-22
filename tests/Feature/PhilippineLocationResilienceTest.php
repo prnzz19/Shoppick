@@ -168,21 +168,18 @@ class PhilippineLocationResilienceTest extends TestCase
         $this->assertDatabaseHas('addresses', ['province' => 'Laguna', 'barangay' => 'Bubukal', 'postal_code' => '4009']);
     }
 
-    public function test_seller_request_validates_the_store_hierarchy_separately(): void
+    public function test_seller_request_rejects_invalid_address_hierarchy(): void
     {
         $this->provider();
-        $request = SellerRegistrationRequest::create('/', 'POST', ['same_address' => '0']);
-        $store = [];
-        foreach ($this->address() as $field => $value) {
-            $store['store_'.$field] = $value;
-        }
-        $validator = Validator::make($this->address() + array_replace($store, ['store_province_code' => '9999999999']), []);
+        $data = array_replace($this->address(), ['province_code' => '9999999999']);
+        $request = SellerRegistrationRequest::create('/', 'POST', $data);
+        $validator = Validator::make($data, []);
         $request->withValidator($validator);
         $this->assertTrue($validator->fails());
-        $this->assertTrue($validator->errors()->has('store_province'));
+        $this->assertTrue($validator->errors()->has('region'));
         $rules = $request->rules();
         $this->assertContains('accepted', $rules['seller_terms']);
-        $this->assertContains('required', $rules['business_permit']);
+        $this->assertContains('nullable', $rules['business_permit']);
     }
 
     public function test_component_exposes_saved_codes_names_and_a_same_origin_endpoint(): void

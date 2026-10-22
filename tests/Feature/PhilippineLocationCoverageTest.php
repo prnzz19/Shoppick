@@ -51,6 +51,6 @@ class PhilippineLocationCoverageTest extends TestCase
             ->assertSee('data-ph-location', false)
             ->assertSee('name="region_code"', false);
 
-        $this->get(route('register.seller'))->assertRedirect(route('seller.apply'));
+        $this->get(route('register.seller'))->assertOk()->assertSee('Create your Seller application', false)->assertSee('data-ph-location', false)->assertSee('name="region_code"', false);
     }
 }

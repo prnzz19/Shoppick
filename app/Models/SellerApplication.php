@@ -12,7 +12,7 @@ class SellerApplication extends Model
     protected $fillable = ['user_id', 'store_name', 'category_id', 'store_description', 'phone', 'address',
         'business_information', 'valid_id_path', 'business_permit_path', 'logo', 'banner', 'status', 'admin_recommendation', 'admin_review_notes',
         'admin_reviewed_by', 'admin_reviewed_at', 'escalated_by', 'escalation_reason', 'escalated_at',
-        'review_notes', 'reviewed_by', 'reviewed_at'];
+        'seller_type','tin','dti_certificate_path','sec_certificate_path','bir_2303_path','region','region_code','province','province_code','city','city_code','barangay','barangay_code','postal_code', 'review_notes', 'reviewed_by', 'reviewed_at'];
 
     protected $hidden = ['valid_id_path', 'business_permit_path'];
 

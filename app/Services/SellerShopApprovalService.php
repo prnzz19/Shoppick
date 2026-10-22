@@ -20,6 +20,7 @@ class SellerShopApprovalService
         abort_unless($reviewer->hasPermissionTo($decision === 'approved' ? 'approve_shops' : 'reject_shops'), 403);
 
         if ($decision !== 'approved' && blank($reason)) throw ValidationException::withMessages(['review_notes' => 'A review reason is required.']);
+        if ($decision === 'approved' && $application->user?->registration_type === 'seller' && ! $application->user?->email_verified_at) throw ValidationException::withMessages(['status' => 'The Seller must verify their email before approval.']);
 
         return DB::transaction(function () use ($application, $reviewer, $decision, $reason) {
             User::whereKey($application->user_id)->lockForUpdate()->firstOrFail();
@@ -57,7 +58,7 @@ class SellerShopApprovalService
             else $application->user->removeRole('seller');
             if ($application->user->registration_type === 'seller' && $application->user->registration_status === 'pending') {
                 $application->user->update([
-                    'registration_status'=>'approved', 'is_active'=>true,
+                    'registration_status'=>$decision === 'approved' ? 'approved' : ($decision === 'rejected' ? 'rejected' : 'needs_resubmission'), 'is_active'=>in_array($decision, ['approved','needs_resubmission'], true),
                     'registration_review_notes'=>$reason, 'registration_reviewed_by'=>$reviewer->id,
                     'registration_reviewed_at'=>now(),
                 ]);

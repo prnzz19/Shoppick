@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\CompleteProfileController;
 use App\Http\Controllers\Auth\RiderApplicationController;
+use App\Http\Controllers\Auth\SellerRegistrationController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('terms',fn()=>view('auth.buyer-policy',['title'=>'Terms','content'=>app(\App\Services\SystemSettings::class)->get('legal.terms')]))->name('buyer.terms');
@@ -19,6 +20,10 @@ Route::middleware('guest')->group(function () {
     Route::get('register', [RegisterController::class, 'showRegistrationForm'])->name('register');
     Route::get('register/buyer', [RegisterController::class, 'showBuyerRegistrationForm'])->name('register.buyer');
     Route::post('register/buyer', [RegisterController::class, 'register'])->middleware('throttle:10,1')->name('register.submit');
+    Route::get('register/logistics', [\App\Http\Controllers\Auth\LogisticsRegistrationController::class, 'create'])->name('register.logistics');
+    Route::post('register/logistics', [\App\Http\Controllers\Auth\LogisticsRegistrationController::class, 'store'])->middleware('throttle:5,1')->name('register.logistics.submit');
+    Route::get('register/seller', [SellerRegistrationController::class, 'create'])->name('register.seller');
+    Route::post('register/seller', [SellerRegistrationController::class, 'store'])->middleware('throttle:5,1')->name('register.seller.submit');
     Route::get('register/rider', fn () => redirect()->route('rider.login')->with('info', 'Rider accounts are created by an approved Logistics provider.'))->name('register.rider');
     Route::post('register/rider', fn () => abort(410, 'Rider accounts are created by an approved Logistics provider.'))->middleware('throttle:10,1')->name('register.rider.submit');
     Route::get('auth/google/redirect', [GoogleAuthController::class, 'redirect'])->name('auth.google.redirect');
@@ -37,13 +42,13 @@ Route::middleware('auth')->group(function () {
     Route::post('verify-buyer-email',[\App\Http\Controllers\Auth\BuyerVerificationController::class,'verify'])->middleware('throttle:10,1')->name('buyer.verification.verify');
     Route::post('verify-buyer-email/resend',[\App\Http\Controllers\Auth\BuyerVerificationController::class,'resend'])->middleware('throttle:5,1')->name('buyer.verification.resend');
     Route::get('rider-application/status', [RiderApplicationController::class, 'status'])->name('rider.application.status');
+    Route::get('logistics-application/resubmit', [\App\Http\Controllers\Auth\LogisticsRegistrationController::class, 'resubmitForm'])->name('logistics.application.resubmit');
+    Route::post('logistics-application/resubmit', [\App\Http\Controllers\Auth\LogisticsRegistrationController::class, 'resubmit'])->name('logistics.application.resubmit.store');
     Route::post('rider-application/resubmit', [RiderApplicationController::class, 'resubmit'])->name('rider.application.resubmit');
     Route::get('complete-profile', [CompleteProfileController::class, 'show'])->name('profile.complete');
     Route::post('complete-profile', [CompleteProfileController::class, 'update'])->name('profile.complete.update');
 });
 
 // Compatibility bookmarks lead to the authenticated application, never a second account.
-Route::get('register/seller', fn () => redirect()->route('seller.apply'))->name('register.seller');
-Route::post('register/seller', fn () => abort(410, 'Register as a Buyer, then apply from your account.'))->name('register.seller.submit');
 Route::get('complete-seller-registration', fn () => redirect()->route('seller.apply'))->middleware('auth')->name('profile.complete.seller');
 Route::post('complete-seller-registration', fn () => abort(410, 'Use the seller application from your Buyer account.'))->middleware('auth')->name('profile.complete.seller.update');

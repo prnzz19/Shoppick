@@ -17,11 +17,15 @@ class RegisterController extends Controller
 {
     public function showRegistrationForm()
     {
-        session()->put('buyer_signup_token',bin2hex(random_bytes(32)));
-        return view('auth.register',['registrationToken'=>session('buyer_signup_token')]);
+        return view('auth.register-choice');
     }
 
-    public function showBuyerRegistrationForm() { return $this->showRegistrationForm(); }
+    public function showBuyerRegistrationForm()
+    {
+        $registrationToken = bin2hex(random_bytes(32));
+        session()->put('buyer_signup_token', $registrationToken);
+        return view('auth.register', compact('registrationToken'));
+    }
 
     public function register(WebsiteBuyerRegistrationRequest $request)
     {
