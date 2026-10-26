@@ -19,13 +19,86 @@ class CompleteProfileController extends Controller
 
     public function update(Request $request)
     {
-        abort_unless($request->user()->is_active && ! $request->user()->trashed()
-            && $request->user()->isNormalBuyerRegistration()
-            && in_array($request->user()->registration_status, ['incomplete', 'approved'], true), 403);
-        $data=app(\App\Services\PhilippineGeographyService::class)->normalizeAddress($this->personalData($request));
-        DB::transaction(function()use($request,$data){$user=$request->user();$name=$this->name($data);$path=$request->file('valid_id')->store('registration-documents');$user->update(['name'=>$name,'first_name'=>$data['first_name'],'middle_initial'=>$data['middle_initial']??null,'last_name'=>$data['last_name'],'sex'=>$data['sex'],'birthday'=>$data['birthday'],'phone'=>$data['phone'],'valid_id_path'=>$path]+\App\Services\BuyerAccountState::attributes());$user->forceFill(['buyer_web_email'=>mb_strtolower(trim($user->email)),'buyer_web_phone'=>$data['phone']])->save();$user->addresses()->updateOrCreate(['is_default'=>true],['full_name'=>$name,'phone'=>$data['phone'],'address_line'=>$data['address_line'],'region'=>$data['region']??null,'region_code'=>$data['region_code']??null,'barangay'=>$data['barangay'],'barangay_code'=>$data['barangay_code']??null,'city'=>$data['city'],'city_code'=>$data['city_code']??null,'province'=>$data['province']??'','province_code'=>$data['province_code']??null,'postal_code'=>$data['postal_code'],'country'=>$data['country'],'label'=>'Home']);});
-        $request->session()->regenerate();$request->session()->forget('url.intended');
-        return redirect()->route('home')->with('success','Profile completed. Your Buyer account is ready.');
+        $user = $request->user();
+        $googleOtpRequired = $user->isGoogleBuyerOnboarding();
+
+        abort_unless(! $user->trashed()
+            && $user->isNormalBuyerRegistration()
+            && in_array($user->registration_status, ['incomplete', 'approved'], true)
+            && ($user->is_active || $googleOtpRequired), 403);
+
+        $data = app(\App\Services\PhilippineGeographyService::class)->normalizeAddress($this->personalData($request));
+
+        DB::transaction(function () use ($request, $data, $googleOtpRequired) {
+            $user = $request->user();
+            $name = $this->name($data);
+            $path = $request->file('valid_id')->store('registration-documents');
+
+            $state = $googleOtpRequired
+                ? [
+                    'registration_type' => 'buyer',
+                    'registration_status' => 'unverified',
+                    'is_active' => false,
+                    'email_verified_at' => null,
+                ]
+                : \App\Services\BuyerAccountState::attributes();
+
+            $user->update([
+                'name' => $name,
+                'first_name' => $data['first_name'],
+                'middle_initial' => $data['middle_initial'] ?? null,
+                'last_name' => $data['last_name'],
+                'sex' => $data['sex'],
+                'birthday' => $data['birthday'],
+                'phone' => $data['phone'],
+                'valid_id_path' => $path,
+            ] + $state);
+
+            $user->forceFill([
+                'buyer_web_email' => mb_strtolower(trim($user->email)),
+                'buyer_web_phone' => $data['phone'],
+            ])->save();
+
+            $user->addresses()->updateOrCreate(
+                ['is_default' => true],
+                [
+                    'full_name' => $name,
+                    'phone' => $data['phone'],
+                    'address_line' => $data['address_line'],
+                    'region' => $data['region'] ?? null,
+                    'region_code' => $data['region_code'] ?? null,
+                    'barangay' => $data['barangay'],
+                    'barangay_code' => $data['barangay_code'] ?? null,
+                    'city' => $data['city'],
+                    'city_code' => $data['city_code'] ?? null,
+                    'province' => $data['province'] ?? '',
+                    'province_code' => $data['province_code'] ?? null,
+                    'postal_code' => $data['postal_code'],
+                    'country' => $data['country'],
+                    'label' => 'Home',
+                ]
+            );
+        });
+
+        $user = $user->fresh();
+        $request->session()->regenerate();
+        $request->session()->forget('url.intended');
+
+        if ($googleOtpRequired) {
+            try {
+                app(\App\Services\BuyerEmailVerification::class)->send($user);
+            } catch (\Throwable $error) {
+                report($error);
+
+                return redirect()->route('buyer.verification')
+                    ->withErrors(['code' => 'We could not send your code. Please use Resend code to try again.']);
+            }
+
+            return redirect()->route('buyer.verification')
+                ->with('status', 'Profile completed. Check your email for the verification code.');
+        }
+
+        return redirect()->route('home')->with('success', 'Profile completed. Your Buyer account is ready.');
     }
 
     private function personalData(Request $request):array

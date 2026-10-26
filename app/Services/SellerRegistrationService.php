@@ -23,16 +23,26 @@ class SellerRegistrationService
             }
             if ($previous) \App\Models\AdminActivityLog::record('seller_application.resubmitted', \App\Models\SellerApplication::class, $previous->id, ['previous_application' => $previous->getAttributes()]);
             $address=$this->addressText($data,(bool)($data['same_address']??false));
-            $profile=$user->sellerProfile()->firstOrCreate([], [
+            $profile=$user->sellerProfile()->updateOrCreate([], [
                 'phone'=>$data['phone'],'address'=>$address,'business_information'=>$data['business_information']??null,'status'=>'pending',
             ]);
-            $application=$user->sellerApplications()->updateOrCreate(['id'=>$previous?->id], [
+            $applicationData = [
                 'store_name'=>$data['store_name'],'category_id'=>$data['category_id']??null,'store_description'=>$data['store_description']??null,'phone'=>$data['phone'],
                 'address'=>$address,'business_information'=>$data['business_information']??null,
-                'valid_id_path'=>$data['valid_id_path']??$user->valid_id_path,'business_permit_path'=>$data['business_permit_path']??null,
+                'seller_type'=>$data['seller_type']??null,'tin'=>$data['tin']??null,
+                'region'=>$data['region']??null,'region_code'=>$data['region_code']??null,'province'=>$data['province']??null,'province_code'=>$data['province_code']??null,
+                'city'=>$data['city']??null,'city_code'=>$data['city_code']??null,'barangay'=>$data['barangay']??null,'barangay_code'=>$data['barangay_code']??null,'postal_code'=>$data['postal_code']??null,
+                'valid_id_path'=>$data['valid_id_path']??$previous?->valid_id_path??$user->valid_id_path,
+                'business_permit_path'=>$data['business_permit_path']??$previous?->business_permit_path,
+                'dti_certificate_path'=>$data['dti_certificate_path']??$previous?->dti_certificate_path,
+                'sec_certificate_path'=>$data['sec_certificate_path']??$previous?->sec_certificate_path,
+                'bir_2303_path'=>$data['bir_2303_path']??$previous?->bir_2303_path,
                 'logo'=>$data['logo']??$previous?->logo,'banner'=>$data['banner']??$previous?->banner,'status'=>'pending',
                 'review_notes'=>null,'reviewed_by'=>null,'reviewed_at'=>null,
-            ]);
+            ];
+            $application = $previous
+                ? tap($previous)->update($applicationData)
+                : $user->sellerApplications()->create($applicationData);
             $store=Store::updateOrCreate(['user_id'=>$user->id], [
                 'seller_profile_id'=>$profile->id,'name'=>$data['store_name'],'slug'=>$user->store?->slug ?? $this->uniqueSlug($data['store_name']),
                 'description'=>$data['store_description']??null,'logo'=>$data['logo']??null,'banner'=>$data['banner']??null,
@@ -48,8 +58,17 @@ class SellerRegistrationService
 
     protected function addressText(array $data,bool $same): string
     {
-        $prefix=$same?'': 'store_';
-        return implode(', ',array_filter([$data[$prefix.'address_line']??null,$data[$prefix.'barangay']??null,$data[$prefix.'city']??null,$data[$prefix.'province']??null,$data[$prefix.'postal_code']??null,$data['country']??'PH']));
+        $prefix = $same ? '' : 'store_';
+        $line = $data[$prefix.'address_line'] ?? $data['address_line'] ?? $data['address'] ?? null;
+        return implode(', ', array_filter([
+            $line,
+            $data[$prefix.'barangay'] ?? $data['barangay'] ?? null,
+            $data[$prefix.'city'] ?? $data['city'] ?? null,
+            $data[$prefix.'province'] ?? $data['province'] ?? null,
+            $data[$prefix.'region'] ?? $data['region'] ?? null,
+            $data[$prefix.'postal_code'] ?? $data['postal_code'] ?? null,
+            $data['country'] ?? 'PH',
+        ]));
     }
 
     protected function uniqueSlug(string $name): string

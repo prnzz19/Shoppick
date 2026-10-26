@@ -37,7 +37,7 @@ class SystemSettings
                 $key = $definition['key'] ?? "$group.$field";
                 $value = match ($definition['type']) {
                     'boolean' => (bool) $value,
-                    'number' => (int) $value,
+                    'number' => $value === null || $value === '' ? null : (int) $value,
                     default => $value,
                 };
                 $before = $this->get($key);

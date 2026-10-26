@@ -32,7 +32,7 @@ class BirthdayAgeFieldsTest extends TestCase
         $this->assertNull(BirthdayAge::calculate(null, $today));
     }
 
-    public function test_buyer_and_seller_forms_share_readonly_age_component(): void
+    public function test_buyer_age_component_and_protected_seller_application_render(): void
     {
         Carbon::setTestNow('2026-09-10 12:00:00');
 
@@ -42,7 +42,20 @@ class BirthdayAgeFieldsTest extends TestCase
             ->assertSee('readonly', false)
             ->assertSee('max="2026-09-10"', false);
 
-        $this->get(route('register.seller'))->assertRedirect(route('seller.apply'));
+        Role::firstOrCreate(['slug' => 'buyer'], ['name' => 'Buyer', 'guard_name' => 'web']);
+        $buyer = User::factory()->create([
+            'is_active' => true,
+            'registration_type' => 'buyer',
+            'registration_status' => 'approved',
+            'email_verified_at' => now(),
+        ]);
+        $buyer->assignRole('buyer');
+
+        $this->actingAs($buyer)->get(route('register.seller'))
+            ->assertOk()
+            ->assertSee('Become a SHOPPICK Seller', false)
+            ->assertSee('name="address"', false)
+            ->assertSee('name="valid_id"', false);
     }
 
     public function test_future_birthday_is_rejected_and_forged_age_is_ignored(): void

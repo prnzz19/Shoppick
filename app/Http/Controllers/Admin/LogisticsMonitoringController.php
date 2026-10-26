@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Shipment;
+use App\Models\{LogisticsHub, Shipment};
 use App\Models\ShipmentEvent;
 use Illuminate\Support\Facades\Storage;
 use App\Models\User;
@@ -14,6 +14,19 @@ class LogisticsMonitoringController extends Controller
 {
     private const FINISHED = ['delivered', 'completed', 'returned'];
     private const PICKUP_ACTIVE = ['pickup_assigned', 'pickup_accepted', 'picked_up'];
+
+    public function centers(Request $request)
+    {
+        $centers = LogisticsHub::with(['provider', 'scannerUsers'])
+            ->withCount(['shipments', 'scannerUsers'])
+            ->when($request->q, fn ($query, $value) => $query->where(fn ($search) => $search->where('name', 'like', '%'.$value.'%')->orWhere('code', 'like', '%'.$value.'%')))
+            ->when($request->provider_id, fn ($query, $value) => $query->where('logistics_provider_id', $value))
+            ->latest()
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('admin.logistics.centers', compact('centers'));
+    }
 
     public function overview()
     {

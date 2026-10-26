@@ -4,6 +4,10 @@ return [
 
     'psgc' => [
         'base_url' => env('PSGC_API_URL', 'https://psgc.cloud/api'),
+         // Routine reads prefer the locally imported PSA catalog when it is populated.
+         'local_catalog' => env('PSGC_LOCAL_CATALOG', true),
+         'source_version' => env('PSGC_SOURCE_VERSION', 'Q3_2026'),
+         'catalog_file' => env('PSGC_CATALOG_FILE', database_path('psgc/psgc-q3-2026.json')),
         'timeout' => env('PSGC_API_TIMEOUT', 10),
         'cache_ttl' => env('PSGC_CACHE_TTL', 86400),
         'cache_store' => env('PSGC_CACHE_STORE', 'psgc'),
@@ -21,6 +25,8 @@ return [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect' => env('GOOGLE_REDIRECT_URI', rtrim(env('APP_URL', 'http://127.0.0.1:8000'), '/').'/auth/google/callback'),
+        'redirect_local' => env('GOOGLE_REDIRECT_URI_LOCAL', rtrim(env('APP_URL', 'http://127.0.0.1:8000'), '/').'/auth/google/callback'),
+        'redirect_production' => env('GOOGLE_REDIRECT_URI_PRODUCTION', env('GOOGLE_REDIRECT_URI')),
     ],
 
     /*

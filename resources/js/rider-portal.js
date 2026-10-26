@@ -42,7 +42,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const visible = input.type === 'password'; input.type = visible ? 'text' : 'password';
         button.textContent = visible ? 'Hide' : 'Show'; button.setAttribute('aria-pressed', String(visible));
     }));
-    document.querySelectorAll('[data-rider-menu]').forEach(button => button.addEventListener('click', () => {
+    document.querySelectorAll('[data-rider-location]').forEach(button => button.addEventListener('click', () => {
+        const status = button.closest('[data-rider-location-panel]')?.querySelector('[data-rider-location-status]');
+        if (!navigator.geolocation) { if (status) status.textContent = 'Location sharing is unavailable in this browser.'; return; }
+        button.disabled = true;
+        if (status) status.textContent = 'Requesting your location permission…';
+        navigator.geolocation.getCurrentPosition(async ({ coords }) => {
+            try {
+                const response = await fetch(button.dataset.riderLocationUrl, {
+                    method: 'PATCH', credentials: 'same-origin',
+                    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' },
+                    body: JSON.stringify({ latitude: coords.latitude, longitude: coords.longitude }),
+                });
+                if (!response.ok) throw new Error('location update failed');
+                if (status) status.textContent = 'Current location shared securely. It will expire automatically when it becomes stale.';
+            } catch (error) {
+                if (status) status.textContent = 'Location could not be shared. Try again when you are online.';
+            } finally { button.disabled = false; }
+        }, () => { if (status) status.textContent = 'Location permission was not granted. You can try again when ready.'; button.disabled = false; }, { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 });
+    }));    document.querySelectorAll('[data-rider-menu]').forEach(button => button.addEventListener('click', () => {
         const menu = document.getElementById('rider-menu'); menu.checked = !menu.checked;
         document.querySelectorAll('[data-rider-menu]').forEach(item => item.setAttribute('aria-expanded', String(menu.checked)));
     }));

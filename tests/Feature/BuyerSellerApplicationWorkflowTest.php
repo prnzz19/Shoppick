@@ -6,10 +6,11 @@ use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\{Storage, Mail, DB};
+use Tests\Support\MocksPhilippineLocations;
 use Tests\TestCase;
 class BuyerSellerApplicationWorkflowTest extends TestCase
 {
-    use RefreshDatabase;
+    use MocksPhilippineLocations, RefreshDatabase;
     private User $buyer;
     private User $admin;
     private Category $category;
@@ -25,7 +26,7 @@ class BuyerSellerApplicationWorkflowTest extends TestCase
     }
     private function payload(): array
     {
-        return ['store_name'=>'Buyer Shop','store_description'=>'Useful products','category_id'=>$this->category->id,'phone'=>'09171234567','address'=>'Manila',
+        return ['store_name'=>'Buyer Shop','store_description'=>'Useful products','category_id'=>$this->category->id,'phone'=>'09171234567','address'=>'1 Seller Street','seller_type'=>'Individual','tin'=>'123-456-789-000','region'=>'Region IV-A (CALABARZON)','region_code'=>'0400000000','province'=>'Laguna','province_code'=>'0403400000','city'=>'Santa Cruz','city_code'=>'0403426000','barangay'=>'Bubukal','barangay_code'=>'0403426003','postal_code'=>'4000','seller_terms'=>'1',
             'valid_id'=>UploadedFile::fake()->create('id.pdf',20,'application/pdf'),'business_permit'=>UploadedFile::fake()->create('permit.pdf',20,'application/pdf')];
     }
     private function apply(): SellerApplication
@@ -105,7 +106,7 @@ class BuyerSellerApplicationWorkflowTest extends TestCase
         $this->actingAs($buyer)->get(route('seller.apply'))->assertRedirect(route('seller.dashboard'));
         foreach(['seller.dashboard','seller.products.index','seller.orders.index','seller.inventory.index','seller.marketing.index','seller.store.edit','account.profile','cart.index','orders.index'] as $route)$this->get(route($route))->assertOk();
         $this->get(route('landing'))->assertOk()->assertSee(route('seller.dashboard'),false);
-        $this->post(route('seller.apply.store'),$this->payload())->assertStatus(422);
+        $this->post(route('seller.apply.store'),$this->payload())->assertForbidden();
         $other=User::factory()->create(['is_active'=>true]);$other->assignRole('seller');
         $profile=SellerProfile::create(['user_id'=>$other->id,'status'=>'approved']);
         $store=Store::create(['user_id'=>$other->id,'seller_profile_id'=>$profile->id,'name'=>'Other Shop','slug'=>'other-shop','status'=>'active']);

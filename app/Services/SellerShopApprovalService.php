@@ -7,7 +7,11 @@ use App\Models\SellerApplication;
 use App\Models\SellerProfile;
 use App\Models\Store;
 use App\Models\User;
+use App\Mail\SellerApplicationApproved;
+use App\Mail\SellerApplicationRejected;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -20,8 +24,10 @@ class SellerShopApprovalService
         abort_unless($reviewer->hasPermissionTo($decision === 'approved' ? 'approve_shops' : 'reject_shops'), 403);
 
         if ($decision !== 'approved' && blank($reason)) throw ValidationException::withMessages(['review_notes' => 'A review reason is required.']);
+        if ($decision === 'approved' && $application->user?->registration_type === 'seller' && ! $application->user?->email_verified_at) throw ValidationException::withMessages(['status' => 'The Seller must verify their email before approval.']);
 
-        return DB::transaction(function () use ($application, $reviewer, $decision, $reason) {
+        $decisionEmail = null;
+        $store = DB::transaction(function () use ($application, $reviewer, $decision, $reason, &$decisionEmail) {
             User::whereKey($application->user_id)->lockForUpdate()->firstOrFail();
             $application = SellerApplication::whereKey($application->id)->lockForUpdate()->firstOrFail();
             if ($application->archived_at) {
@@ -57,22 +63,60 @@ class SellerShopApprovalService
             else $application->user->removeRole('seller');
             if ($application->user->registration_type === 'seller' && $application->user->registration_status === 'pending') {
                 $application->user->update([
-                    'registration_status'=>'approved', 'is_active'=>true,
+                    'registration_status'=>$decision === 'approved' ? 'approved' : ($decision === 'rejected' ? 'rejected' : 'needs_resubmission'), 'is_active'=>in_array($decision, ['approved','needs_resubmission'], true),
                     'registration_review_notes'=>$reason, 'registration_reviewed_by'=>$reviewer->id,
                     'registration_reviewed_at'=>now(),
                 ]);
             }
 
-            NotificationService::registrationDecision($application->user,
-                $decision === 'approved' ? 'Your seller application has been approved.' : ($decision === 'needs_resubmission' ? 'Your seller application needs resubmission.' : 'Your seller application was rejected.'),
-                $decision === 'approved' ? "Your SHOPPICK store {$store->name} is active. You can shop as Buyer and manage your Seller Dashboard." : "Reason: {$reason}",
-                ($decision==='approved'?route('seller.dashboard'):route('seller.apply')),
-                ['application_id'=>$application->id,'decision'=>$decision]);
+            $notificationTitle = $decision === 'approved'
+                ? 'Your seller application has been approved.'
+                : ($decision === 'needs_resubmission' ? 'Your seller application needs resubmission.' : 'Your seller application was rejected.');
+            $notificationBody = $decision === 'approved'
+                ? "Your SHOPPICK store {$store->name} is active. You can shop as Buyer and manage your Seller Dashboard."
+                : 'Reason: '.$this->applicantReason($reason);
+            NotificationService::send($application->user_id, $notificationTitle, $notificationBody, 'registration', $decision === 'approved' ? route('seller.dashboard') : route('seller.apply'), ['application_id'=>$application->id,'decision'=>$decision], 'user');
+
+            if (filled($application->user->email) && $application->user->email_verified_at) {
+                $decisionEmail = [
+                    'email' => $application->user->email,
+                    'name' => $application->user->name ?: ($application->user->first_name ?: 'SHOPPICK Customer'),
+                    'shop_name' => $store->name,
+                    'reason' => $this->applicantReason($reason),
+                    'decision' => $decision,
+                    'seller_center_url' => route('seller.dashboard'),
+                    'resubmit_url' => route('seller.apply'),
+                    'application_id' => $application->id,
+                ];
+            } elseif ($decisionEmail === null) {
+                Log::warning('Seller application email skipped because the registered email is not verified.', ['application_id' => $application->id, 'decision' => $decision, 'reason' => 'email_not_verified']);
+            }
             AdminActivityLog::record('seller_shop.admin_'.$decision,
                 Store::class, $store->id, ['seller_id' => $application->user_id, 'application_id' => $application->id,
                     'reviewer_role' => 'admin', 'reason' => $reason]);
             return $store;
         });
+
+        if ($decisionEmail) {
+            try {
+                $mailable = $decisionEmail['decision'] === 'approved'
+                    ? new SellerApplicationApproved($decisionEmail['name'], $decisionEmail['shop_name'], $decisionEmail['seller_center_url'])
+                    : new SellerApplicationRejected($decisionEmail['name'], $decisionEmail['shop_name'], $decisionEmail['reason'], $decisionEmail['resubmit_url'], $decisionEmail['decision']);
+                Mail::to($decisionEmail['email'], $decisionEmail['name'])->queue($mailable->afterCommit());
+            } catch (\Throwable $exception) {
+                Log::warning('Seller application decision email could not be queued.', ['application_id' => $decisionEmail['application_id'], 'decision' => $decisionEmail['decision'], 'exception_class' => $exception::class]);
+            }
+        }
+
+        return $store;
+    }
+
+    protected function applicantReason(?string $reason): string
+    {
+        $reason = trim(strip_tags((string) $reason));
+        $reason = preg_replace('/(?:password|secret|token|api[_ -]?key)\s*[:=].*/i', '[private details omitted]', $reason) ?: $reason;
+        $reason = preg_replace('/(?:storage|private|registration-documents)[^\s]*/i', '[document details omitted]', $reason) ?: $reason;
+        return Str::limit($reason ?: 'Please review the application requirements and contact SHOPPICK support if you need assistance.', 500, '…');
     }
 
     public function reviewShop(Store $shop, User $reviewer, string $decision, ?string $reason = null): Store

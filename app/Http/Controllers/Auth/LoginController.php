@@ -52,6 +52,18 @@ class LoginController extends Controller
             return redirect()->route('rider.application.status');
         }
 
+        if ($user->registration_type === 'seller' && $user->registration_status === 'needs_resubmission') {
+            Auth::login($user, false);
+            $request->session()->regenerate();
+            return redirect()->route('seller.apply');
+        }
+
+        if ($user->registration_type === 'logistics' && in_array($user->registration_status, ['rejected', 'needs_resubmission'], true)) {
+            Auth::login($user, false);
+            $request->session()->regenerate();
+            return redirect()->route('logistics.application.resubmit');
+        }
+
         if (in_array($user->registration_status, ['pending', 'rejected'], true)
             && ! ($user->isNormalBuyerRegistration() && $user->registration_status === 'pending')) {
             Auth::logout();

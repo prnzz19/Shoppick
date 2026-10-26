@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\{Order, SellerOrder, SellerProfile, Shipment, Store, User};
+use App\Models\{LogisticsProvider, Order, SellerOrder, SellerProfile, Shipment, Store, User};
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -85,11 +85,20 @@ class AdminLogisticsMonitoringTest extends TestCase
         $this->post(route('logistics.shipments.assign', $shipment), ['rider_id' => $rider->id])->assertForbidden();
         $this->post(route('logistics.shipments.status', $shipment), ['status' => 'delivered'])->assertForbidden();
         $this->post(route('rider.shipments.parcel-action', $shipment), ['action' => 'deliver'])->assertForbidden();
+        $monitoringRoutes = [
+            'admin.logistics.overview',
+            'admin.logistics.deliveries.index',
+            'admin.logistics.deliveries.proof',
+            'admin.logistics.deliveries.show',
+            'admin.logistics.riders.index',
+            'admin.logistics.riders.show',
+        ];
         foreach (app('router')->getRoutes() as $route) {
-            if (str_starts_with($route->getName() ?? '', 'admin.logistics.')) {
+            if (in_array($route->getName(), $monitoringRoutes, true)) {
                 $this->assertSame(['GET', 'HEAD'], $route->methods());
             }
         }
+        $this->assertTrue(\Illuminate\Support\Facades\Route::has('admin.logistics.providers.review'));
         $this->assertSame('ready_for_pickup', $shipment->fresh()->status);
     }
 
@@ -99,6 +108,8 @@ class AdminLogisticsMonitoringTest extends TestCase
         config(['filesystems.default' => 'local']);
         $admin = $this->user('admin');
         $logistics = $this->user('logistics');
+        $provider=LogisticsProvider::create(['owner_user_id'=>$logistics->id,'company_name'=>'Monitoring Provider','status'=>'approved','is_active'=>true]);
+        $provider->users()->attach($logistics->id,['membership_role'=>'owner','is_active'=>true]);
         foreach (['assign_shipments', 'manage_shipments', 'view_shipments'] as $slug) {
             $permission = \App\Models\Permission::create(['name' => $slug, 'slug' => $slug, 'guard_name' => 'web', 'group' => 'Logistics']);
             $logistics->roles()->first()->permissions()->attach($permission);
@@ -107,15 +118,16 @@ class AdminLogisticsMonitoringTest extends TestCase
         $delivery = $this->user('rider');
         foreach ([$pickup, $delivery] as $rider) {
             \App\Models\RiderProfile::create([
-                'user_id' => $rider->id, 'logistics_user_id' => $logistics->id, 'account_status' => 'active', 'availability' => 'available',
+                'user_id' => $rider->id, 'logistics_user_id' => $logistics->id, 'logistics_provider_id'=>$provider->id, 'account_status' => 'active', 'availability' => 'available',
                 'driver_license_number' => 'TEST-'.$rider->id, 'driver_license_classification' => 'Test',
                 'driver_license_expires_at' => now()->addYear(), 'driver_license_status' => 'verified',
                 'driver_license_front_path' => 'test/front.jpg', 'driver_license_back_path' => 'test/back.jpg',
             ]);
         }
         $shipment = $this->shipment('ready_for_pickup');
+        $shipment->update(['logistics_provider_id'=>$provider->id]);
         $shipment->order->payments()->create(['method' => 'cod', 'status' => 'pending', 'gateway' => 'cod', 'amount' => 100]);
-        $area = \App\Models\DeliveryArea::create(['code' => 'MON-AREA', 'name' => 'Monitor Area', 'province' => 'Laguna', 'is_active' => true]);
+        $area = \App\Models\DeliveryArea::create(['logistics_provider_id'=>$provider->id,'code' => 'MON-AREA', 'name' => 'Monitor Area', 'province' => 'Laguna', 'is_active' => true]);
         $delivery->riderProfile->deliveryAreas()->attach($area);
         $count = Shipment::count();
 

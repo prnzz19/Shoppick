@@ -45,8 +45,9 @@ class SellerApplicationController extends Controller
 
     public function sellerDocument(SellerApplication $application, string $document)
     {
-        abort_unless(in_array($document,['valid-id','business-permit'],true),404);
-        $path=$document==='valid-id'?$application->valid_id_path:$application->business_permit_path;
+        abort_unless(in_array($document, ['valid-id','business-permit','dti','sec','bir-2303'], true), 404);
+        $paths = ['valid-id'=>$application->valid_id_path,'business-permit'=>$application->business_permit_path,'dti'=>$application->dti_certificate_path,'sec'=>$application->sec_certificate_path,'bir-2303'=>$application->bir_2303_path];
+        $path = $paths[$document] ?? null;
         abort_unless($path,404);
         return Storage::disk('local')->download($path);
     }

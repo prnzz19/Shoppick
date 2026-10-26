@@ -5,7 +5,7 @@ use App\Models\{Role,SocialAccount,User};
 use App\Mail\BuyerVerificationCode;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\{Auth,Http,Mail,Storage};
+use Illuminate\Support\Facades\{Auth,DB,Http,Mail,Storage};
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\{ProviderInterface,User as GoogleUser,InvalidStateException};
 use Mockery;
@@ -18,11 +18,17 @@ class GoogleBuyerAuthTest extends TestCase
     protected function setUp(): void {
         parent::setUp();Storage::fake('local');Mail::fake();
         foreach(['buyer','seller','admin','logistics','rider'] as $role)Role::create(['name'=>$role,'slug'=>$role,'guard_name'=>'web']);
-        config(['services.google.client_id'=>'fake-client','services.google.client_secret'=>'fake-secret','services.google.redirect'=>'http://127.0.0.1:8000/auth/google/callback']);
+        config([
+            'services.google.client_id'=>'fake-client',
+            'services.google.client_secret'=>'fake-secret',
+            'services.google.redirect'=>'http://127.0.0.1:8000/auth/google/callback',
+            'services.google.redirect_local'=>'http://127.0.0.1:8000/auth/google/callback',
+            'services.google.redirect_production'=>'https://shoppickmarket.shop/auth/google/callback',
+        ]);
     }
-    private function provider(string $email='googlebuyer@gmail.com',string $id='google-subject',array $raw=[]): void {
+    private function provider(string $email='googlebuyer@gmail.com',string $id='google-subject',array $raw=[],?string $expectedRedirect=null): void {
         $user=(new GoogleUser)->setRaw(array_replace(['email_verified'=>true,'given_name'=>'Google','family_name'=>'Buyer'],$raw))->map(['id'=>$id,'email'=>$email,'name'=>'Google Buyer']);
-        $provider=Mockery::mock(ProviderInterface::class);$provider->shouldReceive('user')->once()->andReturn($user);Socialite::shouldReceive('driver')->with('google')->once()->andReturn($provider);
+        $provider=Mockery::mock(ProviderInterface::class);$provider->shouldReceive('user')->once()->andReturn($user);Socialite::shouldReceive('driver')->with('google')->once()->andReturnUsing(function () use ($provider,$expectedRedirect) {if($expectedRedirect!==null)$this->assertSame($expectedRedirect,config('services.google.redirect'));return $provider;});
     }
     private function buyer(array $attributes=[]): User {
         $user=User::factory()->create($attributes+['email'=>'googlebuyer@gmail.com','phone'=>'+639171234567','is_active'=>true,'registration_type'=>'buyer','registration_status'=>'approved']);$user->assignRole('buyer');
@@ -30,15 +36,56 @@ class GoogleBuyerAuthTest extends TestCase
     }
     private function profile(): array {return ['first_name'=>'Google','last_name'=>'Buyer','sex'=>'female','birthday'=>'1998-05-14','phone'=>'09171234567','address_line'=>'1 Test Street','region'=>'Region IV-A (CALABARZON)','province'=>'Laguna','city'=>'Santa Cruz','barangay'=>'Bubukal','postal_code'=>'4009','country'=>'PH','terms'=>'1','valid_id'=>UploadedFile::fake()->create('id.pdf',10,'application/pdf')];}
     public function test_real_socialite_redirect_contains_state_and_only_identity_scopes(): void {
-        $response=$this->get(route('auth.google.redirect',['role'=>'admin']))->assertRedirect();parse_str(parse_url($response->headers->get('Location'),PHP_URL_QUERY),$query);
+        $response=$this->get('http://127.0.0.1:8000/auth/google/redirect?role=admin')->assertRedirect();parse_str(parse_url($response->headers->get('Location'),PHP_URL_QUERY),$query);
         $this->assertNotEmpty($query['state']);$this->assertSame(session('state'),$query['state']);$this->assertSame('http://127.0.0.1:8000/auth/google/callback',$query['redirect_uri']);$this->assertEqualsCanonicalizing(['openid','email','profile'],explode(' ',$query['scope']));
+    }
+    public function test_real_socialite_redirect_uses_production_callback_for_production_host(): void {
+        $response=$this->get('https://shoppickmarket.shop/auth/google/redirect')->assertRedirect();parse_str(parse_url($response->headers->get('Location'),PHP_URL_QUERY),$query);
+        $this->assertSame('https://shoppickmarket.shop/auth/google/callback',$query['redirect_uri']);
+    }
+    public function test_callback_uses_local_callback_for_local_host(): void {
+        $user=$this->buyer();$this->provider(expectedRedirect:'http://127.0.0.1:8000/auth/google/callback');
+        $this->get('http://127.0.0.1:8000/auth/google/callback')->assertRedirect('http://127.0.0.1:8000/shop');
+        $this->assertAuthenticatedAs($user);
+    }
+    public function test_callback_uses_local_callback_for_localhost_host(): void {
+        $user=$this->buyer();$this->provider(expectedRedirect:'http://127.0.0.1:8000/auth/google/callback');
+        $this->get('http://localhost/auth/google/callback')->assertRedirect('http://localhost/shop');
+        $this->assertAuthenticatedAs($user);
+    }
+    public function test_callback_uses_production_callback_for_production_host(): void {
+        $user=$this->buyer();$this->provider(expectedRedirect:'https://shoppickmarket.shop/auth/google/callback');
+        $this->get('https://shoppickmarket.shop/auth/google/callback')->assertRedirect('https://shoppickmarket.shop/shop');
+        $this->assertAuthenticatedAs($user);
+    }
+    public function test_google_redirect_rejects_untrusted_host(): void {
+        $this->get('http://attacker.example/auth/google/redirect')
+            ->assertRedirect()
+            ->assertSessionHas('authentication_error','Google sign-in is unavailable for this host.');
     }
     public function test_real_socialite_rejects_mismatched_state_without_http_call(): void {
         Http::preventStrayRequests();$this->withSession(['state'=>'expected'])->get(route('auth.google.callback',['state'=>'wrong','code'=>'fake']))->assertRedirect(route('login'))->assertSessionHas('authentication_error','Your Google sign-in session expired. Please try again.');$this->assertDatabaseCount('users',0);$this->assertGuest();
     }
     public function test_first_google_buyer_gets_only_buyer_role_and_regenerated_session(): void {
         $this->get(route('login'));$before=session()->getId();$this->provider();$this->get(route('auth.google.callback',['role'=>'admin','registration_type'=>'seller']))->assertRedirect(route('profile.complete'));
-        $user=User::firstOrFail();$this->assertSame(['buyer'],$user->roles()->pluck('slug')->all());$this->assertSame('incomplete',$user->registration_status);$this->assertSame('Google',$user->first_name);$this->assertNotNull($user->email_verified_at);$this->assertNotSame($before,session()->getId());$this->get(route('checkout'))->assertRedirect(route('profile.complete'));Mail::assertNothingSent();
+        $user=User::firstOrFail();$this->assertSame(['buyer'],$user->roles()->pluck('slug')->all());$this->assertSame('incomplete',$user->registration_status);$this->assertSame('Google',$user->first_name);$this->assertNull($user->email_verified_at);$this->assertFalse($user->is_active);$this->assertNotSame($before,session()->getId());$this->get(route('checkout'))->assertRedirect(route('profile.complete'));Mail::assertNothingSent();
+    }
+    public function test_incomplete_google_buyer_does_not_treat_google_timestamp_as_shop_pick_verification(): void
+    {
+        $user = $this->buyer([
+            'registration_status' => 'incomplete',
+            'email_verified_at' => now(),
+        ]);
+        $user->socialAccounts()->create(['provider' => 'google', 'provider_id' => 'google-subject']);
+
+        $this->provider();
+        $this->get(route('auth.google.callback'))->assertRedirect(route('profile.complete'));
+        $this->post(route('profile.complete.update'), $this->profile())
+            ->assertRedirect(route('buyer.verification'));
+
+        $this->assertSame('unverified', $user->fresh()->registration_status);
+        $this->assertFalse($user->fresh()->is_active);
+        $this->assertNull($user->fresh()->email_verified_at);
     }
     public function test_existing_email_is_trimmed_case_insensitive_and_never_duplicates(): void {
         $user=$this->buyer(['email'=>'GOOGLEBUYER@GMAIL.COM']);$this->provider('  googlebuyer@gmail.com  ');$this->get(route('auth.google.callback'))->assertRedirect(route('home'));$this->assertAuthenticatedAs($user);$this->assertDatabaseCount('users',1);$this->assertDatabaseCount('social_accounts',1);
@@ -67,25 +114,69 @@ class GoogleBuyerAuthTest extends TestCase
     public function test_password_registered_unverified_buyer_still_requires_otp_after_google(): void {
         $user=$this->buyer(['registration_status'=>'unverified','is_active'=>false,'email_verified_at'=>null]);$this->provider();$this->get(route('auth.google.callback'))->assertRedirect(route('buyer.verification'));$this->assertFalse($user->fresh()->is_active);$this->get(route('checkout'))->assertRedirect(route('buyer.verification'));
     }
-    public function test_profile_requires_terms_adulthood_unique_phone_and_completes_without_otp(): void {
-        $this->provider();$this->get(route('auth.google.callback'));$user=User::firstOrFail();$data=$this->profile();
-        $this->post(route('profile.complete.update'),array_replace($data,['terms'=>'0']))->assertSessionHasErrors('terms');
-        $this->post(route('profile.complete.update'),array_replace($data,['birthday'=>today('Asia/Manila')->subYears(17)->format('Y-m-d')]))->assertSessionHasErrors('birthday');
-        $other=$this->buyer(['email'=>'other@gmail.com']);$this->post(route('profile.complete.update'),$data)->assertSessionHasErrors('phone');$other->update(['phone'=>'+639170000001']);
-        $before=session()->getId();$this->post(route('profile.complete.update'),$this->profile())->assertRedirect(route('home'))->assertSessionHasNoErrors();$this->assertAuthenticatedAs($user);$this->assertNotSame($before,session()->getId());$this->assertSame('approved',$user->fresh()->registration_status);$this->assertTrue($user->fresh()->hasCompleteBuyerProfile());$this->get(route('cart.index'))->assertOk();Mail::assertNothingSent();
+    public function test_profile_completion_requires_shoppick_otp_after_google_onboarding(): void
+    {
+        $this->provider();
+        $this->get(route('auth.google.callback'))->assertRedirect(route('profile.complete'));
+
+        $user = User::firstOrFail();
+        $data = $this->profile();
+
+        $this->post(route('profile.complete.update'), array_replace($data, ['terms' => '0']))
+            ->assertSessionHasErrors('terms');
+        $this->post(route('profile.complete.update'), array_replace($data, [
+            'birthday' => today('Asia/Manila')->subYears(17)->format('Y-m-d'),
+        ]))->assertSessionHasErrors('birthday');
+
+        $other = $this->buyer(['email' => 'other@gmail.com']);
+        $this->post(route('profile.complete.update'), $data)->assertSessionHasErrors('phone');
+        $other->update(['phone' => '+639170000001']);
+
+        $before = session()->getId();
+        $this->post(route('profile.complete.update'), $this->profile())
+            ->assertRedirect(route('buyer.verification'))
+            ->assertSessionHasNoErrors();
+
+        $this->assertAuthenticatedAs($user);
+        $this->assertNotSame($before, session()->getId());
+        $user = $user->fresh();
+        $this->assertSame('unverified', $user->registration_status);
+        $this->assertFalse($user->is_active);
+        $this->assertNull($user->email_verified_at);
+        $this->assertDatabaseHas('buyer_email_verifications', ['user_id' => $user->id]);
+        $this->get(route('cart.index'))->assertRedirect(route('buyer.verification'));
+
+        $otp = null;
+        Mail::assertSent(BuyerVerificationCode::class, function ($mail) use (&$otp) {
+            $otp = $mail->code;
+            return true;
+        });
+        $this->assertIsString($otp);
+        $wrong = $otp === '111111' ? '222222' : '111111';
+        $this->post(route('buyer.verification.verify'), ['code' => $wrong])
+            ->assertSessionHasErrors('code');
+        $this->assertFalse($user->fresh()->is_active);
+
+        $this->post(route('buyer.verification.verify'), ['code' => $otp])
+            ->assertRedirect(route('home'));
+        $this->assertSame('approved', $user->fresh()->registration_status);
+        $this->assertTrue($user->fresh()->is_active);
+        $this->assertNotNull($user->fresh()->email_verified_at);
+        $this->get(route('cart.index'))->assertOk();
     }
+
     public function test_oauth_failure_and_missing_config_are_safe(): void {
         $provider=Mockery::mock(ProviderInterface::class);$provider->shouldReceive('user')->andThrow(new \RuntimeException('private token details'));Socialite::shouldReceive('driver')->with('google')->andReturn($provider);
         $this->get(route('auth.google.callback'))->assertRedirect(route('login'))->assertSessionHas('authentication_error',"We couldn't complete Google sign-in. Please try again.");$this->assertGuest();config(['services.google.client_id'=>null,'services.google.client_secret'=>null]);$this->get(route('login'))->assertOk()->assertDontSee('private token details')->assertSee('Google sign-in is currently unavailable.');$this->get(route('auth.google.redirect'))->assertRedirect(route('login'));
     }
     public function test_fresh_registration_form_resumes_pending_account_only_with_matching_credentials(): void {
-        $data=$this->profile()+['email'=>'resume@gmail.com','password'=>'Buyer@2026','password_confirmation'=>'Buyer@2026'];$this->get(route('register'));$data['registration_token']=session('buyer_signup_token');$this->post(route('register.submit'),$data)->assertRedirect(route('buyer.verification'));Auth::logout();
-        $this->get(route('register'));$data['registration_token']=session('buyer_signup_token');$this->post(route('register.submit'),$data)->assertRedirect(route('buyer.verification'))->assertSessionHas('status','This account is waiting for email verification. Enter your code or request a new one.');$this->assertDatabaseCount('users',1);Mail::assertSent(BuyerVerificationCode::class,1);
+        $data=$this->profile()+['email'=>'resume@gmail.com','password'=>'Buyer@2026','password_confirmation'=>'Buyer@2026'];$this->get(route('register.buyer'));$data['registration_token']=session('buyer_signup_token');$this->post(route('register.submit'),$data)->assertRedirect(route('buyer.verification'));Auth::logout();
+        $this->get(route('register.buyer'));$data['registration_token']=session('buyer_signup_token');$this->post(route('register.submit'),$data)->assertRedirect(route('buyer.verification'))->assertSessionHas('status','This account is waiting for email verification. Enter your code or request a new one.');$this->assertDatabaseCount('users',1);Mail::assertSent(BuyerVerificationCode::class,1);
         Auth::logout();$this->post(route('register.submit'),array_replace($data,['password'=>'Wrong@2026','password_confirmation'=>'Wrong@2026']))->assertSessionHasErrors(['email','phone']);$this->assertGuest();
     }
     public function test_initial_email_failure_keeps_account_and_allows_verification_retry(): void {
         Mail::shouldReceive('to')->andThrow(new \RuntimeException('private SMTP configuration failure'));
-        $data=$this->profile()+['email'=>'mail-failure@example.com','password'=>'Buyer@2026','password_confirmation'=>'Buyer@2026'];$this->get(route('register'));$data['registration_token']=session('buyer_signup_token');
+        $data=$this->profile()+['email'=>'mail-failure@example.com','password'=>'Buyer@2026','password_confirmation'=>'Buyer@2026'];$this->get(route('register.buyer'));$data['registration_token']=session('buyer_signup_token');
         $this->post(route('register.submit'),$data)->assertRedirect(route('buyer.verification'))->assertSessionHasErrors('code');$user=User::firstOrFail();$this->assertFalse($user->is_active);$this->assertDatabaseCount('buyer_email_verifications',0);
         $this->get(route('buyer.verification'))->assertOk()->assertSee('Resend code')->assertDontSee('private SMTP');Auth::logout();$this->post(route('register.submit'),$data)->assertRedirect(route('buyer.verification'));$this->assertDatabaseCount('users',1);
     }

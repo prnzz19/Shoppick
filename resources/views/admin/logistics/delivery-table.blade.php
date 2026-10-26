@@ -18,7 +18,7 @@
 <td class="table-td">{{ $shipment->rider?->name ?? 'Unassigned' }}@if($shipment->pickupRider)<span class="block text-xs text-slate-500">Pickup: {{ $shipment->pickupRider->name }}</span>@endif</td>
 <td class="table-td"><x-admin.status-badge :status="$shipment->status" /></td>
 <td class="table-td whitespace-nowrap">{{ $shipment->updated_at?->format('M j, Y H:i') ?? '—' }}</td>
-<td class="table-td"><a class="whitespace-nowrap font-semibold text-brand-700 hover:underline" href="{{ route('admin.logistics.deliveries.show', $shipment) }}">View Details</a></td>
+<td class="table-td"><a class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-extrabold text-brand-700 shadow-sm transition hover:border-brand-300 hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-200" href="{{ route('admin.logistics.deliveries.show', $shipment) }}"><svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.5 12s3.4-5 9.5-5 9.5 5 9.5 5-3.4 5-9.5 5-9.5-5-9.5-5z"/><circle cx="12" cy="12" r="2.3" stroke-width="1.8"/></svg>View Details<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m9 18 6-6-6-6"/></svg></a></td>
 </tr>
 @empty
 <tr><td colspan="{{ ($compact ?? false) ? 7 : 9 }}" class="p-8 text-center text-slate-500">No deliveries found.</td></tr>

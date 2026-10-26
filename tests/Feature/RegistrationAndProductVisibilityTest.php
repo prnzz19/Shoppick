@@ -67,14 +67,30 @@ class RegistrationAndProductVisibilityTest extends TestCase
         $this->assertSame('pending',$pending->fresh()->registration_status);
         $this->assertFalse($pending->fresh()->is_active);
     }
-    public function test_public_seller_signup_is_disabled_and_registration_is_buyer_only(): void
+    public function test_seller_application_requires_an_authenticated_verified_buyer(): void
     {
-        $this->get(route('register'))->assertOk()->assertSee('Register as Buyer')->assertDontSee('Register as Seller');
-        $this->get(route('register.seller'))->assertRedirect(route('seller.apply'));
-        $this->post(route('register.seller.submit'),['email'=>'blocked@example.test'])->assertStatus(410);
-        $this->assertDatabaseCount('users',0);
-    }
+        $this->get(route('register'))->assertOk()
+            ->assertSee('Buyer')
+            ->assertSee('Rider')
+            ->assertSee('Logistics Company')
+            ->assertDontSee('Apply as Seller');
 
+        $this->get(route('register.seller'))->assertRedirect(route('login'));
+        $this->post(route('register.seller.submit'), [])->assertRedirect(route('login'));
+
+        $buyer = User::factory()->create([
+            'is_active' => true,
+            'registration_type' => 'buyer',
+            'registration_status' => 'approved',
+            'email_verified_at' => now(),
+        ]);
+        $buyer->assignRole('buyer');
+
+        $this->actingAs($buyer)->get(route('register.seller'))
+            ->assertOk()
+            ->assertSee('Become a SHOPPICK Seller');
+        $this->assertSame(1, User::count());
+    }
     public function test_new_public_seller_product_is_latest_searchable_and_visible_in_shop(): void
     {
         $seller = User::factory()->create(['is_active'=>true]); $seller->assignRole('seller');
@@ -210,7 +226,7 @@ class RegistrationAndProductVisibilityTest extends TestCase
         $this->get(route('auth.google.callback'))->assertRedirect(route('profile.complete'));
         $user = User::where('email','google@buyer.test')->firstOrFail();
         $this->assertTrue($user->isBuyer());
-        $this->assertTrue($user->is_active);
+        $this->assertFalse($user->is_active);
         $this->assertSame('incomplete', $user->registration_status);
         $this->assertFalse($user->isAdmin());
         $this->assertDatabaseHas('social_accounts',['user_id'=>$user->id,'provider'=>'google','provider_id'=>'google-123']);
@@ -220,9 +236,11 @@ class RegistrationAndProductVisibilityTest extends TestCase
             'first_name'=>'Google','last_name'=>'Buyer','sex'=>'female','birthday'=>'2004-08-15','valid_id'=>UploadedFile::fake()->create('google-id.jpg',100,'image/jpeg'),
             'terms'=>'1','phone'=>'09171234567','address_line'=>'1 Google Street',
             'region'=>'Region IV-A (CALABARZON)','city'=>'Santa Cruz','province'=>'Laguna','barangay'=>'Bubukal','postal_code'=>'1000','country'=>'PH',
-        ])->assertRedirect(route('home'));
+        ])->assertRedirect(route('buyer.verification'));
         $this->assertTrue($user->fresh()->hasCompleteBuyerProfile());
-        $this->assertSame('approved',$user->fresh()->registration_status);$this->assertTrue($user->fresh()->is_active);
+        $this->assertSame('unverified',$user->fresh()->registration_status);
+        $this->assertFalse($user->fresh()->is_active);
+        Mail::assertSent(\App\Mail\BuyerVerificationCode::class);
     }
 
     public function test_google_uses_existing_buyer_email_without_creating_a_duplicate(): void
@@ -279,7 +297,10 @@ class RegistrationAndProductVisibilityTest extends TestCase
         config(['services.google.client_id'=>'test-client','services.google.client_secret'=>'test-secret','services.google.redirect'=>'http://127.0.0.1:8000/auth/google/callback']);
         $this->get(route('login'))->assertOk()->assertSee(route('auth.google.redirect'),false)->assertDontSee('Google sign-in is currently unavailable.');
         $this->get(route('register.buyer'))->assertOk()->assertSee(route('auth.google.redirect',['account_type'=>'buyer']),false)->assertDontSee('Google registration is currently unavailable.');
-        $this->get(route('register.seller'))->assertRedirect(route('seller.apply'));
+        $buyer = User::factory()->create(['is_active'=>true,'registration_type'=>'buyer','registration_status'=>'approved','email_verified_at'=>now()]);
+        $buyer->assignRole('buyer');
+        $this->actingAs($buyer)->get(route('register.seller'))->assertOk()->assertSee('Become a SHOPPICK Seller');
+        $this->post(route('logout'));
         $provider=Mockery::mock(Provider::class);
         $provider->shouldReceive('scopes')->once()->with(['openid','email','profile'])->andReturnSelf();
         $provider->shouldReceive('redirect')->once()->andReturn(redirect()->away('https://accounts.google.test/select'));

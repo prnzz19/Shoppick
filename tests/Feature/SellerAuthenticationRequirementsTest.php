@@ -9,11 +9,12 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Tests\Support\MocksPhilippineLocations;
 use Tests\TestCase;
 
 class SellerAuthenticationRequirementsTest extends TestCase
 {
-    use RefreshDatabase;
+    use MocksPhilippineLocations, RefreshDatabase;
 
     private function buyer(string $email): User
     {
@@ -27,7 +28,9 @@ class SellerAuthenticationRequirementsTest extends TestCase
     {
         return [
             'store_name' => $store, 'store_description' => 'A local marketplace shop.', 'phone' => '09171234567',
-            'address' => 'Manila', 'category_id' => $categoryId,
+            'address' => '1 Seller Street', 'seller_type' => 'Individual', 'tin' => '123-456-789-000',
+            'region' => 'Region IV-A (CALABARZON)', 'region_code' => '0400000000', 'province' => 'Laguna', 'province_code' => '0403400000',
+            'city' => 'Santa Cruz', 'city_code' => '0403426000', 'barangay' => 'Bubukal', 'barangay_code' => '0403426003', 'postal_code' => '4000', 'seller_terms' => '1', 'category_id' => $categoryId,
             'valid_id' => UploadedFile::fake()->create('buyer-id.jpg', 100, 'image/jpeg'),
             'business_permit' => UploadedFile::fake()->create('permit.pdf', 100, 'application/pdf'),
         ];
@@ -56,9 +59,8 @@ class SellerAuthenticationRequirementsTest extends TestCase
             ->assertSessionHasErrors('store_name');
     }
 
-    public function test_role_specific_login_entry_points_are_available(): void
+    public function test_shared_login_entry_point_is_available(): void
     {
-        $this->get(route('seller.login'))->assertRedirect(route('login', ['role' => 'seller']));
-        $this->get(route('logistics.login'))->assertRedirect(route('login', ['role' => 'logistics']));
+        $this->get(route('login'))->assertOk()->assertSee('Welcome Back!');
     }
 }

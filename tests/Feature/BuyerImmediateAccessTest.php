@@ -72,7 +72,7 @@ class BuyerImmediateAccessTest extends TestCase
         $buyer = $this->newBuyer();
         $category = Category::create(['name' => 'Buyer Test', 'slug' => 'buyer-test', 'is_active' => true]);
         $this->actingAs($buyer)->post(route('seller.apply.store'), [
-            'store_name' => 'Immediate Buyer Test Shop', 'store_description' => 'Testing role separation', 'category_id' => $category->id, 'phone' => $buyer->phone, 'address' => '12 Test Street, Bubukal, Santa Cruz, Laguna',
+            'store_name' => 'Immediate Buyer Test Shop', 'store_description' => 'Testing role separation', 'category_id' => $category->id, 'phone' => $buyer->phone, 'address' => '12 Test Street', 'seller_type' => 'Individual', 'tin' => '123-456-789-000', 'region' => 'Region IV-A (CALABARZON)', 'region_code' => '0400000000', 'province' => 'Laguna', 'province_code' => '0403400000', 'city' => 'Santa Cruz', 'city_code' => '0403426000', 'barangay' => 'Bubukal', 'barangay_code' => '0403426003', 'postal_code' => '4000', 'seller_terms' => '1',
             'valid_id' => UploadedFile::fake()->create('id.pdf', 10, 'application/pdf'), 'business_permit' => UploadedFile::fake()->create('permit.pdf', 10, 'application/pdf'),
         ])->assertRedirect(route('seller.apply'))->assertSessionHasNoErrors();
         $application = $buyer->sellerApplications()->firstOrFail();

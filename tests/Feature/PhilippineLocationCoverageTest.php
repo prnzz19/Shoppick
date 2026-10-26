@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Role;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -44,13 +46,26 @@ class PhilippineLocationCoverageTest extends TestCase
         $this->getJson(route('locations.region-cities', '1300000000'))->assertOk()->assertJsonFragment(['name'=>'City of Manila']);
     }
 
-    public function test_buyer_and_seller_flows_render_the_same_nationwide_component(): void
+    public function test_buyer_and_seller_flows_render_their_expected_address_fields(): void
     {
         $this->get(route('register.buyer'))
             ->assertOk()
             ->assertSee('data-ph-location', false)
             ->assertSee('name="region_code"', false);
 
-        $this->get(route('register.seller'))->assertRedirect(route('seller.apply'));
+        Role::firstOrCreate(['slug' => 'buyer'], ['name' => 'Buyer', 'guard_name' => 'web']);
+        $buyer = User::factory()->create([
+            'is_active' => true,
+            'registration_type' => 'buyer',
+            'registration_status' => 'approved',
+            'email_verified_at' => now(),
+        ]);
+        $buyer->assignRole('buyer');
+
+        $this->actingAs($buyer)->get(route('register.seller'))
+            ->assertOk()
+            ->assertSee('Become a SHOPPICK Seller', false)
+            ->assertSee('name="address"', false)
+            ->assertSee('name="valid_id"', false);
     }
 }

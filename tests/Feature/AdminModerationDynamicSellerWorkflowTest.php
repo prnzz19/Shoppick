@@ -63,6 +63,7 @@ class AdminModerationDynamicSellerWorkflowTest extends TestCase
 
     private function registerAndApproveSeller(User $admin, string $suffix): User
     {
+        auth()->logout();
         $label = ucfirst($suffix);
         $email = "dynamic.{$suffix}@seller.test";
         $category = Category::where('slug', 'dynamic-products')->firstOrFail();
@@ -82,7 +83,7 @@ class AdminModerationDynamicSellerWorkflowTest extends TestCase
         $seller = User::where('email', $email)->firstOrFail();
         $this->assertTrue($seller->is_active);$this->assertSame('approved',$seller->registration_status);
         $this->actingAs($seller->fresh())->post(route('seller.apply.store'),[
-            'store_name'=>"Dynamic Shop {$label}",'store_description'=>'A legitimate test marketplace shop.','category_id'=>$category->id,'phone'=>$seller->phone,'address'=>'1 Seller Street, Manila',
+            'store_name'=>"Dynamic Shop {$label}",'store_description'=>'A legitimate test marketplace shop.','category_id'=>$category->id,'phone'=>$seller->phone,'address'=>'1 Seller Street','seller_type'=>'Individual','tin'=>$suffix === 'one' ? '123-456-789-000' : '456-789-012-000','region'=>'Region IV-A (CALABARZON)','region_code'=>'0400000000','province'=>'Laguna','province_code'=>'0403400000','city'=>'Santa Cruz','city_code'=>'0403426000','barangay'=>'Bubukal','barangay_code'=>'0403426003','postal_code'=>'4000','seller_terms'=>'1',
             'valid_id'=>UploadedFile::fake()->create('id.pdf',100,'application/pdf'),'business_permit'=>UploadedFile::fake()->create('permit.pdf',100,'application/pdf'),
         ])->assertSessionHasNoErrors();
         $application = SellerApplication::where('user_id', $seller->id)->firstOrFail();

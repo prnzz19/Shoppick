@@ -14,8 +14,7 @@
         {{-- Sidebar --}}
         <aside class="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-navy-900 lg:flex">
             <a href="{{ route('admin.dashboard') }}" class="flex items-center gap-2 px-5 py-5">
-                <x-shoppick.logo class="h-9 w-9" />
-                <span class="text-lg font-extrabold tracking-tight"><span class="text-brand-400">SHOP</span><span class="text-accent-400">PICK</span></span>
+                <x-shoppick.wordmark class="h-8 w-36" />
             </a>
 
             @php
@@ -31,6 +30,8 @@
                     ['admin.inventory.index', 'Inventory', 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z', 'inventory'],
                     ['admin.orders.index', 'Orders', 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', 'orders'],
                     ['admin.logistics.overview', 'Logistics Overview', 'M4 19h16M7 16V8m5 8V4m5 12v-6', null],
+                    ['admin.logistics.providers.index', 'Logistics Applications', 'M5 13l4 4L19 7', null],
+                    ['admin.logistics.centers.index', 'Sorting Centers', 'M3 7h18M5 7v12h14V7M8 4h8', null],
                     ['admin.logistics.deliveries.index', 'Deliveries', 'M3 6h12v11H3zM15 10h4l3 4v3h-7M7 20a2 2 0 100-4 2 2 0 000 4zm11 0a2 2 0 100-4 2 2 0 000 4z', null],
                     ['admin.logistics.riders.index', 'Riders', 'M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M13 7a4 4 0 11-8 0 4 4 0 018 0z', null],
                     ['admin.promotions.index', 'Promotions', 'M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z', null],
@@ -87,8 +88,7 @@
         {{-- Mobile top bar --}}
         <div class="fixed inset-x-0 top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
             <a href="{{ route('admin.dashboard') }}" class="flex items-center gap-2">
-                <x-shoppick.logo class="h-8 w-8" />
-                <span class="text-lg font-extrabold"><span class="text-brand-500">SHOP</span><span class="text-accent-500">PICK</span></span>
+                <x-shoppick.wordmark class="h-7 w-32" />
             </a>
             <div class="flex items-center gap-3">
                 <a href="{{ route('home') }}" class="p-2 text-navy-700 hover:bg-slate-100 rounded-lg"><svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6-8h4m-4 8h4V8h-4v12z"/></svg></a>

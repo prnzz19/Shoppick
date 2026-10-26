@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\{Category,NotificationModel,Order,Permission,Product,RiderProfile,Role,SellerOrder,SellerProfile,Shipment,Store,User};
+use App\Models\{Category,LogisticsProvider,NotificationModel,Order,Permission,Product,RiderProfile,Role,SellerOrder,SellerProfile,Shipment,Store,User,SystemSetting};
 use App\Services\{SellerOrderStatusService,ShipmentService};
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -41,7 +41,7 @@ class ReadyToShipLogisticsTest extends TestCase
         $progress->syncOrder($order);
 
         Role::create(['name'=>'Rider','slug'=>'rider','guard_name'=>'web']);
-        $rider=User::factory()->create(['is_active'=>true]);$rider->assignRole('rider');$this->licensedProfile($rider)->update(['logistics_user_id'=>$logistics->id]);
+        $rider=User::factory()->create(['is_active'=>true]);$rider->assignRole('rider');$this->licensedProfile($rider)->update(['logistics_user_id'=>$logistics->id,'logistics_provider_id'=>$logistics->ownedLogisticsProvider->id]);
         $workflow=app(\App\Services\ParcelWorkflowService::class);
         $workflow->assignPickup($shipment,$logistics,$rider);
         $this->assertSame('ready_to_ship',$order->fresh()->status);
@@ -149,6 +149,9 @@ class ReadyToShipLogisticsTest extends TestCase
         }
         $seller=User::factory()->create(['is_active'=>true]);$seller->assignRole('seller');
         $logistics=User::factory()->create(['is_active'=>true]);$logistics->assignRole('logistics');
+        $provider=LogisticsProvider::create(['owner_user_id'=>$logistics->id,'company_name'=>'Ready To Ship Provider','status'=>'approved','is_active'=>true]);
+        $provider->users()->attach($logistics->id,['membership_role'=>'owner','is_active'=>true]);
+        SystemSetting::create(['key'=>'logistics.default_marketplace_provider_id','value'=>$provider->id,'type'=>'number','group'=>'logistics']);
         $profile=SellerProfile::create(['user_id'=>$seller->id,'status'=>'approved']);
         $store=Store::create(['user_id'=>$seller->id,'seller_profile_id'=>$profile->id,'name'=>'Manual Product Shop','slug'=>'manual-product-shop','location'=>'Seller Pickup Address','status'=>'active']);
         $category=Category::create(['name'=>'Manual Products','slug'=>'manual-products','is_active'=>true]);

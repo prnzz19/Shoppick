@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\SellerApplicationRequest;
 use App\Models\Category;
 use App\Models\SellerApplication;
-use App\Models\Store;
 use App\Services\SellerRegistrationService;
-use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class SellerApplicationController extends Controller
 {
@@ -20,49 +20,47 @@ class SellerApplicationController extends Controller
         return view('seller.apply', compact('application', 'categories'));
     }
 
-    public function store(Request $request, SellerRegistrationService $registration)
+    public function store(SellerApplicationRequest $request, SellerRegistrationService $registration)
     {
-        abort_if($request->user()->isSeller(), 422, 'You already have seller access.');
         if ($request->user()->sellerApplications()->whereIn('status', SellerApplication::REVIEWABLE)->exists()) {
             return redirect()->route('seller.apply')->with('success', 'Your application is already under review.');
         }
+        $data = $request->validated();
+        $paths = [];
+        $disks = [];
+        $documents = [
+            'valid_id' => 'valid_id_path',
+            'business_permit' => 'business_permit_path',
+            'dti_certificate' => 'dti_certificate_path',
+            'sec_certificate' => 'sec_certificate_path',
+            'bir_2303' => 'bir_2303_path',
+        ];
 
-        $request->merge(['phone' => $this->normalizePhone($request->input('phone'))]);
-        $data = $request->validate([
-            'store_name' => ['required', 'string', 'min:3', 'max:30', function (string $attribute, mixed $value, Closure $fail) use ($request): void {
-                $duplicate = Store::withTrashed()
-                    ->whereRaw('LOWER(name) = ?', [mb_strtolower(trim((string) $value))])
-                    ->where('user_id', '!=', $request->user()->id)
-                    ->exists();
-                if ($duplicate) $fail('That shop name is already in use. Choose another name.');
-            }],
-            'store_description' => ['nullable', 'string', 'max:2000'],
-            'phone' => ['required', 'regex:/^(?:09\d{9}|\+639\d{9})$/'],
-            'address' => ['required', 'string', 'max:1000'],
-            'category_id' => ['required', 'exists:categories,id'],
-            'business_information' => ['nullable', 'string', 'max:2000'],
-            'valid_id' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
-            'business_permit' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
-            'logo' => [app(\App\Services\SystemSettings::class)->get('seller.logo_required') ? 'required' : 'nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:'.app(\App\Services\SystemSettings::class)->get('seller.logo_max_size')],
-            'banner' => ['nullable', 'image', 'max:4096'],
-        ]);
+        try {
+            foreach ($documents as $field => $target) {
+                if ($request->hasFile($field)) {
+                    $paths[$target] = $request->file($field)->store('registration-documents', 'local');
+                    $disks[$target] = 'local';
+                    if (! $paths[$target]) throw new \RuntimeException('Unable to store a Seller document.');
+                }
+            }
+            foreach (['logo', 'banner'] as $field) {
+                if ($request->hasFile($field)) {
+                    $paths[$field] = $request->file($field)->store('stores', 'public');
+                    $disks[$field] = 'public';
+                }
+            }
+            $registration->submit($request->user(), array_merge($data, $paths));
+        } catch (\Throwable $error) {
+            foreach ($paths as $key => $path) {
+                if (is_string($path)) Storage::disk($disks[$key] ?? 'local')->delete($path);
+            }
+            report($error);
 
-        foreach (['logo', 'banner'] as $file) {
-            if ($request->hasFile($file)) $data[$file] = $request->file($file)->store('stores', 'public');
+            return back()->withInput($request->except(['valid_id', 'business_permit', 'dti_certificate', 'sec_certificate', 'bir_2303', 'logo', 'banner']))
+                ->withErrors(['application' => 'We could not submit your Seller application. Please check the details and try again.']);
         }
-        $data['valid_id_path'] = $request->file('valid_id')->store('registration-documents');
-        $data['business_permit_path'] = $request->file('business_permit')->store('registration-documents');
-        $data['address_line'] = $data['address'];
-        $data['same_address'] = true;
-        $registration->submit($request->user(), $data);
 
-        return redirect()->route('seller.apply')->with('success', 'Your seller application has been submitted for review.');
-    }
-
-    private function normalizePhone(?string $phone): string
-    {
-        $phone = preg_replace('/[\s\-()]/', '', trim((string) $phone));
-
-        return preg_match('/^09\d{9}$/', $phone) ? '+63'.substr($phone, 1) : $phone;
+        return redirect()->route('seller.apply')->with('success', 'Your Seller application has been submitted for review. Your Buyer account remains available.');
     }
 }

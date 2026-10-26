@@ -14,12 +14,19 @@ class PhilippineGeographyService
 {
     public function regions(): array
     {
+        if (($local = app(PsgcCatalogService::class)->regions()) !== null) {
+            return $local;
+        }
+
         return $this->fetch('regions');
     }
 
     public function provinces(string $regionCode): array
     {
         $this->code($regionCode);
+        if (($local = app(PsgcCatalogService::class)->provinces($regionCode)) !== null) {
+            return $this->withParent($local, 'region_code', $regionCode);
+        }
         $this->parent($regionCode, $this->regions());
 
         return $this->withParent($this->fetch("regions/{$regionCode}/provinces"), 'region_code', $regionCode);
@@ -28,6 +35,9 @@ class PhilippineGeographyService
     public function citiesMunicipalitiesForRegion(string $regionCode): array
     {
         $this->code($regionCode);
+        if (($local = app(PsgcCatalogService::class)->citiesMunicipalitiesForRegion($regionCode)) !== null) {
+            return $this->withParent($local, 'region_code', $regionCode);
+        }
         $this->parent($regionCode, $this->regions());
 
         return $this->withParent($this->fetch("regions/{$regionCode}/cities-municipalities"), 'region_code', $regionCode);
@@ -36,6 +46,9 @@ class PhilippineGeographyService
     public function citiesMunicipalitiesForProvince(string $provinceCode): array
     {
         $this->code($provinceCode);
+        if (($local = app(PsgcCatalogService::class)->citiesMunicipalitiesForProvince($provinceCode)) !== null) {
+            return $this->withParent($local, 'province_code', $provinceCode);
+        }
         $records = $this->fetch("provinces/{$provinceCode}/cities-municipalities");
         abort_if($records === [], 422, 'Invalid province code.');
 
@@ -45,6 +58,9 @@ class PhilippineGeographyService
     public function barangays(string $cityMunicipalityCode): array
     {
         $this->code($cityMunicipalityCode);
+        if (($local = app(PsgcCatalogService::class)->barangays($cityMunicipalityCode)) !== null) {
+            return $this->withParent($local, 'city_code', $cityMunicipalityCode);
+        }
         $records = $this->fetch("cities-municipalities/{$cityMunicipalityCode}/barangays");
         abort_if($records === [], 422, 'Invalid city / municipality code.');
 

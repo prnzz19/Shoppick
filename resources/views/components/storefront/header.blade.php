@@ -5,10 +5,7 @@
         <div class="flex min-h-16 flex-wrap items-center gap-x-3 gap-y-2 py-2 md:flex-nowrap md:gap-4 md:py-0">
             {{-- Logo --}}
             <a href="{{ route('home') }}" class="flex shrink-0 items-center gap-2">
-                <x-shoppick.logo class="h-9 w-9" />
-                <span class="hidden sm:block text-2xl font-extrabold tracking-tight">
-                    <span class="text-brand-500">SHOP</span><span class="text-accent-500">PICK</span>
-                </span>
+                <x-shoppick.wordmark class="h-9 w-40" />
             </a>
 
             {{-- Search --}}

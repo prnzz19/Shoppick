@@ -28,7 +28,7 @@ class User extends Authenticatable
         'valid_id_path', 'registration_type', 'registration_status', 'registration_review_notes',
         'registration_reviewed_by', 'registration_reviewed_at',
         'password',
-        'is_active',
+        'is_active', 'sorting_center_id',
         'email_verified_at',
     ];
 
@@ -100,6 +100,9 @@ class User extends Authenticatable
     public function store() { return $this->hasOne(Store::class); }
     public function riderProfile() { return $this->hasOne(RiderProfile::class); }
     public function managedRiders() { return $this->hasMany(RiderProfile::class, 'logistics_user_id'); }
+    public function logisticsProviders() { return $this->belongsToMany(LogisticsProvider::class, 'logistics_provider_user')->withPivot(['membership_role','is_active'])->withTimestamps(); }
+    public function sortingCenter() { return $this->belongsTo(LogisticsHub::class, 'sorting_center_id'); }
+    public function ownedLogisticsProvider() { return $this->hasOne(LogisticsProvider::class, 'owner_user_id'); }
     public function riderMessages() { return $this->hasMany(RiderMessage::class, 'rider_id'); }
     public function assignedShipments() { return $this->hasMany(Shipment::class, 'rider_id'); }
     public function reportedCases() { return $this->hasMany(Report::class, 'reporter_id'); }
@@ -157,6 +160,12 @@ class User extends Authenticatable
             && ! $this->hasRole(['admin', 'super_admin', 'logistics', 'rider']);
     }
 
+    public function isGoogleBuyerOnboarding(): bool
+    {
+        return $this->isNormalBuyerRegistration()
+            && $this->registration_status === 'incomplete'
+            && $this->socialAccounts()->where('provider', 'google')->exists();
+    }
     public function getAgeAttribute(): ?int
     {
         return BirthdayAge::calculate($this->birthday);

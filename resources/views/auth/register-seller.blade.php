@@ -1,5 +1,35 @@
 @extends('layouts.auth')
-@section('title','Become a Seller')
-@section('content')
-<h1 class="text-2xl font-bold">Start with your Buyer account</h1><p class="mt-3">Create a Buyer account, then submit your seller application from the same account.</p><a class="btn-primary mt-5" href="{{ auth()->check()?route('seller.apply'):route('register') }}">{{ auth()->check()?'Become a Seller':'Create Buyer Account' }}</a>
+@section('title','Register as a Seller')
+@section('auth-card')
+<main class="w-full max-w-5xl"><section class="card p-5 sm:p-8">
+<p class="text-xs font-bold uppercase tracking-widest text-brand-700">SHOPPICK Seller</p>
+<h1 class="mt-2 text-2xl font-black text-navy-900">Create your Seller application</h1>
+<p class="mt-2 text-sm text-slate-500">Submit your shop and business documents. Email verification and Admin approval are required before Seller access is activated.</p>
+@if($errors->any())<div class="alert-error mt-5" role="alert">{{ $errors->first() }}</div>@endif
+<form method="POST" action="{{ route('register.seller.submit') }}" enctype="multipart/form-data" class="mt-7 space-y-8">@csrf
+<section><h2 class="font-bold text-navy-900">Applicant</h2><div class="mt-4 grid gap-4 sm:grid-cols-2">
+<div><label class="label" for="seller-first-name">First name *</label><input id="seller-first-name" class="input" name="first_name" value="{{ old('first_name') }}" required autocomplete="given-name">@error('first_name')<p class="text-xs text-rose-700">{{ $message }}</p>@enderror</div>
+<div><label class="label" for="seller-last-name">Last name *</label><input id="seller-last-name" class="input" name="last_name" value="{{ old('last_name') }}" required autocomplete="family-name">@error('last_name')<p class="text-xs text-rose-700">{{ $message }}</p>@enderror</div>
+<div><label class="label" for="seller-email">Email *</label><input id="seller-email" type="email" class="input" name="email" value="{{ old('email') }}" required autocomplete="email">@error('email')<p class="text-xs text-rose-700">{{ $message }}</p>@enderror</div>
+<div><label class="label" for="seller-phone">Mobile number *</label><input id="seller-phone" class="input" name="phone" value="{{ old('phone') }}" placeholder="09XXXXXXXXX or +639XXXXXXXXX" required autocomplete="tel">@error('phone')<p class="text-xs text-rose-700">{{ $message }}</p>@enderror</div>
+</div></section>
+<section><h2 class="font-bold text-navy-900">Shop details</h2><div class="mt-4 grid gap-4 sm:grid-cols-2">
+<div><label class="label" for="seller-store">Shop name *</label><input id="seller-store" class="input" name="store_name" value="{{ old('store_name') }}" required></div>
+<div><label class="label" for="seller-category">Category *</label><select id="seller-category" class="input" name="category_id" required><option value="">Choose a category</option>@foreach($categories as $category)<option value="{{ $category->id }}" @selected(old('category_id')==$category->id)>{{ $category->name }}</option>@endforeach</select></div>
+<div><label class="label" for="seller-type">Seller type *</label><select id="seller-type" class="input" name="seller_type" required><option value="">Choose one</option>@foreach(['Individual','Sole Proprietorship','Corporation'] as $type)<option value="{{ $type }}" @selected(old('seller_type')===$type)>{{ $type }}</option>@endforeach</select></div>
+<div><label class="label" for="seller-tin">TIN *</label><input id="seller-tin" class="input" name="tin" value="{{ old('tin') }}" placeholder="000-000-000-000" required></div>
+<div class="sm:col-span-2"><label class="label" for="seller-description">Shop description *</label><textarea id="seller-description" class="input" name="store_description" rows="3" required>{{ old('store_description') }}</textarea></div>
+</div></section>
+<section><h2 class="font-bold text-navy-900">Business address</h2><div class="mt-4"><label class="label">Street address *</label><input class="input" name="address_line" value="{{ old('address_line') }}" required></div><x-philippine-location-fields class="mt-4" :region="old('region')" :region-code="old('region_code')" :province="old('province')" :province-code="old('province_code')" :city="old('city')" :city-code="old('city_code')" :barangay="old('barangay')" :barangay-code="old('barangay_code')"/><div class="mt-4 max-w-xs"><label class="label">Postal code *</label><input class="input" name="postal_code" value="{{ old('postal_code') }}" inputmode="numeric" maxlength="4" required></div></section>
+<section><h2 class="font-bold text-navy-900">Private documents</h2><p class="mt-1 text-xs text-slate-500">JPG, PNG, or PDF only; maximum 5 MB each. Documents are available only to authorized Admin reviewers.</p><div class="mt-4 grid gap-4 sm:grid-cols-2">
+<div><label class="label">Government ID *</label><input class="input" type="file" name="valid_id" accept="image/jpeg,image/png,application/pdf" required></div>
+<div><label class="label">Business permit (optional)</label><input class="input" type="file" name="business_permit" accept="image/jpeg,image/png,application/pdf"></div>
+<div data-seller-doc="sole"><label class="label">DTI certificate <span class="text-xs">(Sole Proprietorship)</span></label><input class="input" type="file" name="dti_certificate" accept="image/jpeg,image/png,application/pdf"></div>
+<div data-seller-doc="corp"><label class="label">SEC certificate <span class="text-xs">(Corporation)</span></label><input class="input" type="file" name="sec_certificate" accept="image/jpeg,image/png,application/pdf"></div>
+<div data-seller-doc="business"><label class="label">BIR 2303 certificate</label><input class="input" type="file" name="bir_2303" accept="image/jpeg,image/png,application/pdf"></div>
+</div></section>
+<section><h2 class="font-bold text-navy-900">Account security</h2><div class="mt-4 grid gap-4 sm:grid-cols-2">@foreach(['password'=>'Password','password_confirmation'=>'Confirm password'] as $field=>$label)<div><label class="label" for="seller-{{ $field }}">{{ $label }} *</label><div class="relative"><input id="seller-{{ $field }}" class="input pr-16" type="password" name="{{ $field }}" required minlength="8" autocomplete="new-password"><button type="button" class="absolute right-2 top-1 min-h-10 px-2 text-sm font-semibold text-brand-700" data-password-toggle="seller-{{ $field }}">Show</button></div></div>@endforeach</div><p class="mt-2 text-xs text-slate-500">Use at least 8 characters with uppercase, lowercase, number, and special character.</p><label class="mt-4 flex gap-2 text-sm"><input type="checkbox" name="seller_terms" value="1" required> I accept the Seller Terms and Privacy Policy.</label></section>
+<button class="btn-primary min-h-12 w-full" type="submit">Submit Seller Application</button>
+</form></section></main>
+@push('scripts')<script>document.querySelectorAll('[data-password-toggle]').forEach(b=>b.addEventListener('click',()=>{const i=document.getElementById(b.dataset.passwordToggle);const show=i.type==='password';i.type=show?'text':'password';b.textContent=show?'Hide':'Show';b.setAttribute('aria-pressed',show)}));const type=document.querySelector('#seller-type');const sync=()=>{document.querySelectorAll('[data-seller-doc]').forEach(el=>{const required=(el.dataset.sellerDoc==='sole'&&type.value==='Sole Proprietorship')||(el.dataset.sellerDoc==='corp'&&type.value==='Corporation')||(el.dataset.sellerDoc==='business'&&['Sole Proprietorship','Corporation'].includes(type.value));el.hidden=!required&&el.dataset.sellerDoc!=='business';el.querySelector('input').required=required});};type?.addEventListener('change',sync);sync();</script>@endpush
 @endsection

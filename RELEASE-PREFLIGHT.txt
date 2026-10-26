@@ -1,0 +1,12 @@
+﻿Created=2026-10-20T10:35:47.7648029Z
+SourceCandidate=C:\Users\Prince\SHOPPICK-integration-candidates\phase9.2-20261020-145000
+SourceHEAD=b25c8a37feba2ead4bb2f531df2109f5aa77a8b8
+PublicUploadSource=C:\xampp\htdocs\E-commerce\storage\app\public
+DatabaseNotIncluded=True
+CandidateEnvNotIncluded=True
+PreviewSqliteNotIncluded=True
+TestsNotIncluded=True
+FlutterNotIncluded=True
+NodeModulesNotIncluded=True
+AlternateBrandAssetsNotIncluded=True
+ApacheOrCloudflareChanged=False

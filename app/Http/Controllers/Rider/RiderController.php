@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Rider;
 
 use App\Http\Controllers\Controller;
 use App\Models\{NotificationModel, Payment, ProofOfDelivery, RiderMessage, Shipment};
-use App\Services\{CodCollectionService, NotificationService};
+use App\Services\{CodCollectionService, NotificationService, RiderAssignmentDecisionService, RiderProofOfDeliveryService};
 use App\Services\RiderPortalActionService;
 use App\Support\RiderPortal;
 use Illuminate\Http\Request;
@@ -76,10 +76,26 @@ class RiderController extends Controller
         $profile->update($data);return back()->with('success','Availability updated.');
     }
 
-    public function decline(Request $request,Shipment $shipment)
+    public function location(Request $request)
+    {
+        $data = $request->validate([
+            'latitude' => ['required', 'numeric', 'between:-90,90'],
+            'longitude' => ['required', 'numeric', 'between:-180,180'],
+        ]);
+        $profile = $request->user()->riderProfile;
+        abort_unless($profile && $profile->account_status === 'active' && $request->user()->is_active, 403);
+        $profile->forceFill([
+            'last_latitude' => $data['latitude'],
+            'last_longitude' => $data['longitude'],
+            'last_location_at' => now(),
+        ])->save();
+        return response()->json(['success' => true, 'recorded_at' => $profile->last_location_at?->toIso8601String()]);
+    }
+
+    public function decline(Request $request,Shipment $shipment, RiderAssignmentDecisionService $decision)
     {
         $this->authorizeShipment($request,$shipment);$data=$request->validate(['version'=>'nullable|string|size:64','reason'=>'required|in:vehicle_issue,unavailable,emergency,other','details'=>'nullable|required_if:reason,other|string|max:500']);
-        app(RiderPortalActionService::class)->locked($shipment,$request->user(),$request->input('version'),function()use($request,$shipment,$data){$shipment=Shipment::whereKey($shipment->id)->lockForUpdate()->firstOrFail();$pickup=$shipment->pickup_rider_id===$request->user()->id&&$shipment->status==='pickup_assigned';$delivery=$shipment->rider_id===$request->user()->id&&$shipment->status==='assigned_to_rider'&&!$shipment->delivery_accepted_at;if(!$pickup&&!$delivery)throw ValidationException::withMessages(['reason'=>'This assignment can no longer be declined.']);$reason=str($data['reason'])->replace('_',' ')->headline().(isset($data['details'])?': '.$data['details']:'');$shipment->update($pickup?['pickup_rider_id'=>null,'pickup_assigned_by'=>null,'assigned_at'=>null,'status'=>'ready_for_pickup']:['rider_id'=>null,'delivery_assigned_by'=>null,'delivery_assigned_at'=>null,'assigned_at'=>null,'status'=>'sorted']);$shipment->events()->create(['actor_id'=>$request->user()->id,'status'=>'assignment_declined','note'=>$reason]);$request->user()->riderProfile->update(['availability'=>'available']);foreach(\App\Models\User::where('is_active',true)->whereHas('roles',fn($q)=>$q->where('slug','logistics'))->get() as $manager)NotificationService::send($manager->id,'Rider declined assignment',"{$shipment->parcel_code}: {$reason}",'logistics',route($pickup?'logistics.pickup-requests':'logistics.delivery-assignment'),['shipment_id'=>$shipment->id],'package');});
+        $decision->decline($shipment, $request->user(), $data);
         return redirect()->route('rider.jobs')->with('success','Logistics was notified and the Parcel was returned for reassignment.');
     }
 
@@ -100,29 +116,11 @@ class RiderController extends Controller
         return back()->with('success','COD collection recorded for Logistics remittance confirmation.');
     }
 
-    public function pod(Request $request,Shipment $shipment,RiderPortalActionService $portal)
+    public function pod(Request $request,Shipment $shipment,RiderPortalActionService $portal, RiderProofOfDeliveryService $proof)
     {
         $this->authorizeShipment($request,$shipment);
         $request->validate(['version'=>'nullable|string|size:64']);
-        $path=null;
-        try {
-            $portal->locked($shipment,$request->user(),$request->input('version'),function($fresh,$user)use($request,$portal,&$path){
-                abort_unless($fresh->rider_id===$user->id,403);
-                if($fresh->status!=='out_for_delivery')$portal->stale();
-                $existing=$fresh->proofOfDelivery;
-                $data=$request->validate(['version'=>'nullable|string|size:64','recipient_name'=>'required|string|max:100','photo'=>[$existing?'nullable':'required','image','mimes:jpg,jpeg,png,webp','max:5120'],'notes'=>'nullable|string|max:1000']);
-                $photo=$request->file('photo');
-                $samePhoto=!$photo||($existing?->photo_path&&Storage::disk('local')->exists($existing->photo_path)
-                    &&hash_file('sha256',$photo->getRealPath())===hash_file('sha256',Storage::disk('local')->path($existing->photo_path)));
-                if($existing&&$samePhoto&&$existing->recipient_name===$data['recipient_name']&&$existing->notes===($data['notes']??null))return;
-                if($photo)$path=$photo->store('pod','local');
-                $pod=ProofOfDelivery::updateOrCreate(['shipment_id'=>$fresh->id],['submitted_by'=>$user->id,'recipient_name'=>$data['recipient_name'],'photo_path'=>$path??$existing?->photo_path,'notes'=>$data['notes']??null,'status'=>'pending','submitted_at'=>now(),'reviewed_by'=>null,'review_notes'=>null,'reviewed_at'=>null]);
-                foreach(\App\Models\User::where('is_active',true)->whereHas('roles',fn($q)=>$q->where('slug','logistics'))->get() as $manager)NotificationService::send($manager->id,'Proof of Delivery submitted.',"{$fresh->shipment_number} requires POD review.",'logistics',route('logistics.pod',['view'=>$pod->id]),['pod_id'=>$pod->id],'package');
-            });
-        } catch (\Throwable $error) {
-            if($path)Storage::disk('local')->delete($path);
-            throw $error;
-        }
+        $proof->submit($request, $shipment, $request->user(), $request->input('version'));
         return back()->with('success','Proof of Delivery submitted. You can now complete the delivery.');
     }
     public function podFile(Request $request,ProofOfDelivery $pod){abort_unless($pod->shipment()->where('rider_id',$request->user()->id)->exists(),403);abort_unless($pod->photo_path&&Storage::disk('local')->exists($pod->photo_path),404);return Storage::disk('local')->download($pod->photo_path);}

@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
 use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\EnsurePermission;
 use App\Http\Middleware\EnsureRegistrationApproved;
@@ -18,7 +19,27 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->redirectGuestsTo(fn (\Illuminate\Http\Request $request) => route($request->is('rider', 'rider/*') ? 'rider.login' : 'login'));
-        $middleware->web(append: [\App\Http\Middleware\MarketplacePreferences::class]);
+        // Cloudflared reaches Apache through the verified loopback boundary. Only trust forwarded client/proto/port data from that proxy.
+        $middleware->trustProxies(
+            at: ['127.0.0.1', '::1'],
+            headers: Request::HEADER_X_FORWARDED_FOR
+                | Request::HEADER_X_FORWARDED_PORT
+                | Request::HEADER_X_FORWARDED_PROTO,
+        );
+
+        // Accept only the production hosts; forwarded host is intentionally not trusted.
+        // Do not register host enforcement while PHPUnit is bootstrapping; individual tests may
+        // temporarily emulate production environment state without a production request host.
+        if (! app()->runningUnitTests()) {
+            $middleware->trustHosts(
+                at: ['^shoppickmarket\\.shop$', '^www\\.shoppickmarket\\.shop$'],
+                subdomains: false,
+            );
+        }
+        $middleware->web(append: [
+            \App\Http\Middleware\MarketplacePreferences::class,
+            \App\Http\Middleware\PreventAuthenticatedPageCaching::class,
+        ]);
         $middleware->alias([
             'role' => EnsureRole::class,
             'permission' => EnsurePermission::class,
@@ -51,3 +72,4 @@ return Application::configure(basePath: dirname(__DIR__))
                 : response()->view('rider.unavailable',[],503);
         });
     })->create();
+

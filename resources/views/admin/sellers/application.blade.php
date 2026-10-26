@@ -1,13 +1,13 @@
-@extends('layouts.admin')
+﻿@extends('layouts.admin')
 @section('title','Review Seller Application')
 @section('content')
 <a class="text-brand-700" href="{{ route('admin.sellers.applications.index') }}">&larr; Seller Applications</a><h1 class="my-4 text-2xl font-bold text-navy-900">{{ $application->store_name }}</h1>
 <div class="mb-4"><x-admin.archive-actions :record="$application" prefix="admin.sellers.applications" label="Seller Application" /></div>
 <div class="grid gap-5 lg:grid-cols-2">
 <section class="card p-6"><h2 class="font-bold">Applicant Information</h2><p class="mt-3">{{ $application->user?->name }}</p><p>{{ $application->user?->email }}</p><p class="mt-3 text-sm text-slate-500">This application adds Seller access to the existing Buyer account.</p></section>
-<section class="card p-6"><h2 class="font-bold">Seller / Shop Information</h2><div class="mt-3 flex items-center gap-3"><x-shop-avatar :shop="$application" size="h-14 w-14" /><div><p class="font-semibold text-navy-900">{{ $application->store_name }}</p><p class="text-xs text-slate-500">{{ $application->logo ? 'Uploaded shop logo' : 'No logo provided — default SHOPPICK shop avatar will be used.' }}</p></div></div><p class="mt-4">{{ $application->category?->name }}</p><p class="mt-2 whitespace-pre-line">{{ $application->store_description }}</p><p>{{ $application->business_information }}</p></section>
+<section class="card p-6"><h2 class="font-bold">Seller / Shop Information</h2><div class="mt-3 flex items-center gap-3"><x-shop-avatar :shop="$application" size="h-14 w-14" /><div><p class="font-semibold text-navy-900">{{ $application->store_name }}</p><p class="text-xs text-slate-500">{{ $application->logo ? 'Uploaded shop logo' : 'No logo provided â€” default SHOPPICK shop avatar will be used.' }}</p></div></div><p class="mt-4">{{ $application->category?->name }}</p><p class="mt-2 whitespace-pre-line">{{ $application->store_description }}</p><p>{{ $application->business_information }}</p></section>
 <section class="card p-6"><h2 class="font-bold">Address / Contact</h2><p class="mt-3 whitespace-pre-line">{{ $application->address }}</p><p>{{ $application->phone }}</p></section>
-<section class="card p-6"><h2 class="font-bold">Documents</h2><p class="my-3 text-sm text-slate-500">Private downloads for authorized Admin review only.</p>@foreach(['valid-id'=>'valid_id_path','business-permit'=>'business_permit_path'] as $document=>$field)@if($application->$field)<a class="btn-outline btn-sm mb-2" href="{{ route('admin.registrations.sellers.document',[$application,$document]) }}">Download {{ str($document)->headline() }}</a>@endif
+<section class="card p-6"><h2 class="font-bold">Documents</h2><p class="my-3 text-sm text-slate-500">Private downloads for authorized Admin review only.</p>@foreach(['valid-id'=>'valid_id_path','business-permit'=>'business_permit_path','dti'=>'dti_certificate_path','sec'=>'sec_certificate_path','bir-2303'=>'bir_2303_path'] as $document=>$field)@if($application->$field)<a class="btn-outline btn-sm mb-2" href="{{ route('admin.registrations.sellers.document',[$application,$document]) }}">Download {{ str($document)->headline() }}</a>@endif
 @endforeach</section>
 <section class="card p-6 lg:col-span-2"><h2 class="mb-3 font-bold">Application Status</h2><x-admin.status-badge :status="$application->status"/><p class="mt-3">Submitted {{ $application->created_at->format('M d, Y H:i') }}</p>@if($application->reviewed_at)<p>Reviewed {{ $application->reviewed_at->format('M d, Y H:i') }} by {{ $application->reviewer?->name }}</p>@endif @if($application->review_notes)<p class="mt-3 whitespace-pre-line">{{ $application->review_notes }}</p>@endif</section>
 </div>
@@ -16,3 +16,5 @@
 @endif
 <section class="card mt-5 p-6"><h2 class="font-bold">Application History</h2>@forelse($history as $entry)<div class="mt-3 border-t pt-3 text-sm"><p>{{ str($entry->action)->replace(['seller_application.','_'],['',' '])->title() }} &middot; {{ $entry->created_at->format('M d, Y H:i') }} &middot; {{ $entry->user?->name }}</p><p>{{ $entry->details['reason'] ?? $entry->details['previous_application']['review_notes'] ?? '' }}</p></div>@empty<p class="mt-3 text-slate-500">No additional review history recorded.</p>@endforelse</section>
 @endsection
+
+

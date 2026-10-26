@@ -40,6 +40,13 @@
             <p class="mt-2 text-center text-xs text-slate-400">Google sign-in is currently unavailable.</p>
         @endif
 
+        <div class="mt-6 rounded-2xl border border-brand-100 bg-brand-50 px-4 py-3 text-center">
+            <p class="text-sm font-semibold text-navy-800">Are you a SHOPPICK Rider?</p>
+            <a href="{{ route('rider.login') }}" class="mt-1 inline-flex items-center gap-1 font-semibold text-brand-700 underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2">
+                Sign in as Rider <span aria-hidden="true">&rarr;</span>
+            </a>
+        </div>
+
     </div>
     <p class="mt-4 text-center text-sm text-slate-600">Don't have an account? <a href="{{ route('register') }}" class="font-semibold text-brand-600 hover:text-brand-700">Register</a></p>
 </div>

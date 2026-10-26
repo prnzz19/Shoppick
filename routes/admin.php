@@ -56,10 +56,15 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::post('shops/{shop}/notes', [ShopController::class, 'note'])->name('shops.notes')->middleware('permission:add_shop_notes');
 
     Route::get('logistics', fn () => redirect()->route('admin.logistics.overview'))->name('logistics.root');
+    Route::get('logistics/providers', [\App\Http\Controllers\Admin\LogisticsProviderController::class, 'index'])->name('logistics.providers.index');
+    Route::get('logistics/providers/{provider}/documents/{document}', [\App\Http\Controllers\Admin\LogisticsProviderController::class, 'document'])->name('logistics.providers.document');
+    Route::post('logistics/providers/{provider}/review', [\App\Http\Controllers\Admin\LogisticsProviderController::class, 'review'])->name('logistics.providers.review');
+    Route::post('logistics/providers/{provider}/status', [\App\Http\Controllers\Admin\LogisticsProviderController::class, 'status'])->name('logistics.providers.status');
 
     // Admin monitoring only: no operational mutations are exposed here.
     Route::prefix('logistics')->name('logistics.')->group(function () {
         Route::get('overview', [\App\Http\Controllers\Admin\LogisticsMonitoringController::class, 'overview'])->name('overview');
+        Route::get('centers', [\App\Http\Controllers\Admin\LogisticsMonitoringController::class, 'centers'])->name('centers.index');
         Route::get('deliveries', [\App\Http\Controllers\Admin\LogisticsMonitoringController::class, 'deliveries'])->name('deliveries.index');
         Route::get('deliveries/{shipment}/proof', [\App\Http\Controllers\Admin\LogisticsMonitoringController::class, 'proof'])->name('deliveries.proof');
         Route::get('deliveries/{shipment}', [\App\Http\Controllers\Admin\LogisticsMonitoringController::class, 'delivery'])->name('deliveries.show');

@@ -3,10 +3,9 @@
         <div class="grid grid-cols-2 gap-8 md:grid-cols-4">
             <div class="col-span-2">
                 <div class="flex items-center gap-2">
-                    <x-shoppick.logo class="h-9 w-9" />
-                    <span class="text-2xl font-extrabold tracking-tight"><span class="text-brand-400">SHOP</span><span class="text-accent-400">PICK</span></span>
+                    <x-shoppick.wordmark class="h-9 w-40" />
                 </div>
-                <p class="mt-3 max-w-sm text-sm text-slate-300">Your friendly, colorful online marketplace. Find deals, discover new favorites, and shop with a smile — featuring our beloved red panda.</p>
+                <p class="mt-3 max-w-sm text-sm text-slate-300">Your friendly, colorful online marketplace. Find deals, discover new favorites, and shop with a smile — all in one place.</p>
             </div>
             <div>
                 <h4 class="mb-3 text-sm font-semibold text-brand-300">Shop</h4>

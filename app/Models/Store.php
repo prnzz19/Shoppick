@@ -9,9 +9,17 @@ class Store extends Model
 {
     use SoftDeletes;
     protected $fillable = ['user_id', 'seller_profile_id', 'name', 'slug', 'description', 'logo', 'banner',
-        'location', 'rating_avg', 'rating_count', 'status', 'administrative_notes', 'status_reason', 'status_changed_by'];
-    protected $casts = ['rating_avg' => 'decimal:2', 'archived_at' => 'datetime'];
+        'location', 'pickup_latitude', 'pickup_longitude', 'pickup_location_confirmed_at', 'rating_avg', 'rating_count', 'status', 'administrative_notes', 'status_reason', 'status_changed_by'];
+    protected $casts = ['rating_avg' => 'decimal:2', 'pickup_latitude' => 'decimal:7', 'pickup_longitude' => 'decimal:7', 'pickup_location_confirmed_at' => 'datetime', 'archived_at' => 'datetime'];
     public function user() { return $this->belongsTo(User::class); }
+    public function hasConfirmedPickupLocation(): bool
+    {
+        return is_numeric($this->pickup_latitude) && is_numeric($this->pickup_longitude) && $this->pickup_location_confirmed_at !== null;
+    }
+    public function pickupCoordinates(): ?array
+    {
+        return $this->hasConfirmedPickupLocation() ? ['latitude' => (float) $this->pickup_latitude, 'longitude' => (float) $this->pickup_longitude] : null;
+    }
     public function sellerProfile() { return $this->belongsTo(SellerProfile::class); }
     public function products() { return $this->hasMany(Product::class); }
     public function sellerOrders() { return $this->hasMany(SellerOrder::class); }

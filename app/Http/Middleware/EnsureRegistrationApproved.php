@@ -30,7 +30,8 @@ class EnsureRegistrationApproved
         }
 
         if (! $user->registration_type || ! $user->registration_status || $user->registration_status === 'approved'
-            || ($user->isNormalBuyerRegistration() && $user->is_active && $user->registration_status === 'pending')) {
+            || ($user->isNormalBuyerRegistration() && $user->is_active && $user->registration_status === 'pending')
+            || ($user->registration_type === 'seller' && $user->is_active && $user->registration_status === 'needs_resubmission')) {
             return $next($request);
         }
 

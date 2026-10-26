@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Mail\RiderActivationInvitation;
-use App\Models\{Permission, Role, RiderProfile, User};
+use App\Models\{LogisticsProvider, Permission, Role, RiderProfile, User};
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\{Hash, Mail, Storage};
@@ -28,7 +28,10 @@ class RiderWorkbookLifecycleTest extends TestCase
 
     private function logistics(string $name = 'Bilis Hatid Express Inc.', string $email = 'operations@bilishatid.example.com', string $status = 'approved'): User
     {
-        return User::factory()->create(['name' => $name, 'email' => $email, 'is_active' => true, 'registration_type' => 'logistics', 'registration_status' => $status])->assignRole('logistics');
+        $user=User::factory()->create(['name' => $name, 'email' => $email, 'is_active' => true, 'registration_type' => 'logistics', 'registration_status' => $status])->assignRole('logistics');
+        $provider=LogisticsProvider::create(['owner_user_id'=>$user->id,'company_name'=>$name,'status'=>$status,'is_active'=>$status==='approved']);
+        $provider->users()->attach($user->id,['membership_role'=>'owner','is_active'=>true]);
+        return $user;
     }
 
     private function payload(string $suffix = '001'): array
@@ -173,13 +176,13 @@ class RiderWorkbookLifecycleTest extends TestCase
         $this->assertSame($ownerA->id, $rider->fresh()->logistics_user_id);
     }
 
-    public function test_tc_rid_029_030_031_and_032_registration_and_role_access_are_blocked(): void
+    public function test_tc_rid_029_030_031_and_032_registration_uses_approved_provider_and_role_access_is_enforced(): void
     {
-        $this->get('/rider/register')->assertRedirect(route('rider.login'));
-        $this->get('/register/rider')->assertRedirect(route('rider.login'));
-        $this->post('/rider/register', [])->assertStatus(410);
-        $this->post('/register/rider', [])->assertStatus(410);
-        $this->get('/register')->assertOk()->assertDontSee('Apply as Rider');
+        $this->get('/rider/register')->assertOk()->assertSee('Choose Logistics Company')->assertSee('Select an approved provider');
+        $this->get('/register/rider')->assertRedirect(route('rider.register'));
+        $this->post('/rider/register', [])->assertSessionHasErrors(['first_name', 'email', 'logistics_provider_id']);
+        $this->post('/register/rider', [])->assertSessionHasErrors(['first_name', 'email', 'logistics_provider_id']);
+        $this->get('/register')->assertOk()->assertSee('Apply as Rider');
 
         $owner = $this->logistics();
         $buyer = User::factory()->create(['is_active' => true])->assignRole('buyer');

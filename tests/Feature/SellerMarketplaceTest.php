@@ -14,11 +14,12 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Tests\Support\MocksPhilippineLocations;
 use Tests\TestCase;
 
 class SellerMarketplaceTest extends TestCase
 {
-    use RefreshDatabase;
+    use MocksPhilippineLocations, RefreshDatabase;
 
     public function test_buyer_can_apply_to_be_a_seller(): void
     {
@@ -27,7 +28,7 @@ class SellerMarketplaceTest extends TestCase
         $buyer=User::factory()->create(['is_active'=>true]); $buyer->assignRole('buyer');
         $category=Category::create(['name'=>'Marketplace','slug'=>'marketplace']);
         $this->actingAs($buyer)->post(route('seller.apply.store'), [
-            'store_name'=>'Test Store','store_description'=>'A local marketplace shop.','phone'=>'09171234567','address'=>'Manila','category_id'=>$category->id,
+            'store_name'=>'Test Store','store_description'=>'A local marketplace shop.','phone'=>'09171234567','address'=>'1 Seller Street','seller_type'=>'Individual','tin'=>'123-456-789-000','region'=>'Region IV-A (CALABARZON)','region_code'=>'0400000000','province'=>'Laguna','province_code'=>'0403400000','city'=>'Santa Cruz','city_code'=>'0403426000','barangay'=>'Bubukal','barangay_code'=>'0403426003','postal_code'=>'4000','seller_terms'=>'1','category_id'=>$category->id,
             'valid_id'=>UploadedFile::fake()->create('buyer-id.jpg',100,'image/jpeg'),
             'business_permit'=>UploadedFile::fake()->create('permit.pdf',100,'application/pdf'),
         ])->assertSessionHasNoErrors();
