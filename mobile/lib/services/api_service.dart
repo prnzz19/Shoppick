@@ -9,18 +9,36 @@ import '../config/api_config.dart';
 class ApiException implements Exception {
   final String message;
   final int? statusCode;
-  const ApiException(this.message, {this.statusCode});
+  final Map<String, List<String>> fieldErrors;
+  const ApiException(this.message,
+      {this.statusCode, this.fieldErrors = const {}});
   @override
   String toString() => message;
 }
 
-enum SessionStatus { checking, signedOut, authenticated, unavailable }
+enum SessionStatus {
+  checking,
+  signedOut,
+  profileRequired,
+  verificationRequired,
+  authenticated,
+  unavailable
+}
+
+class GoogleLoginResult {
+  final bool requiresVerification;
+  final String? message;
+  const GoogleLoginResult({required this.requiresVerification, this.message});
+}
 
 class ApiService {
   static const _storage = FlutterSecureStorage();
   static final cartCount = ValueNotifier<int>(0);
   static final cartRevision = ValueNotifier<int>(0);
+  static final notificationCount = ValueNotifier<int>(0);
+  static final messageCount = ValueNotifier<int>(0);
   static final session = ValueNotifier<SessionStatus>(SessionStatus.checking);
+  static String? sessionMessage;
   static int _sessionRevision = 0;
 
   Future<void> restoreSession() async {
@@ -33,9 +51,9 @@ class ApiService {
         await clearToken();
         return;
       }
-      await request('profile');
+      final identity = await request('auth/session');
       if (revision == _sessionRevision) {
-        session.value = SessionStatus.authenticated;
+        await acceptSession(identity);
       }
     } on ApiException catch (error) {
       if (revision != _sessionRevision) return;
@@ -62,12 +80,31 @@ class ApiService {
       throw const ApiException('Unable to sign in. Please try again.');
     }
     await saveToken(value);
-    session.value = SessionStatus.authenticated;
+    await acceptSession(data);
+  }
+
+  Future<GoogleLoginResult> loginWithGoogle(String idToken) async {
+    final data = await request('auth/google',
+        method: 'POST', body: {'id_token': idToken});
+    final value = data is Map ? data['token'] : null;
+    if (value is! String || value.trim().isEmpty) {
+      throw const ApiException(
+          'Unable to sign in with Google. Please try again.');
+    }
+    await saveToken(value);
+    final requiresVerification =
+        data is Map && data['requires_verification'] == true;
+    final message = data is Map && data['message'] is String
+        ? data['message'] as String
+        : null;
+    await acceptSession(data);
+    return GoogleLoginResult(
+        requiresVerification: requiresVerification, message: message);
   }
 
   Future<void> logout() async {
     try {
-      await request('logout', method: 'POST');
+      await request('auth/logout', method: 'POST');
     } catch (_) {
       // Local sign-out must work even when the server cannot be reached.
     } finally {
@@ -75,11 +112,106 @@ class ApiService {
     }
   }
 
+  Future<void> register(Map<String, String> fields, String validIdPath) async {
+    final file = await http.MultipartFile.fromPath('valid_id', validIdPath);
+    final data =
+        await request('register', method: 'POST', body: fields, files: [file]);
+    final value = data is Map ? data['token'] : null;
+    if (value is! String ||
+        value.isEmpty ||
+        data['requires_verification'] != true) {
+      throw const ApiException(
+          'Email verification is unavailable. Your account has not been signed in. Please contact SHOPPICK support.');
+    }
+    await saveToken(value);
+    await acceptSession(data);
+  }
+
+  Future<void> verifyRegistration(String code) async {
+    final data =
+        await request('register/verify', method: 'POST', body: {'code': code});
+    final value = data is Map ? data['token'] : null;
+    if (value is String && value.isNotEmpty) await saveToken(value);
+    await acceptSession(data);
+  }
+
+  Future<void> acceptSession(dynamic data) async {
+    sessionMessage = data is Map && data['message'] is String
+        ? data['message'] as String
+        : null;
+    if (data is Map && data['requires_verification'] == true) {
+      session.value = SessionStatus.verificationRequired;
+    } else if (data is Map && data['requires_profile'] == true) {
+      session.value = SessionStatus.profileRequired;
+    } else {
+      await refreshNotificationCount();
+      await refreshMessageCount();
+      session.value = SessionStatus.authenticated;
+    }
+  }
+
+  Future<void> completeProfile(
+      Map<String, String> fields, String validIdPath) async {
+    final data = await request('auth/complete-profile',
+        method: 'POST',
+        body: fields,
+        files: [await http.MultipartFile.fromPath('valid_id', validIdPath)]);
+    if (data is! Map || data['requires_verification'] != true) {
+      throw const ApiException(
+          'Email verification is unavailable. Please contact SHOPPICK support.');
+    }
+    if (data['token'] is String) await saveToken(data['token']);
+    await acceptSession(data);
+  }
+
+  Future<void> resendRegistrationCode() =>
+      request('register/resend', method: 'POST').then((_) {});
+
+  Future<void> toggleWishlist(int productId) async {
+    await request('wishlist/toggle',
+        method: 'POST', body: {'product_id': productId});
+  }
+
+  Future<dynamic> updateProfile(Map<String, dynamic> fields,
+      {String? avatarPath}) async {
+    final files = avatarPath == null
+        ? <http.MultipartFile>[]
+        : [await http.MultipartFile.fromPath('avatar', avatarPath)];
+    final data =
+        await request('profile', method: 'POST', body: fields, files: files);
+    if (data['requires_verification'] == true) await acceptSession(data);
+    return data;
+  }
+
+  Future<dynamic> forgotPassword(String email) =>
+      request('password/forgot', method: 'POST', body: {'email': email.trim()});
+
+  Future<dynamic> resetPassword(
+      String email, String token, String password, String confirmation) {
+    final link = Uri.tryParse(token.trim());
+    final isLink =
+        link != null && (link.scheme == 'http' || link.scheme == 'https');
+    return request('password/reset', method: 'POST', body: {
+      'email': email.trim().isNotEmpty
+          ? email.trim()
+          : (isLink ? link.queryParameters['email'] ?? '' : ''),
+      'token': isLink
+          ? link.queryParameters['token'] ??
+              (link.pathSegments.isEmpty ? '' : link.pathSegments.last)
+          : token.trim(),
+      'password': password,
+      'password_confirmation': confirmation,
+    });
+  }
+
   Future<dynamic> request(String path,
       {String method = 'GET',
       Map<String, dynamic>? body,
       List<http.MultipartFile>? files}) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/$path');
+    if (kReleaseMode && uri.scheme != 'https') {
+      throw const ApiException('A secure SHOPPICK connection is unavailable.');
+    }
     if (kDebugMode) {
       // Query values, headers and request bodies can contain credentials.
       debugPrint('SHOPPICK $method ${uri.origin}${uri.path}');
@@ -181,12 +313,19 @@ class ApiService {
               error is List && error.isNotEmpty
                   ? error.first.toString()
                   : 'Please check the information entered.',
-              statusCode: 422);
+              statusCode: 422,
+              fieldErrors: (data['errors'] as Map).map((key, value) => MapEntry(
+                  key.toString(),
+                  value is List
+                      ? value.whereType<String>().toList()
+                      : <String>[])));
         }
       }
       if (path == 'login' && response.statusCode == 403) {
-        throw const ApiException(
-            'Your account is awaiting administrator approval.',
+        throw ApiException(
+            data is Map && data['message'] is String
+                ? data['message']
+                : 'This account is unavailable.',
             statusCode: 403);
       }
       if (response.statusCode == 403) {
@@ -195,11 +334,17 @@ class ApiService {
             statusCode: 403);
       }
       if (response.statusCode == 404) {
-        throw const ApiException('This item is no longer available.');
+        throw const ApiException('This item is no longer available.',
+            statusCode: 404);
+      }
+      if ((response.statusCode == 409 || response.statusCode == 422) &&
+          data is Map &&
+          data['message'] is String) {
+        throw ApiException(data['message'], statusCode: response.statusCode);
       }
       if (response.statusCode == 429) {
-        throw const ApiException(
-            'Too many requests. Please try again shortly.');
+        throw const ApiException('Too many requests. Please try again shortly.',
+            statusCode: 429);
       }
       throw const ApiException(
           'Unable to complete this request. Please try again.');
@@ -212,6 +357,15 @@ class ApiService {
         data is Map &&
         data['cart_count'] is num) {
       cartCount.value = (data['cart_count'] as num).toInt();
+    }
+    if (revision == _sessionRevision &&
+        data is Map &&
+        data['unread_count'] is num) {
+      if (path.startsWith('notifications')) {
+        notificationCount.value = (data['unread_count'] as num).toInt();
+      } else if (path.startsWith('messages')) {
+        messageCount.value = (data['unread_count'] as num).toInt();
+      }
     }
     if (method != 'GET' && (path.startsWith('cart') || path == 'checkout')) {
       cartRevision.value++;
@@ -226,6 +380,64 @@ class ApiService {
     try {
       await request('cart');
     } catch (_) {}
+  }
+
+  Future<dynamic> submitCheckout(Map<String, dynamic> body) async {
+    final pending = await _storage.read(key: 'pending_checkout');
+    if (pending != null) {
+      final previous = Map<String, dynamic>.from(jsonDecode(pending) as Map);
+      if (previous['idempotency_key'] != body['idempotency_key']) {
+        throw const ApiException(
+            'Check your last submission before starting another checkout.');
+      }
+      return _sendCheckout(previous);
+    }
+    await _storage.write(key: 'pending_checkout', value: jsonEncode(body));
+    return _sendCheckout(body);
+  }
+
+  Future<dynamic> recoverCheckout() async {
+    final saved = await _storage.read(key: 'pending_checkout');
+    if (saved == null) {
+      throw const ApiException('There is no pending checkout to check.');
+    }
+    return _sendCheckout(Map<String, dynamic>.from(jsonDecode(saved) as Map));
+  }
+
+  Future<dynamic> _sendCheckout(Map<String, dynamic> body) async {
+    final revision = _sessionRevision;
+    try {
+      final result = await request('checkout', method: 'POST', body: body);
+      if (revision == _sessionRevision) {
+        await _storage.delete(key: 'pending_checkout');
+      }
+      return result;
+    } on ApiException catch (error) {
+      if (revision == _sessionRevision &&
+          error.statusCode != null &&
+          error.statusCode! >= 400 &&
+          error.statusCode! < 500) {
+        await _storage.delete(key: 'pending_checkout');
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> refreshNotificationCount() async {
+    try {
+      await request('notifications/unread-count');
+    } catch (_) {}
+  }
+
+  Future<void> refreshMessageCount() async {
+    try {
+      await request('messages/unread-count');
+    } catch (_) {}
+  }
+
+  Future<Map<String, String>> authorizationHeaders() async {
+    final value = await tokenValue();
+    return value == null ? const {} : {'Authorization': 'Bearer $value'};
   }
 
   Future<void> saveToken(String token) async {
@@ -244,8 +456,12 @@ class ApiService {
     _sessionRevision++;
     try {
       await _storage.delete(key: 'auth_token');
+      await _storage.delete(key: 'pending_checkout');
     } finally {
       cartCount.value = 0;
+      sessionMessage = null;
+      notificationCount.value = 0;
+      messageCount.value = 0;
       session.value = SessionStatus.signedOut;
     }
   }

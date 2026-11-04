@@ -2,6 +2,22 @@ class ApiConfig {
   static const String baseUrl = String.fromEnvironment('API_BASE_URL',
       defaultValue: 'http://10.0.2.2:8000/api/v1');
 
+  /// Root-relative backend endpoints share the configured origin, not /api/v1.
+  static Uri backend(String path) {
+    final relative = Uri.parse(path);
+    if (!path.startsWith('/') ||
+        relative.hasAuthority ||
+        relative.hasScheme ||
+        relative.hasFragment) {
+      throw ArgumentError.value(
+          path, 'path', 'A backend-relative path is required.');
+    }
+    return Uri.parse(baseUrl).replace(
+        path: relative.path,
+        query: relative.hasQuery ? relative.query : null,
+        fragment: null);
+  }
+
   static String? imageUrl(String? value) {
     if (value == null || value.trim().isEmpty) return null;
     final base = Uri.parse(baseUrl);

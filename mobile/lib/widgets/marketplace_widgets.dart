@@ -12,8 +12,8 @@ String date(dynamic value) {
   return d == null ? '' : '${d.month}/${d.day}/${d.year}';
 }
 
-void open(BuildContext context, Widget page) =>
-    Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+Future<T?> open<T>(BuildContext context, Widget page) =>
+    Navigator.push<T>(context, MaterialPageRoute(builder: (_) => page));
 void tell(BuildContext context, Object message) => ScaffoldMessenger.of(context)
     .showSnackBar(SnackBar(content: Text(message.toString())));
 
@@ -243,8 +243,30 @@ class DataListState extends State<DataList> {
 class Loading extends StatelessWidget {
   const Loading({super.key});
   @override
-  Widget build(BuildContext context) =>
-      const Center(child: CircularProgressIndicator());
+  Widget build(BuildContext context) => Semantics(
+      label: 'Loading SHOPPICK content',
+      child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(children: [
+            const LinearProgressIndicator(minHeight: 2),
+            const SizedBox(height: 24),
+            for (var row = 0; row < 2; row++)
+              Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Row(children: [
+                    for (var column = 0; column < 2; column++)
+                      Expanded(
+                          child: Container(
+                              height: 150,
+                              margin: const EdgeInsets.symmetric(horizontal: 6),
+                              decoration: BoxDecoration(
+                                  color: const Color(0xffe9eeed),
+                                  borderRadius: BorderRadius.circular(14)),
+                              child: const Center(
+                                  child: Icon(Icons.shopping_bag_outlined,
+                                      color: Color(0xffcad5d2))))),
+                  ])),
+          ])));
 }
 
 class ErrorState extends StatelessWidget {

@@ -4,8 +4,11 @@ import 'dart:math' as math;
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'models/shipment_tracking.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'models/buyer_registration.dart';
+import 'services/buyer_registration_service.dart';
+import 'services/philippine_locations.dart';
 import 'services/api_service.dart';
+import 'services/google_auth_service.dart';
 import 'config/api_config.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
@@ -14,10 +17,14 @@ part 'widgets/marketplace_widgets.dart';
 part 'widgets/shoppick_brand.dart';
 part 'screens/shopping_screens.dart';
 part 'screens/account_screens.dart';
+part 'screens/message_screens.dart';
 part 'screens/tracking_screens.dart';
+part 'screens/report_screen.dart';
+part 'screens/registration_screen.dart';
+part 'screens/search_screen.dart';
 
-const teal = Color(0xff14b8a6),
-    orange = Color(0xfff97316),
+const teal = Color(0xff08aeb8),
+    orange = Color(0xfff7941d),
     navy = Color(0xff182245);
 void main() => runApp(const ShoppickApp());
 
@@ -46,7 +53,7 @@ class _ShoppickAppState extends State<ShoppickApp> {
           theme: ThemeData(
               colorScheme: ColorScheme.fromSeed(
                   seedColor: teal,
-                  primary: const Color(0xff0d9488),
+                  primary: const Color(0xff078f99),
                   secondary: orange),
               scaffoldBackgroundColor: const Color(0xfff7f8fa),
               appBarTheme: const AppBarTheme(
@@ -57,6 +64,9 @@ class _ShoppickAppState extends State<ShoppickApp> {
           home: switch (status) {
             SessionStatus.checking => const SplashScreen(),
             SessionStatus.signedOut => const LoginScreen(),
+            SessionStatus.profileRequired =>
+              const RegisterScreen(profileOnly: true),
+            SessionStatus.verificationRequired => const RegisterOtpScreen(),
             SessionStatus.authenticated => const MarketplaceScreen(),
             SessionStatus.unavailable => const SessionRetryScreen(),
           }));
@@ -132,6 +142,32 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> loginWithGoogle() async {
+    if (busy) return;
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    try {
+      final idToken = await GoogleAuthService().obtainIdToken();
+      final result = await ApiService().loginWithGoogle(idToken);
+      if (mounted &&
+          result.requiresVerification &&
+          ApiService.session.value == SessionStatus.signedOut) {
+        await Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) => RegisterOtpScreen(
+                      initialMessage: result.message,
+                    )));
+      }
+    } catch (e) {
+      if (mounted) setState(() => error = e.toString());
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -172,11 +208,30 @@ class _LoginScreenState extends State<LoginScreen> {
                   FilledButton(
                       onPressed: busy ? null : login,
                       child: Text(busy ? 'Signing in...' : 'Sign in')),
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                      onPressed: busy ? null : loginWithGoogle,
+                      icon: const Icon(Icons.account_circle_outlined),
+                      label: const Text('Continue with Google')),
+                  TextButton(
+                      onPressed: busy
+                          ? null
+                          : () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) =>
+                                      const ForgotPasswordScreen())),
+                      child: const Text('Forgot Password?')),
                   const SizedBox(height: 12),
-                  const Text(
-                      'New buyer accounts require administrator approval. Register on the SHOPPICK website.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.black54)),
+                  TextButton(
+                      onPressed: busy
+                          ? null
+                          : () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const RegisterScreen())),
+                      child:
+                          const Text('Don\'t have an account? Create Account')),
                 ],
               ),
             ),
@@ -185,6 +240,301 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+}
+
+class ForgotPasswordScreen extends StatefulWidget {
+  const ForgotPasswordScreen({super.key});
+  @override
+  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+}
+
+class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
+  final email = TextEditingController();
+  bool busy = false, sent = false;
+  String? error;
+  @override
+  void dispose() {
+    email.dispose();
+    super.dispose();
+  }
+
+  Future<void> submit() async {
+    if (busy) return;
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    try {
+      await ApiService().forgotPassword(email.text);
+      if (mounted) setState(() => sent = true);
+    } catch (e) {
+      if (mounted) setState(() => error = e.toString());
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+      appBar: AppBar(title: const Text('Forgot Password')),
+      body: Center(
+          child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 440),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const ShopPickBrand(),
+                        const SizedBox(height: 24),
+                        Text(sent ? 'Check your email' : 'Reset your password',
+                            style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: navy)),
+                        const SizedBox(height: 10),
+                        Text(sent
+                            ? 'We sent the standard SHOPPICK reset link. The secure link expires in 60 minutes.'
+                            : 'Enter the email address used for your SHOPPICK account.'),
+                        if (!sent) ...[
+                          const SizedBox(height: 18),
+                          TextField(
+                              controller: email,
+                              keyboardType: TextInputType.emailAddress,
+                              decoration: const InputDecoration(
+                                  labelText: 'Email',
+                                  border: OutlineInputBorder())),
+                          if (error != null)
+                            Padding(
+                                padding: const EdgeInsets.only(top: 10),
+                                child: Text(error!,
+                                    style: const TextStyle(color: Colors.red))),
+                          const SizedBox(height: 16),
+                          FilledButton(
+                              onPressed: busy ? null : submit,
+                              child: Text(
+                                  busy ? 'Sending...' : 'Send Reset Link')),
+                          TextButton(
+                              onPressed: busy
+                                  ? null
+                                  : () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (_) => ResetPasswordScreen(
+                                              initialEmail: email.text))),
+                              child: const Text('Already have a reset token?')),
+                        ] else ...[
+                          const SizedBox(height: 16),
+                          FilledButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Back to Login')),
+                          TextButton(
+                              onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => ResetPasswordScreen(
+                                          initialEmail: email.text))),
+                              child: const Text('Enter Reset Token')),
+                          TextButton(
+                              onPressed: () => setState(() => sent = false),
+                              child: const Text('Send Again')),
+                        ],
+                      ])))));
+}
+
+class ResetPasswordScreen extends StatefulWidget {
+  final String initialEmail;
+  const ResetPasswordScreen({super.key, this.initialEmail = ''});
+  @override
+  State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
+}
+
+class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
+  late final email = TextEditingController(text: widget.initialEmail);
+  final token = TextEditingController(),
+      password = TextEditingController(),
+      confirmation = TextEditingController();
+  bool busy = false;
+  String? error;
+  @override
+  void dispose() {
+    email.dispose();
+    token.dispose();
+    password.dispose();
+    confirmation.dispose();
+    super.dispose();
+  }
+
+  Future<void> submit() async {
+    if (busy) return;
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    try {
+      await ApiService().resetPassword(
+          email.text, token.text, password.text, confirmation.text);
+      if (mounted) {
+        tell(context, 'Password reset successfully. You can now sign in.');
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    } catch (e) {
+      if (mounted) setState(() => error = e.toString());
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Widget field(TextEditingController controller, String label,
+          {bool secret = false}) =>
+      TextField(
+          controller: controller,
+          obscureText: secret,
+          decoration: InputDecoration(
+              labelText: label, border: const OutlineInputBorder()));
+  @override
+  Widget build(BuildContext context) => Scaffold(
+      appBar: AppBar(title: const Text('Reset Password')),
+      body: Center(
+          child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 440),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                            'Paste the secure link or token from your SHOPPICK reset email.',
+                            style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: navy)),
+                        const SizedBox(height: 16),
+                        field(email, 'Email'),
+                        const SizedBox(height: 12),
+                        field(token, 'Reset link or token'),
+                        const SizedBox(height: 12),
+                        field(password, 'New Password', secret: true),
+                        const SizedBox(height: 12),
+                        field(confirmation, 'Confirm New Password',
+                            secret: true),
+                        if (error != null)
+                          Padding(
+                              padding: const EdgeInsets.only(top: 12),
+                              child: Text(error!,
+                                  style: const TextStyle(color: Colors.red))),
+                        const SizedBox(height: 18),
+                        FilledButton(
+                            onPressed: busy ? null : submit,
+                            child:
+                                Text(busy ? 'Resetting...' : 'Reset Password')),
+                      ])))));
+}
+
+class RegisterOtpScreen extends StatefulWidget {
+  final String? initialMessage;
+  const RegisterOtpScreen({super.key, this.initialMessage});
+  @override
+  State<RegisterOtpScreen> createState() => _RegisterOtpScreenState();
+}
+
+class _RegisterOtpScreenState extends State<RegisterOtpScreen> {
+  final code = TextEditingController();
+  bool busy = false;
+  String? error;
+  DateTime? resendAt;
+  Timer? cooldown;
+  Future<void> verify() async {
+    if (busy) return;
+    setState(() => busy = true);
+    try {
+      await ApiService().verifyRegistration(code.text.trim());
+    } catch (e) {
+      if (mounted) setState(() => error = e.toString());
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> resend() async {
+    if (busy) return;
+    setState(() => busy = true);
+    try {
+      await ApiService().resendRegistrationCode();
+      if (!mounted) return;
+      setState(
+          () => resendAt = DateTime.now().add(const Duration(seconds: 60)));
+      cooldown?.cancel();
+      cooldown = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (!mounted || DateTime.now().isAfter(resendAt!)) timer.cancel();
+        if (mounted) setState(() {});
+      });
+      if (mounted) tell(context, 'A new verification code was sent.');
+    } catch (e) {
+      if (mounted) setState(() => error = e.toString());
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    cooldown?.cancel();
+    code.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+      appBar: AppBar(title: const Text('Verify your email'), actions: [
+        IconButton(
+            tooltip: 'Sign out',
+            onPressed: () => ApiService().logout(),
+            icon: const Icon(Icons.logout))
+      ]),
+      body: Center(
+          child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(children: [
+                const ShopPickBrand(),
+                const SizedBox(height: 20),
+                const Text(
+                    'Enter the 6-digit SHOPPICK code sent to your email.',
+                    textAlign: TextAlign.center),
+                if (widget.initialMessage != null ||
+                    ApiService.sessionMessage != null) ...[
+                  const SizedBox(height: 10),
+                  Text(widget.initialMessage ?? ApiService.sessionMessage!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: navy)),
+                ],
+                const SizedBox(height: 18),
+                TextField(
+                    controller: code,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    onChanged: (_) => setState(() {}),
+                    maxLength: 6,
+                    decoration: const InputDecoration(
+                        labelText: 'Verification code',
+                        border: OutlineInputBorder())),
+                if (error != null)
+                  Text(error!, style: const TextStyle(color: Colors.red)),
+                const SizedBox(height: 10),
+                FilledButton(
+                    onPressed: busy || code.text.length != 6 ? null : verify,
+                    child: Text(busy ? 'Verifying...' : 'Verify')),
+                TextButton(
+                    onPressed: busy ||
+                            (resendAt != null &&
+                                DateTime.now().isBefore(resendAt!))
+                        ? null
+                        : resend,
+                    child: Text(resendAt != null &&
+                            DateTime.now().isBefore(resendAt!)
+                        ? 'Resend in ${resendAt!.difference(DateTime.now()).inSeconds + 1}s'
+                        : 'Resend code'))
+              ]))));
 }
 
 class MarketplaceScreen extends StatefulWidget {
@@ -289,6 +639,7 @@ class _HomeTabState extends State<HomeTab> {
             child: ListView(padding: const EdgeInsets.all(18), children: [
               Row(children: [
                 const Expanded(child: ShopPickBrand(compact: true)),
+                const NotificationBell(),
                 IconButton(
                     onPressed: () => Navigator.push(context,
                         MaterialPageRoute(builder: (_) => const CartTab())),
@@ -297,6 +648,9 @@ class _HomeTabState extends State<HomeTab> {
               const SizedBox(height: 18),
               TextField(
                   controller: search,
+                  readOnly: true,
+                  onTap: () => open(
+                      context, CatalogSearchScreen(initialQuery: search.text)),
                   onSubmitted: (_) => find(),
                   decoration: InputDecoration(
                       hintText: 'Search SHOPPICK...',
@@ -311,21 +665,65 @@ class _HomeTabState extends State<HomeTab> {
                           borderSide: BorderSide.none))),
               const SizedBox(height: 18),
               Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                      color: navy, borderRadius: BorderRadius.circular(18)),
-                  child: const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Shop Smarter, Waddle Your Way to Deals!',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 23)),
-                        SizedBox(height: 5),
-                        Text('Great finds from local shops.',
-                            style: TextStyle(color: Colors.white70))
-                      ])),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xff14b8a6),
+                          Color(0xff0d9488),
+                          Color(0xff101a38)
+                        ],
+                        stops: [
+                          0,
+                          .4,
+                          1
+                        ]),
+                    borderRadius: BorderRadius.circular(18)),
+                child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text.rich(
+                          TextSpan(children: [
+                            TextSpan(text: 'Shop Smarter, '),
+                            TextSpan(
+                                text: 'Pick Better',
+                                style: TextStyle(color: Color(0xfffcd34d))),
+                            TextSpan(text: ' Deals!'),
+                          ]),
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 23)),
+                      SizedBox(height: 5),
+                      Text(
+                          'Discover thousands of products with exclusive SHOPPICK discounts. Fresh arrivals, flash sales, and happy shopping every day.',
+                          style: TextStyle(color: Colors.white70))
+                    ]),
+              ),
+              const SizedBox(height: 12),
+              Wrap(spacing: 10, runSpacing: 8, children: [
+                FilledButton(
+                    style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xfffbbf24),
+                        foregroundColor: navy),
+                    onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const ProductsScreen())),
+                    child: const Text('Shop Now')),
+                OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Colors.white70)),
+                    onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) =>
+                                const ProductsScreen(onSale: true))),
+                    child: const Text('View Flash Deals'))
+              ]),
               const SizedBox(height: 20),
               const SectionTitle('Categories'),
               SizedBox(
@@ -349,6 +747,10 @@ class _HomeTabState extends State<HomeTab> {
               ProductGrid(items: d['featured'] as List? ?? []),
               const SectionTitle('Latest products'),
               ProductGrid(items: d['latest'] as List? ?? []),
+              if ((d['popular'] as List? ?? []).isNotEmpty) ...[
+                const SectionTitle('Popular picks'),
+                ProductGrid(items: d['popular'])
+              ],
               if ((d['deals'] as List? ?? []).isNotEmpty) ...[
                 const SectionTitle('Flash Deals'),
                 ProductGrid(items: d['deals'])
@@ -358,7 +760,11 @@ class _HomeTabState extends State<HomeTab> {
                       context,
                       MaterialPageRoute(
                           builder: (_) => const ProductsScreen())),
-                  child: const Text('View all products'))
+                  child: const Text('View all products')),
+              if ((d['shops'] as List? ?? []).isNotEmpty) ...[
+                const SectionTitle('Discover local shops'),
+                for (final shop in d['shops']) ShopTile(shop: shop),
+              ]
             ]));
       });
 }

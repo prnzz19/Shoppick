@@ -13,6 +13,13 @@ final shop = {
   'description': 'Products from our local shop',
   'location': 'Manila'
 };
+final secondShop = {
+  'id': 2,
+  'name': 'Second SHOPPICK Store',
+  'slug': 'second-local',
+  'description': 'Products from the second local shop',
+  'location': 'Quezon City'
+};
 final product = {
   'id': 1,
   'name': 'Long product name for accessible mobile shopping',
@@ -30,7 +37,8 @@ final item = {
   'quantity': 2,
   'selected': true,
   'unit_price': 100,
-  'line_total': 200
+  'line_total': 200,
+  'max_stock': 10
 };
 final address = {
   'id': 1,
@@ -52,10 +60,52 @@ final order = {
   'payment_status': 'unpaid',
   'shipping_address': address,
   'shops': [
-    {'shop': shop, 'status': 'ready_to_ship'}
+    {
+      'id': 11,
+      'seller_order_number': 'SP123-S1',
+      'shop': shop,
+      'status': 'delivered',
+      'workflow_status': 'delivered',
+      'shipment': {'tracking_number': 'TRACK-A', 'status': 'delivered'},
+      'items': [
+        {
+          'product_name': product['name'],
+          'quantity': 2,
+          'price': 100,
+          'total': 200
+        }
+      ]
+    },
+    {
+      'id': 12,
+      'seller_order_number': 'SP123-S2',
+      'shop': secondShop,
+      'status': 'packed',
+      'workflow_status': 'packed',
+      'shipment': null,
+      'items': [
+        {
+          'product_name': 'Second seller product',
+          'quantity': 1,
+          'price': 50,
+          'total': 50
+        }
+      ]
+    }
   ],
   'items': [
-    {'product_name': product['name'], 'quantity': 2, 'price': 100, 'total': 200}
+    {
+      'product_name': product['name'],
+      'quantity': 2,
+      'price': 100,
+      'total': 200
+    },
+    {
+      'product_name': 'Second seller product',
+      'quantity': 1,
+      'price': 50,
+      'total': 50
+    }
   ],
   'progress': [
     {'status': 'pending', 'created_at': '2026-09-01'}
@@ -66,6 +116,9 @@ Map<String, dynamic> page(List items) =>
     {'data': items, 'current_page': 1, 'last_page': 1, 'total': items.length};
 
 dynamic responseFor(String path) {
+  if (path.endsWith('/auth/session')) {
+    return {'requires_profile': false, 'requires_verification': false};
+  }
   if (path.endsWith('/home')) {
     return {
       'categories': [category],
@@ -98,7 +151,8 @@ dynamic responseFor(String path) {
     return {
       'items': [item],
       'totals': {'subtotal': 200, 'shipping_fee': 50, 'total': 250},
-      'payment_methods': {'cod': 'Cash on Delivery'}
+      'payment_methods': {'cod': 'Cash on Delivery'},
+      'quote_token': 'test-server-review-token'
     };
   }
   if (path.endsWith('/orders/SP123')) return order;
@@ -159,6 +213,23 @@ void main() {
         () => MockClient((r) async =>
             http.Response(jsonEncode(responseFor(r.url.path)), 200)));
   });
+  testWidgets('order details group independent seller items and tracking',
+      (tester) async {
+    await http.runWithClient(() async {
+      await tester.pumpWidget(
+          const MaterialApp(home: OrderDetailScreen(number: 'SP123')));
+      await tester.pumpAndSettle();
+      expect(find.text('Seller deliveries'), findsOneWidget);
+      expect(find.text('Local SHOPPICK Store'), findsOneWidget);
+      expect(find.text('Second SHOPPICK Store'), findsOneWidget);
+      expect(find.text('Tracking: TRACK-A'), findsOneWidget);
+      expect(find.text('Second seller product'), findsAtLeastNWidgets(1));
+      expect(find.text('Delivered'), findsOneWidget);
+      expect(find.text('Packed'), findsOneWidget);
+    },
+        () => MockClient((request) async =>
+            http.Response(jsonEncode(responseFor(request.url.path)), 200)));
+  });
   testWidgets('failed network image displays the fallback', (tester) async {
     await tester.pumpWidget(const MaterialApp(
         home: Scaffold(
@@ -169,6 +240,49 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byIcon(Icons.shopping_bag_outlined), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+  testWidgets('home hero opens catalog and flash deal filters', (tester) async {
+    final productDiscounts = <String?>[];
+    await http.runWithClient(() async {
+      await tester
+          .pumpWidget(const MaterialApp(home: Scaffold(body: HomeTab())));
+      await tester.pumpAndSettle();
+      expect(find.text('Shop Smarter, Pick Better Deals!', findRichText: true),
+          findsOneWidget);
+
+      await tester.tap(find.text('Shop Now'));
+      await tester.pumpAndSettle();
+      expect(productDiscounts, contains(null));
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('View Flash Deals'));
+      await tester.pumpAndSettle();
+      expect(productDiscounts, contains('1'));
+      expect(tester.takeException(), isNull);
+    },
+        () => MockClient((request) async {
+              if (request.url.path.endsWith('/products')) {
+                productDiscounts.add(request.url.queryParameters['discount']);
+              }
+              return http.Response(
+                  jsonEncode(responseFor(request.url.path)), 200);
+            }));
+  });
+  testWidgets('empty address state directs buyers to the in-app action',
+      (tester) async {
+    await http.runWithClient(() async {
+      await tester.pumpWidget(const MaterialApp(home: AddressesScreen()));
+      await tester.pumpAndSettle();
+      expect(find.text('Add a delivery address to make checkout quicker.'),
+          findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Add Address'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+        () => MockClient((request) async {
+              expect(request.url.path, '/api/v1/addresses');
+              return http.Response(jsonEncode({'addresses': []}), 200);
+            }));
   });
   final screens = <String, Widget Function()>{
     'Home': () => const Scaffold(body: HomeTab()),
@@ -184,7 +298,7 @@ void main() {
     'Seller application': () => const SellerApplicationScreen(),
     'Navigation': () => const MarketplaceScreen(),
   };
-  for (final width in [320.0, 360.0, 390.0]) {
+  for (final width in [320.0, 360.0, 390.0, 430.0]) {
     for (final scale in [1.0, 1.5, 2.0]) {
       for (final screen in screens.entries) {
         testWidgets('${screen.key} fits $width at text scale $scale',
@@ -273,6 +387,9 @@ void main() {
       await tester.tap(button);
       await tester.pumpAndSettle();
       expect(posts, 1);
+      expect(find.byType(OrderSuccessScreen), findsOneWidget);
+      await tester.tap(find.text('View order'));
+      await tester.pumpAndSettle();
       expect(find.byType(OrderDetailScreen), findsOneWidget);
       expect(find.text('SP123'), findsOneWidget);
     },
@@ -280,6 +397,10 @@ void main() {
               if (r.method == 'POST') {
                 expect(r.url.path, '/api/v1/checkout');
                 expect(jsonDecode(r.body)['address_id'], 1);
+                expect(jsonDecode(r.body)['quote_token'],
+                    'test-server-review-token');
+                expect(jsonDecode(r.body)['idempotency_key'],
+                    matches(RegExp(r'^[0-9a-f-]{36}$')));
                 posts++;
                 return http.Response(jsonEncode({'order': order}), 201);
               }

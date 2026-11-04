@@ -41,9 +41,9 @@ void main() {
       expect(find.byType(SplashScreen), findsOneWidget);
       expect(find.byType(LoginScreen), findsNothing);
       expect(find.byType(NavigationBar), findsNothing);
-      expect(paths, ['/api/v1/profile']);
+      expect(paths, ['/api/v1/auth/session']);
       profile.complete(http.Response(
-          jsonEncode(fixtures.responseFor('/api/v1/profile')), 200));
+          jsonEncode(fixtures.responseFor('/api/v1/auth/session')), 200));
       await tester.pumpAndSettle();
       expect(find.byType(MarketplaceScreen), findsOneWidget);
       expect(await ApiService().token(), 'valid');
@@ -52,7 +52,9 @@ void main() {
               paths.add(r.url.path);
               expect(r.url.origin, 'http://10.0.2.2:8000');
               expect(r.headers['Authorization'], 'Bearer valid');
-              return r.url.path.endsWith('/profile') ? profile.future : ok(r);
+              return r.url.path.endsWith('/auth/session')
+                  ? profile.future
+                  : ok(r);
             }));
   });
 
@@ -68,7 +70,7 @@ void main() {
         expect(await ApiService().token(), isNull);
       },
           () => MockClient((r) async {
-                expect(r.url.path, '/api/v1/profile');
+                expect(r.url.path, '/api/v1/auth/session');
                 return http.Response('{}', status);
               }));
     });
