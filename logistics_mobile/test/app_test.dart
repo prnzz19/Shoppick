@@ -21,6 +21,7 @@ Map<String, dynamic> user(String role) => {
       'name': 'Juan Dela Cruz',
       'email': 'juan@example.test',
       'role': role,
+      'availability': 'available',
       'permissions': [
         'view_shipments',
         'assign_shipments',
@@ -41,6 +42,8 @@ Map<String, dynamic> delivery() => {
       'destination': '123 Long Street, Barangay Test, Manila',
       'updated_at': '2026-09-28T10:00:00Z',
       'actions': ['proof', 'failed', 'collect_cod'],
+      'assignment_type': 'delivery',
+      'pickup_address': 'Parcel Shop, Manila',
       'cod_amount': 120.0,
       'payment_type': 'cod',
       'payment_status': 'cod',
@@ -78,6 +81,7 @@ ApiClient fakeApi(String role) => ApiClient(client: MockClient((request) async {
         };
       }
       if (path.endsWith('/deliveries/1')) body = {'delivery': delivery()};
+      if (path.endsWith('/availability')) body = {'availability': 'off_duty'};
       if (path.endsWith('/riders')) {
         body = {
           'riders': page([
@@ -106,6 +110,7 @@ ApiClient fakeApi(String role) => ApiClient(client: MockClient((request) async {
           ])
         };
       }
+      if (path.endsWith('/logout')) body = {'message': 'Logged out.'};
       if (path.endsWith('/notifications')) body = {'notifications': page([])};
       return http.Response(jsonEncode(body), 200);
     }))
@@ -167,15 +172,18 @@ void main() {
     await tester.ensureVisible(find.widgetWithText(FilledButton, 'Sign in'));
     await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
     await tester.pumpAndSettle();
-    expect(find.text('YOUR DELIVERY DAY'), findsOneWidget);
+    expect(find.text("Here's your delivery overview."), findsOneWidget);
     expect(find.text('Providers'), findsNothing);
     expect(await api.storage.read(key: 'logistics_token'), 'test-token');
-    await tester.tap(find.byIcon(Icons.person_outline).last);
+    await tester.tap(find.byIcon(Icons.menu));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Settings'), 300);
+    await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('Logout'), 300);
     await tester.tap(find.text('Logout'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Confirm'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Logout'));
     await tester.pumpAndSettle();
     expect(find.text('Sign in'), findsOneWidget);
     expect(await api.storage.read(key: 'logistics_token'), isNull);

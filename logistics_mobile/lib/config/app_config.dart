@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 const apiBaseUrl = String.fromEnvironment('API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:8000/api/v1');
+    defaultValue: 'https://shoppickmarket.shop/api/v1');
 const teal = Color(0xFF008F87);
 const orange = Color(0xFFFF8A32);
 const navy = Color(0xFF172B4D);

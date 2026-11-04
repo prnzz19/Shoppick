@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/api_client.dart';
 import '../widgets/common.dart';
 import 'notifications_screen.dart';
+import 'rider/availability_card.dart';
 
 class AccountScreen extends StatefulWidget {
   final ApiClient api;
@@ -32,6 +33,7 @@ class _AccountScreenState extends State<AccountScreen> {
     final u = widget.api.user ?? {};
     return ListView(padding: const EdgeInsets.all(20), children: [
       const SectionTitle('Your account'),
+      if (!widget.api.manager) AvailabilityCard(api: widget.api),
       if (u['avatar'] != null)
         Center(
             child: ClipOval(

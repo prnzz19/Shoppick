@@ -4,6 +4,7 @@ import '../models/delivery.dart';
 import '../services/api_client.dart';
 import '../widgets/common.dart';
 import 'logistics/directory_screen.dart';
+import 'rider/parcel_scan_screen.dart';
 import 'rider/proof_screen.dart';
 import 'tracking_screen.dart';
 
@@ -112,7 +113,16 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
         return;
       }
       Map<String, dynamic> body = {'action': action};
-      if (['confirm_pickup', 'scan', 'failed', 'return', 'sort']
+      if (action == 'scan') {
+        final code = await Navigator.push<String>(
+            context,
+            MaterialPageRoute(
+                builder: (_) => ParcelScanScreen(
+                    trackingNumber: delivery!.text('tracking_number'),
+                    purpose: ParcelScanPurpose.logisticsHubScan)));
+        if (code == null || !mounted) return;
+        body['parcel_code'] = code;
+      } else if (['confirm_pickup', 'failed', 'return', 'sort']
           .contains(action)) {
         List<dynamic> areas = [];
         if (action == 'sort') {
@@ -172,7 +182,6 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
                       const SizedBox(height: 16),
                       for (final key in [
                         'order_number',
-                        'parcel_code',
                         'shop',
                         'buyer',
                         'phone',

@@ -7,7 +7,9 @@ import '../../widgets/common.dart';
 class ProofScreen extends StatefulWidget {
   final ApiClient api;
   final int deliveryId;
-  const ProofScreen({required this.api, required this.deliveryId, super.key});
+  final String? version;
+  const ProofScreen(
+      {required this.api, required this.deliveryId, this.version, super.key});
   @override
   State<ProofScreen> createState() => _ProofScreenState();
 }
@@ -57,8 +59,9 @@ class _ProofScreenState extends State<ProofScreen> {
     }
     setState(() => busy = true);
     try {
-      await widget.api
-          .upload(widget.deliveryId, photo!, recipient.text, notes.text);
+      await widget.api.upload(
+          widget.deliveryId, photo!, recipient.text, notes.text,
+          version: widget.version);
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) showError(context, e);
@@ -74,7 +77,7 @@ class _ProofScreenState extends State<ProofScreen> {
           key: form,
           child: ListView(padding: const EdgeInsets.all(20), children: [
             const Text(
-                'Record who received the parcel and attach a clear delivery photo.'),
+                'Photo proof is required by the current SHOPPICK delivery workflow. Record who received the parcel and attach a clear photo.'),
             const SizedBox(height: 20),
             TextFormField(
                 controller: recipient,
@@ -94,7 +97,12 @@ class _ProofScreenState extends State<ProofScreen> {
               Padding(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   child: Image.file(File(photo!.path),
-                      height: 220, fit: BoxFit.contain)),
+                      height: 220,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Padding(
+                            padding: EdgeInsets.all(20),
+                            child: Text('Unable to preview this photo.'),
+                          ))),
             OutlinedButton.icon(
                 onPressed: busy ? null : () => choose(ImageSource.camera),
                 icon: const Icon(Icons.camera_alt_outlined),
@@ -104,6 +112,10 @@ class _ProofScreenState extends State<ProofScreen> {
                 icon: const Icon(Icons.photo_library_outlined),
                 label: const Text('Choose photo')),
             const SizedBox(height: 20),
+            if (busy) ...[
+              const LinearProgressIndicator(),
+              const SizedBox(height: 12),
+            ],
             FilledButton(
                 onPressed: busy ? null : submit,
                 child: Text(busy ? 'Please wait…' : 'Submit proof')),

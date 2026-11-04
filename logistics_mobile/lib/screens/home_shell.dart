@@ -6,6 +6,10 @@ import 'deliveries_screen.dart';
 import 'logistics/directory_screen.dart';
 import 'account_screen.dart';
 import 'notifications_screen.dart';
+import 'rider/assignments_screen.dart';
+import 'rider/history_screen.dart';
+import 'rider/rider_home_screen.dart';
+import 'rider/portal_shell.dart';
 
 class HomeShell extends StatefulWidget {
   final ApiClient api;
@@ -19,9 +23,10 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final api = widget.api;
+    if (!api.manager) return RiderPortalShell(api: api);
     final names = api.manager
         ? ['Dashboard', 'Deliveries', 'Riders', 'Providers', 'Account']
-        : ['Home', 'Deliveries', 'History', 'Notifications', 'Account'];
+        : ['Home', 'Assignments', 'History', 'Notifications', 'Account'];
     final icons = api.manager
         ? [
             Icons.dashboard_outlined,
@@ -38,11 +43,13 @@ class _HomeShellState extends State<HomeShell> {
             Icons.person_outline
           ];
     final pages = <Widget>[
-      DashboardScreen(api: api),
-      DeliveriesScreen(api: api),
+      api.manager ? DashboardScreen(api: api) : RiderHomeScreen(api: api),
+      api.manager
+          ? DeliveriesScreen(api: api)
+          : RiderAssignmentsScreen(api: api),
       api.manager
           ? DirectoryScreen(api: api, riders: true)
-          : DeliveriesScreen(api: api, history: true),
+          : RiderHistoryScreen(api: api),
       api.manager
           ? DirectoryScreen(api: api, riders: false)
           : NotificationsScreen(api: api),
