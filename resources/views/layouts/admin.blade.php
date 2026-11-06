@@ -73,7 +73,7 @@
                 </div>
                 <div class="mt-3 flex gap-2">
                     <a href="{{ route('home') }}" class="btn-sm flex-1 bg-white/10 text-left text-slate-200 hover:bg-white/20">Store</a>
-                    <form method="POST" action="{{ route('logout') }}" class="flex-1">
+                    <form method="POST" action="{{ route('logout') }}" class="flex-1" data-confirm-title="Log out of SHOPPICK?" data-confirm-message="Are you sure you want to log out of your account?" data-confirm-action="Yes, Log Out" data-confirm-type="danger">
                         @csrf
                         <button type="submit" class="btn-sm flex w-full items-center justify-center gap-2 bg-rose-500/20 text-rose-300 hover:bg-rose-500/30" aria-label="Logout from SHOPPICK">
                             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
@@ -107,7 +107,7 @@
                     </a>
                 @endforeach
             </nav>
-            <form method="POST" action="{{ route('logout') }}" class="mt-4 border-t border-white/10 pt-4">
+            <form method="POST" action="{{ route('logout') }}" class="mt-4 border-t border-white/10 pt-4" data-confirm-title="Log out of SHOPPICK?" data-confirm-message="Are you sure you want to log out of your account?" data-confirm-action="Yes, Log Out" data-confirm-type="danger">
                 @csrf
                 <button type="submit" class="btn-sm flex w-full items-center justify-center gap-2 bg-rose-500/20 text-rose-300 hover:bg-rose-500/30" aria-label="Logout from SHOPPICK">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
